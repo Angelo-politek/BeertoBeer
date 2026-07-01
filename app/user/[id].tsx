@@ -1,5 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
@@ -7,13 +8,47 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { getCurrentUser, getUserById } from '@/data/api';
+import { getUserById } from '@/data/api';
+import { useSession } from '@/lib/auth-context';
+import type { User } from '@/types';
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const c = useColors();
-  const user = getUserById(id);
-  const isMe = id === getCurrentUser().id;
+  const { session } = useSession();
+  const isMe = session?.user.id === id;
+
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    getUserById(id)
+      .then((u) => {
+        if (active) setUser(u);
+      })
+      .catch(() => {
+        if (active) setUser(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  if (loading) {
+    return (
+      <ThemedView style={styles.container}>
+        <Stack.Screen options={{ title: 'Profilo' }} />
+        <View style={styles.center}>
+          <ActivityIndicator color={c.accent} size="large" />
+        </View>
+      </ThemedView>
+    );
+  }
 
   if (!user) {
     return (
@@ -29,8 +64,11 @@ export default function UserProfileScreen() {
   function handleReport() {
     Alert.alert(
       'Segnala utente',
-      `In questa demo (Fase 0) la segnalazione di ${user!.nome} non è ancora attiva. Arriverà nella Fase 1 con motivazioni predefinite e moderazione.`,
-      [{ text: 'Annulla', style: 'cancel' }, { text: 'Segnala', style: 'destructive' }],
+      `In questa demo la segnalazione di ${user?.nome ?? 'questo utente'} non è ancora attiva. Arriverà con motivazioni predefinite e moderazione.`,
+      [
+        { text: 'Annulla', style: 'cancel' },
+        { text: 'Segnala', style: 'destructive' },
+      ],
     );
   }
 
@@ -39,7 +77,7 @@ export default function UserProfileScreen() {
       <Stack.Screen options={{ title: user.nome }} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Avatar name={user.nome} size={88} />
+          <Avatar name={user.nome} size={88} uri={user.fotoUrl} />
           <ThemedText type="title" style={styles.name}>
             {user.nome}
           </ThemedText>

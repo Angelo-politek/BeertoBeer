@@ -1,4 +1,6 @@
-import { FlatList, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -11,8 +13,55 @@ import type { CreditTransaction } from '@/types';
 
 export default function WalletScreen() {
   const c = useColors();
-  const balance = getCreditBalance();
-  const transactions = getTransactions();
+  const [balance, setBalance] = useState<number | null>(null);
+  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setLoading(true);
+      Promise.all([getCreditBalance(), getTransactions()])
+        .then(([b, txs]) => {
+          if (!active) return;
+          setBalance(b);
+          setTransactions(txs);
+          setError(null);
+        })
+        .catch(() => {
+          if (active) setError('Impossibile caricare il wallet. Riprova.');
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  if (loading) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator color={c.accent} size="large" />
+        </View>
+      </ThemedView>
+    );
+  }
+
+  if (error) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <View style={styles.center}>
+            <ThemedText style={{ color: c.danger }}>{error}</ThemedText>
+          </View>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -29,7 +78,7 @@ export default function WalletScreen() {
               <View style={[styles.balanceCard, { backgroundColor: c.accentSoft, borderColor: c.accent }]}>
                 <ThemedText style={{ color: c.textSecondary }}>Saldo disponibile</ThemedText>
                 <ThemedText style={[styles.balanceValue, { color: c.accent }]}>
-                  {balance} crediti
+                  {balance ?? 0} crediti
                 </ThemedText>
                 <ThemedText style={[styles.balanceHint, { color: c.textSecondary }]}>
                   I crediti si guadagnano consegnando e si spendono richiedendo. Non sono
@@ -44,6 +93,11 @@ export default function WalletScreen() {
           }
           renderItem={({ item }) => <TransactionRow tx={item} />}
           ItemSeparatorComponent={() => <View style={[styles.separator, { backgroundColor: c.border }]} />}
+          ListEmptyComponent={
+            <ThemedText style={{ color: c.textSecondary, paddingTop: Spacing.sm }}>
+              Ancora nessun movimento. Completa una consegna o una richiesta per vederli qui.
+            </ThemedText>
+          }
         />
       </SafeAreaView>
     </ThemedView>
@@ -75,6 +129,7 @@ function TransactionRow({ tx }: { tx: CreditTransaction }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safe: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md },
   list: {
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.xl,

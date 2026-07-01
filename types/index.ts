@@ -17,12 +17,16 @@ export type User = {
   creditiSaldo: number;
   /** preferenze/gusti birra dichiarati (facoltativo) */
   preferenzeBirra?: string;
+  /** URL pubblico della foto profilo (Supabase Storage), se impostata */
+  fotoUrl?: string;
 };
 
 /** Una voce della lista birre richiesta. Parte di `orders.lista_birre`. */
 export type BeerItem = {
   nome: string;
   quantita: number;
+  /** formato del contenitore (es. '33cl', '50cl', 'lattina33'): determina il peso */
+  formato?: string;
 };
 
 /** Stato di un ordine nel suo ciclo di vita. Schema: `orders.stato`. */
@@ -41,15 +45,25 @@ export type OrderStatus =
 export type BeerRequest = {
   id: string;
   host: User;
+  /** id del driver che ha accettato (null finché l'ordine è 'richiesto') */
+  driverId: string | null;
   birre: BeerItem[];
   /** indirizzo di consegna (visibile per intero solo dopo l'accettazione) */
   indirizzo: string;
-  /** distanza dall'utente in km (in Fase 1 calcolata da lat/lng) */
-  distanzaKm: number;
+  /** coordinate di consegna: esatte per i partecipanti, arrotondate (~area) nel feed */
+  lat?: number | null;
+  lng?: number | null;
+  /** fascia oraria desiderata (testo libero, es. "Stasera") */
+  fascia?: string;
+  /** distanza dall'utente in km — opzionale finché non c'è la geolocalizzazione */
+  distanzaKm?: number;
   stato: OrderStatus;
   /** se true, l'host invita il driver a fermarsi a bere insieme */
   vibeMode: boolean;
   creditiOfferti: number;
+  /** conferme di chiusura scambio: a entrambe true i crediti si sbloccano */
+  hostConfermato: boolean;
+  driverConfermato: boolean;
   createdAt: string;
 };
 

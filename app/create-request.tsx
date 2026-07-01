@@ -19,6 +19,8 @@ import { ThemedView } from '@/components/themed-view';
 import { TextField } from '@/components/text-field';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { createOrder } from '@/data/api';
+import type { BeerItem } from '@/types';
 
 type BeerInput = { nome: string; quantita: string };
 
@@ -33,6 +35,7 @@ export default function CreateRequestScreen() {
   const [fascia, setFascia] = useState(FASCE[0]);
   const [vibeMode, setVibeMode] = useState(false);
   const [crediti, setCrediti] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   function updateBeer(index: number, field: keyof BeerInput, value: string) {
     setBirre((prev) => prev.map((b, i) => (i === index ? { ...b, [field]: value } : b)));
@@ -46,9 +49,11 @@ export default function CreateRequestScreen() {
     setBirre((prev) => prev.filter((_, i) => i !== index));
   }
 
-  function handleSubmit() {
-    const hasBeer = birre.some((b) => b.nome.trim().length > 0);
-    if (!hasBeer) {
+  async function handleSubmit() {
+    const cleanBirre: BeerItem[] = birre
+      .filter((b) => b.nome.trim().length > 0)
+      .map((b) => ({ nome: b.nome.trim(), quantita: Math.max(1, Number(b.quantita) || 1) }));
+    if (cleanBirre.length === 0) {
       Alert.alert('Manca qualcosa', 'Indica almeno una birra.');
       return;
     }
@@ -56,11 +61,21 @@ export default function CreateRequestScreen() {
       Alert.alert('Manca qualcosa', 'Indica un indirizzo di consegna.');
       return;
     }
-    Alert.alert(
-      'Richiesta creata',
-      'In questa demo (Fase 0) la richiesta non viene salvata: comparirà davvero nel Feed quando collegheremo il backend in Fase 1.',
-      [{ text: 'Ok', onPress: () => router.back() }],
-    );
+    setSubmitting(true);
+    try {
+      const newId = await createOrder({
+        birre: cleanBirre,
+        indirizzo,
+        fascia,
+        vibeMode,
+        creditiOfferti: Number(crediti) || 0,
+      });
+      // Apro il dettaglio del nuovo ordine (replace: non si torna al form con "indietro").
+      router.replace({ pathname: '/request/[id]', params: { id: newId } });
+    } catch {
+      setSubmitting(false);
+      Alert.alert('Errore', 'Non è stato possibile pubblicare la richiesta. Riprova.');
+    }
   }
 
   return (
@@ -106,7 +121,7 @@ export default function CreateRequestScreen() {
               </View>
             ))}
             <Pressable onPress={addBeer} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
-              <Text style={[styles.addBeer, { color: c.accent }]}>+ Aggiungi un'altra birra</Text>
+              <Text style={[styles.addBeer, { color: c.accent }]}>{"+ Aggiungi un'altra birra"}</Text>
             </Pressable>
           </View>
 
@@ -162,7 +177,7 @@ export default function CreateRequestScreen() {
             keyboardType="number-pad"
           />
 
-          <Button label="Pubblica richiesta" onPress={handleSubmit} />
+          <Button label="Pubblica richiesta" onPress={handleSubmit} loading={submitting} />
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>

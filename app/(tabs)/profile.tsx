@@ -1,5 +1,6 @@
-import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -9,11 +10,64 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { getCurrentUser } from '@/data/api';
+import { supabase } from '@/lib/supabase';
+import type { User } from '@/types';
 
 export default function ProfileScreen() {
   const c = useColors();
   const router = useRouter();
-  const user = getCurrentUser();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Ricarica il profilo ogni volta che la schermata torna in primo piano,
+  // così le modifiche fatte in "Modifica profilo" si vedono subito al ritorno.
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setLoading(true);
+      getCurrentUser()
+        .then((u) => {
+          if (!active) return;
+          setUser(u);
+          setError(null);
+        })
+        .catch(() => {
+          if (active) setError('Impossibile caricare il profilo. Riprova.');
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
+
+  if (loading) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={styles.center}>
+          <ActivityIndicator color={c.accent} size="large" />
+        </View>
+      </ThemedView>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <ThemedView style={styles.container}>
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <View style={styles.center}>
+            <ThemedText style={{ color: c.danger }}>
+              {error ?? 'Profilo non disponibile.'}
+            </ThemedText>
+            <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
+          </View>
+        </SafeAreaView>
+      </ThemedView>
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -21,7 +75,7 @@ export default function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           {/* Intestazione profilo */}
           <View style={styles.header}>
-            <Avatar name={user.nome} size={88} />
+            <Avatar name={user.nome} size={88} uri={user.fotoUrl} />
             <ThemedText type="title" style={styles.name}>
               {user.nome}
             </ThemedText>
@@ -46,10 +100,12 @@ export default function ProfileScreen() {
           </View>
 
           {/* Bio */}
-          <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <ThemedText type="defaultSemiBold">Bio</ThemedText>
-            <ThemedText style={{ color: c.textSecondary }}>{user.bio}</ThemedText>
-          </View>
+          {user.bio ? (
+            <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <ThemedText type="defaultSemiBold">Bio</ThemedText>
+              <ThemedText style={{ color: c.textSecondary }}>{user.bio}</ThemedText>
+            </View>
+          ) : null}
 
           {/* Preferenze birra */}
           {user.preferenzeBirra ? (
@@ -61,6 +117,10 @@ export default function ProfileScreen() {
 
           {/* Modifica profilo */}
           <Button label="Modifica profilo" variant="secondary" onPress={() => router.push('/edit-profile')} />
+
+          {/* Esci — temporaneo, per testare il logout in questo step. Il redirect
+              alle schermate di accesso avviene dal guard nel root layout. */}
+          <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -70,6 +130,13 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safe: { flex: 1 },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.md,
+    padding: Spacing.md,
+  },
   content: {
     padding: Spacing.md,
     gap: Spacing.md,

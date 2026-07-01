@@ -1,21 +1,98 @@
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import type { ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState, type ReactNode } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
+import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { getRequestById } from '@/data/api';
+import { acceptOrder, advanceOrder, cancelOrder, confirmOrder, getRequestById } from '@/data/api';
+import { useSession } from '@/lib/auth-context';
+import { STATO_LABEL } from '@/lib/orders';
+import type { BeerRequest } from '@/types';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const c = useColors();
   const router = useRouter();
-  const request = getRequestById(id);
+  const { session } = useSession();
+
+  const [request, setRequest] = useState<BeerRequest | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [acting, setActing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      setLoading(true);
+      getRequestById(id)
+        .then((r) => {
+          if (active) setRequest(r);
+        })
+        .catch(() => {
+          if (active) setRequest(null);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+      return () => {
+        active = false;
+      };
+    }, [id]),
+  );
+
+  async function reload() {
+    try {
+      setRequest(await getRequestById(id));
+    } catch {
+      // teniamo lo stato corrente in caso di errore di refresh
+    }
+  }
+
+  function errorMessage(e: unknown): string {
+    return (e as { message?: string })?.message ?? 'Operazione non riuscita. Riprova.';
+  }
+
+  async function runAction(fn: () => Promise<void>) {
+    setActing(true);
+    setActionError(null);
+    try {
+      await fn();
+      await reload();
+    } catch (e) {
+      setActionError(errorMessage(e));
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function handleCancel() {
+    setActing(true);
+    setActionError(null);
+    try {
+      await cancelOrder(id);
+      router.back();
+    } catch (e) {
+      setActionError(errorMessage(e));
+      setActing(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <ThemedView style={styles.container}>
+        <Stack.Screen options={{ title: 'Richiesta' }} />
+        <View style={styles.center}>
+          <ActivityIndicator color={c.accent} size="large" />
+        </View>
+      </ThemedView>
+    );
+  }
 
   if (!request) {
     return (
@@ -29,13 +106,61 @@ export default function RequestDetailScreen() {
   }
 
   const { host } = request;
+  const myId = session?.user.id;
+  const isHost = host.id === myId;
+  const isDriver = request.driverId != null && request.driverId === myId;
+  const canSeeAddress = isHost || isDriver;
 
-  function handleAccept() {
-    Alert.alert(
-      'Accetta consegna',
-      'In questa demo (Fase 0) l’accettazione non è ancora attiva. Arriverà nella Fase 1 con il backend reale.',
-      [{ text: 'Ok' }],
-    );
+  function renderFooter() {
+    if (!request) return null;
+    const stato = request.stato;
+
+    if (stato === 'richiesto') {
+      if (isHost) {
+        return <Button label="Annulla richiesta" variant="danger" onPress={handleCancel} loading={acting} />;
+      }
+      return (
+        <Button label="Accetta consegna" onPress={() => runAction(() => acceptOrder(id))} loading={acting} />
+      );
+    }
+
+    if (stato === 'accettato') {
+      if (isDriver) {
+        return (
+          <Button
+            label="Inizia consegna"
+            onPress={() => runAction(() => advanceOrder(id, 'in_consegna'))}
+            loading={acting}
+          />
+        );
+      }
+      return <StatusNote text="Un driver ha accettato e si sta organizzando." />;
+    }
+
+    if (stato === 'in_consegna') {
+      if (isDriver) {
+        return (
+          <Button
+            label="Segna come consegnato"
+            onPress={() => runAction(() => advanceOrder(id, 'consegnato'))}
+            loading={acting}
+          />
+        );
+      }
+      return <StatusNote text="Consegna in corso." />;
+    }
+
+    if (stato === 'consegnato') {
+      const iConfirmed = isHost ? request.hostConfermato : request.driverConfermato;
+      if ((isHost || isDriver) && !iConfirmed) {
+        return (
+          <Button label="Conferma scambio" onPress={() => runAction(() => confirmOrder(id))} loading={acting} />
+        );
+      }
+      return <StatusNote text="In attesa della conferma dell'altra persona." />;
+    }
+
+    return <StatusNote text="✅ Scambio completato. Crediti trasferiti." />;
   }
 
   return (
@@ -43,11 +168,16 @@ export default function RequestDetailScreen() {
       <Stack.Screen options={{ title: 'Dettaglio richiesta' }} />
 
       <ScrollView contentContainerStyle={styles.content}>
+        {/* Stato corrente */}
+        <View style={styles.statusRow}>
+          <Badge label={STATO_LABEL[request.stato]} tone="accent" />
+        </View>
+
         {/* Profilo host (toccabile → apre il profilo) */}
         <Pressable
           onPress={() => router.push({ pathname: '/user/[id]', params: { id: host.id } })}
           style={({ pressed }) => [styles.hostRow, { opacity: pressed ? 0.6 : 1 }]}>
-          <Avatar name={host.nome} size={56} />
+          <Avatar name={host.nome} size={56} uri={host.fotoUrl} />
           <View style={styles.hostInfo}>
             <ThemedText type="subtitle">{host.nome}</ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>
@@ -77,7 +207,7 @@ export default function RequestDetailScreen() {
         <Section title="Birre richieste">
           {request.birre.map((b, i) => (
             <View
-              key={b.nome}
+              key={`${b.nome}-${i}`}
               style={[
                 styles.beerRow,
                 i < request.birre.length - 1 && { borderBottomWidth: 1, borderBottomColor: c.border },
@@ -90,8 +220,16 @@ export default function RequestDetailScreen() {
 
         {/* Consegna */}
         <Section title="Consegna">
-          <ThemedText>{request.indirizzo}</ThemedText>
-          <ThemedText style={{ color: c.textSecondary }}>{request.distanzaKm.toFixed(1)} km da te</ThemedText>
+          {canSeeAddress ? (
+            <ThemedText>{request.indirizzo}</ThemedText>
+          ) : (
+            <ThemedText style={{ color: c.textSecondary }}>
+              📍 Indirizzo esatto visibile dopo l’accettazione.
+            </ThemedText>
+          )}
+          {request.fascia ? (
+            <ThemedText style={{ color: c.textSecondary }}>Quando: {request.fascia}</ThemedText>
+          ) : null}
         </Section>
 
         {/* Crediti */}
@@ -105,12 +243,22 @@ export default function RequestDetailScreen() {
         </Section>
       </ScrollView>
 
-      {/* Footer con il bottone (solo UI in Fase 0) */}
-      <SafeAreaView edges={['bottom']} style={[styles.footer, { borderTopColor: c.border, backgroundColor: c.background }]}>
-        <Button label="Accetta consegna" onPress={handleAccept} />
+      {/* Footer azione (dipende da ruolo e stato) */}
+      <SafeAreaView
+        edges={['bottom']}
+        style={[styles.footer, { borderTopColor: c.border, backgroundColor: c.background }]}>
+        {actionError ? (
+          <ThemedText style={[styles.actionError, { color: c.danger }]}>{actionError}</ThemedText>
+        ) : null}
+        {renderFooter()}
       </SafeAreaView>
     </ThemedView>
   );
+}
+
+function StatusNote({ text }: { text: string }) {
+  const c = useColors();
+  return <ThemedText style={[styles.statusNote, { color: c.textSecondary }]}>{text}</ThemedText>;
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -131,6 +279,9 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.md,
     gap: Spacing.md,
+  },
+  statusRow: {
+    flexDirection: 'row',
   },
   hostRow: {
     flexDirection: 'row',
@@ -170,5 +321,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingHorizontal: Spacing.md,
     paddingTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  actionError: {
+    textAlign: 'center',
+  },
+  statusNote: {
+    textAlign: 'center',
+    paddingVertical: Spacing.sm,
   },
 });

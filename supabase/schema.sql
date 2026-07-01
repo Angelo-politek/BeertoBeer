@@ -14,6 +14,7 @@ create table if not exists public.users (
   data_nascita  date not null,
   bio           text,
   foto_url      text,
+  preferenze_birra text,
   rating_medio  numeric(2,1) not null default 0,
   crediti_saldo integer not null default 0,
   created_at    timestamptz not null default now()
@@ -33,6 +34,9 @@ create table if not exists public.orders (
                   check (stato in ('richiesto','accettato','in_consegna','consegnato','confermato')),
   vibe_mode       boolean not null default false,
   crediti_offerti integer not null default 0,
+  host_confermato   boolean not null default false,
+  driver_confermato boolean not null default false,
+  fascia          text,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -73,6 +77,30 @@ create table if not exists public.reports (
 );
 
 -- ============================================================
+-- Migrazioni additive (sicure da rieseguire)
+-- `create table if not exists` NON aggiunge colonne a una tabella che esiste già:
+-- per i DB creati con una versione precedente dello schema, le nuove colonne vanno
+-- qui come `alter ... add column if not exists`. Così rieseguire TUTTO il file
+-- porta qualsiasi database allo schema corrente (è ciò che rende il file idempotente).
+-- ============================================================
+alter table public.users add column if not exists preferenze_birra text;
+alter table public.orders add column if not exists host_confermato   boolean not null default false;
+alter table public.orders add column if not exists driver_confermato boolean not null default false;
+alter table public.orders add column if not exists fascia text;
+
+-- Vincoli di integrità dei crediti (idempotenti): niente offerte negative,
+-- niente saldi negativi. Sono la garanzia "dura" contro la creazione di crediti
+-- dal nulla o il furto via offerta negativa.
+-- Difensivo: azzeriamo eventuali valori negativi PRIMA di aggiungere il vincolo,
+-- così `add constraint` non fallisce su dati sporchi (no-op su un DB pulito).
+update public.users  set crediti_saldo   = 0 where crediti_saldo   < 0;
+update public.orders set crediti_offerti = 0 where crediti_offerti < 0;
+alter table public.orders drop constraint if exists orders_crediti_offerti_nonneg;
+alter table public.orders add  constraint orders_crediti_offerti_nonneg check (crediti_offerti >= 0);
+alter table public.users  drop constraint if exists users_crediti_saldo_nonneg;
+alter table public.users  add  constraint users_crediti_saldo_nonneg  check (crediti_saldo >= 0);
+
+-- ============================================================
 -- Row Level Security (RLS)
 -- Abilitata su tutte le tabelle. Con RLS attiva e NESSUNA policy,
 -- l'accesso è negato di default: è il comportamento sicuro che vogliamo.
@@ -97,9 +125,283 @@ create policy "users_update_own"
   using (auth.uid() = id)
   with check (auth.uid() = id);
 
--- NOTA: orders / credit_transactions / reviews / reports hanno RLS attiva
--- ma nessuna policy ancora → nessun accesso. Le policy verranno definite
--- negli step successivi, una tabella alla volta, quando le colleghiamo alla UI.
+-- La RLS sopra limita la RIGA, non le COLONNE: da sola lascerebbe a un client
+-- modificare crediti_saldo o rating_medio della propria riga. Restringiamo quindi
+-- le UPDATE dirette alle SOLE colonne di profilo. crediti_saldo / rating_medio si
+-- muovono esclusivamente dentro le funzioni SECURITY DEFINER (ledger non falsificabile).
+revoke update on public.users from anon, authenticated;
+grant  update (nome, bio, preferenze_birra, foto_url) on public.users to authenticated;
+
+-- ORDERS:
+--  * lettura diretta della tabella: SOLO i partecipanti (host o driver), in
+--    qualsiasi stato — così l'indirizzo esatto resta privato. Il feed pubblico
+--    delle richieste aperte passa invece dalla vista `open_requests` (qui sotto),
+--    che NON espone l'indirizzo finché l'ordine non è stato accettato.
+--  * inserimento: puoi creare solo ordini tuoi (host_id = tu), aperti.
+--  * cancellazione: l'host può cancellare un proprio ordine finché è 'richiesto'.
+--  * transizioni di stato: NON via UPDATE diretto, ma tramite le funzioni
+--    accept_order / advance_order / confirm_order (SECURITY DEFINER) qui sotto.
+drop policy if exists "orders_select" on public.orders;
+create policy "orders_select"
+  on public.orders for select
+  using (host_id = auth.uid() or driver_id = auth.uid());
+
+drop policy if exists "orders_insert" on public.orders;
+create policy "orders_insert"
+  on public.orders for insert
+  with check (
+    host_id = auth.uid()
+    and driver_id is null
+    and stato = 'richiesto'
+    and crediti_offerti >= 0
+    -- non puoi offrire più crediti di quanti ne hai
+    and crediti_offerti <= coalesce((select crediti_saldo from public.users where id = auth.uid()), 0)
+  );
+
+drop policy if exists "orders_delete" on public.orders;
+create policy "orders_delete"
+  on public.orders for delete
+  using (host_id = auth.uid() and stato = 'richiesto');
+
+-- CREDIT_TRANSACTIONS: ognuno vede solo i movimenti che lo riguardano.
+-- L'inserimento avviene SOLO dentro confirm_order() (SECURITY DEFINER): nessuna
+-- policy di insert lato client, così il ledger non è falsificabile.
+drop policy if exists "credit_transactions_select" on public.credit_transactions;
+create policy "credit_transactions_select"
+  on public.credit_transactions for select
+  using (from_user_id = auth.uid() or to_user_id = auth.uid());
+
+-- reviews / reports: RLS attiva, policy definite in uno step successivo.
+
+-- ============================================================
+-- Profili pubblici
+-- Vista che espone SOLO i campi pubblici di un utente (niente email, niente
+-- data di nascita esatta, niente saldo crediti). Serve a mostrare host/driver
+-- nel feed e nei dettagli. La vista gira con i privilegi del proprietario e
+-- quindi bypassa la RLS della tabella users: è una proiezione pubblica VOLUTA,
+-- limitata alle sole colonne sicure elencate qui sotto.
+-- ============================================================
+create or replace view public.public_profiles as
+select
+  u.id,
+  u.nome,
+  u.foto_url,
+  u.bio,
+  u.preferenze_birra,
+  u.rating_medio,
+  date_part('year', age(u.data_nascita))::int as eta,
+  (
+    select count(*) from public.orders o
+    where o.stato = 'confermato' and (o.host_id = u.id or o.driver_id = u.id)
+  )::int as scambi_completati
+from public.users u;
+
+grant select on public.public_profiles to authenticated;
+
+-- ============================================================
+-- Feed delle richieste aperte
+-- Proiezione delle richieste in stato 'richiesto' SENZA l'indirizzo (né lat/lng):
+-- chi sfoglia il feed vede birre, fascia, crediti e host, ma l'indirizzo esatto
+-- compare solo dopo l'accettazione (leggendo la tabella orders come partecipante).
+-- La vista gira con i privilegi del proprietario (bypassa la RLS di orders): è una
+-- proiezione pubblica voluta, limitata alle colonne non sensibili.
+-- ============================================================
+-- NB: drop + create (non "create or replace"): abbiamo aggiunto lat/lng IN MEZZO
+-- alle colonne e create-or-replace non consente di rinominare/riordinare colonne
+-- di una view esistente (errore 42P16). Eliminandola prima, la ricreiamo da zero.
+drop view if exists public.open_requests;
+create view public.open_requests as
+select
+  id,
+  host_id,
+  driver_id,
+  lista_birre,
+  null::text as indirizzo,
+  -- coordinate ARROTONDATE (~1 km): mostrano l'area, non il punto esatto,
+  -- finché l'ordine non viene accettato (poi i partecipanti leggono orders).
+  round(lat::numeric, 2)::double precision as lat,
+  round(lng::numeric, 2)::double precision as lng,
+  fascia,
+  stato,
+  vibe_mode,
+  crediti_offerti,
+  host_confermato,
+  driver_confermato,
+  created_at
+from public.orders
+where stato = 'richiesto';
+
+grant select on public.open_requests to authenticated;
+
+-- ============================================================
+-- Ciclo di vita dell'ordine — funzioni SECURITY DEFINER
+-- Tutte le transizioni passano da qui: validano CHI può fare COSA in base ad
+-- auth.uid() e allo stato corrente. I client non aggiornano `orders` in modo
+-- diretto (nessuna policy UPDATE).
+-- ============================================================
+
+-- Un driver accetta una richiesta aperta (non sua).
+create or replace function public.accept_order(p_order_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_host uuid; v_stato text;
+begin
+  select host_id, stato into v_host, v_stato
+    from public.orders where id = p_order_id for update;
+  if not found then raise exception 'Ordine inesistente'; end if;
+  if v_stato <> 'richiesto' then raise exception 'Ordine non più disponibile'; end if;
+  if v_host = auth.uid() then raise exception 'Non puoi accettare un tuo ordine'; end if;
+  update public.orders
+    set driver_id = auth.uid(), stato = 'accettato', updated_at = now()
+    where id = p_order_id;
+end; $$;
+
+-- Il driver avanza lo stato: accettato → in_consegna → consegnato.
+create or replace function public.advance_order(p_order_id uuid, p_new_stato text)
+returns void language plpgsql security definer set search_path = public as $$
+declare v_driver uuid; v_stato text;
+begin
+  select driver_id, stato into v_driver, v_stato
+    from public.orders where id = p_order_id for update;
+  if not found then raise exception 'Ordine inesistente'; end if;
+  if v_driver is null or v_driver <> auth.uid() then
+    raise exception 'Solo il driver assegnato può aggiornare la consegna';
+  end if;
+  if not (
+    (v_stato = 'accettato'   and p_new_stato = 'in_consegna') or
+    (v_stato = 'in_consegna' and p_new_stato = 'consegnato')
+  ) then
+    raise exception 'Transizione non valida';
+  end if;
+  update public.orders set stato = p_new_stato, updated_at = now() where id = p_order_id;
+end; $$;
+
+-- Host e driver confermano lo scambio dopo la consegna. Quando ENTRAMBI hanno
+-- confermato, l'ordine passa a 'confermato' e i crediti si spostano dall'host al
+-- driver, scrivendo una riga nel ledger. Il movimento avviene UNA SOLA volta.
+create or replace function public.confirm_order(p_order_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_host uuid; v_driver uuid; v_stato text; v_crediti int;
+  v_host_ok boolean; v_driver_ok boolean;
+  v_is_host boolean; v_is_driver boolean;
+begin
+  select host_id, driver_id, stato, crediti_offerti, host_confermato, driver_confermato
+    into v_host, v_driver, v_stato, v_crediti, v_host_ok, v_driver_ok
+    from public.orders where id = p_order_id for update;
+  if not found then raise exception 'Ordine inesistente'; end if;
+
+  v_is_host   := (auth.uid() = v_host);
+  v_is_driver := (auth.uid() = v_driver);
+  if not (v_is_host or v_is_driver) then
+    raise exception 'Non fai parte di questo ordine';
+  end if;
+  if v_stato = 'confermato' then raise exception 'Ordine già confermato'; end if;
+  if v_stato <> 'consegnato' then raise exception 'L''ordine non è ancora consegnato'; end if;
+
+  if v_is_host   then v_host_ok   := true; end if;
+  if v_is_driver then v_driver_ok := true; end if;
+
+  if v_host_ok and v_driver_ok then
+    -- Copertura: l'host deve avere abbastanza crediti (il vincolo users_crediti_saldo_nonneg
+    -- è la rete di sicurezza dura; qui diamo un errore leggibile).
+    if (select crediti_saldo from public.users where id = v_host) < v_crediti then
+      raise exception 'L''host non ha crediti sufficienti per chiudere lo scambio';
+    end if;
+
+    update public.orders
+      set host_confermato = true, driver_confermato = true,
+          stato = 'confermato', updated_at = now()
+      where id = p_order_id;
+
+    update public.users set crediti_saldo = crediti_saldo - v_crediti where id = v_host;
+    update public.users set crediti_saldo = crediti_saldo + v_crediti where id = v_driver;
+
+    insert into public.credit_transactions (order_id, from_user_id, to_user_id, importo, tipo)
+      values (p_order_id, v_host, v_driver, v_crediti, 'consegna');
+  else
+    update public.orders
+      set host_confermato = v_host_ok, driver_confermato = v_driver_ok, updated_at = now()
+      where id = p_order_id;
+  end if;
+end; $$;
+
+-- ============================================================
+-- Calcolo automatico dei crediti (peso + distanza)
+-- I crediti NON sono più scelti dall'host: un trigger BEFORE INSERT li calcola
+-- dal peso (formato di ogni birra) e dalla distanza della consegna da un punto
+-- di riferimento configurabile. Così l'importo è derivato e non falsificabile.
+-- NB: questa formula è la "fonte di verità"; lib/credits.ts la rispecchia solo
+-- per l'anteprima lato app — vanno tenute allineate.
+-- ============================================================
+
+-- Peso (kg, contenitore incluso) per formato di bottiglia/lattina.
+create or replace function public.format_weight(p_formato text)
+returns numeric language sql immutable as $$
+  select case p_formato
+    when '33cl'      then 0.55
+    when '50cl'      then 0.85
+    when '66cl'      then 1.10
+    when '75cl'      then 1.30
+    when 'lattina33' then 0.40
+    when 'lattina50' then 0.58
+    else 0.55  -- default prudenziale per formati non riconosciuti
+  end;
+$$;
+
+-- Peso totale di un ordine a partire da lista_birre [{quantita, formato}, ...].
+create or replace function public.order_weight_kg(p_lista jsonb)
+returns numeric language sql immutable as $$
+  select coalesce(sum(
+    (item->>'quantita')::numeric * public.format_weight(item->>'formato')
+  ), 0)
+  from jsonb_array_elements(coalesce(p_lista, '[]'::jsonb)) as item;
+$$;
+
+-- Distanza geodetica in km tra due coordinate (formula dell'emisenoverso).
+create or replace function public.haversine_km(lat1 numeric, lng1 numeric, lat2 numeric, lng2 numeric)
+returns numeric language sql immutable as $$
+  select 2 * 6371 * asin(sqrt(
+    power(sin(radians(lat2 - lat1) / 2), 2) +
+    cos(radians(lat1)) * cos(radians(lat2)) *
+    power(sin(radians(lng2 - lng1) / 2), 2)
+  ));
+$$;
+
+-- Trigger: imposta crediti_offerti = ceil(BASE + peso·W + distanza·D).
+-- Ignora qualsiasi valore inviato dal client e blocca la creazione se l'host
+-- non ha abbastanza crediti per coprirli.
+create or replace function public.set_order_credits()
+returns trigger language plpgsql as $$
+declare
+  v_base     constant numeric := 1;        -- crediti base
+  v_w        constant numeric := 0.4;      -- crediti per kg di peso
+  v_d        constant numeric := 1.2;      -- crediti per km di distanza
+  v_base_lat constant numeric := 45.0703;  -- punto di riferimento (Torino centro), configurabile
+  v_base_lng constant numeric := 7.6869;
+  v_peso numeric;
+  v_dist numeric := 0;
+  v_saldo integer;
+begin
+  v_peso := public.order_weight_kg(new.lista_birre);
+  if new.lat is not null and new.lng is not null then
+    v_dist := public.haversine_km(new.lat, new.lng, v_base_lat, v_base_lng);
+  end if;
+
+  new.crediti_offerti := ceil(v_base + v_peso * v_w + v_dist * v_d);
+
+  select crediti_saldo into v_saldo from public.users where id = new.host_id;
+  if coalesce(v_saldo, 0) < new.crediti_offerti then
+    raise exception 'Crediti insufficienti: questa richiesta ne costa %, ne hai %',
+      new.crediti_offerti, coalesce(v_saldo, 0);
+  end if;
+
+  return new;
+end; $$;
+
+drop trigger if exists on_order_set_credits on public.orders;
+create trigger on_order_set_credits
+  before insert on public.orders
+  for each row execute function public.set_order_credits();
 
 -- ============================================================
 -- Trigger: alla creazione di un utente in auth.users, crea automaticamente
@@ -118,7 +420,9 @@ begin
     new.id,
     coalesce(new.raw_user_meta_data->>'nome', 'Utente'),
     (new.raw_user_meta_data->>'data_nascita')::date,
-    0
+    -- Credito di benvenuto: permette di pubblicare subito qualche richiesta.
+    -- (Decisione di prodotto: cambia il valore o metti 0 per partire a secco.)
+    20
   );
   return new;
 end;
@@ -128,3 +432,32 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ============================================================
+-- Storage: foto profilo (bucket "avatars")
+-- Lettura pubblica; ognuno può caricare/aggiornare/cancellare SOLO i file dentro
+-- la propria cartella "<uid>/...". Il percorso usato dall'app è "<uid>/avatar-<ts>.jpg".
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "avatars_public_read" on storage.objects;
+create policy "avatars_public_read"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+drop policy if exists "avatars_insert_own" on storage.objects;
+create policy "avatars_insert_own"
+  on storage.objects for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatars_update_own" on storage.objects;
+create policy "avatars_update_own"
+  on storage.objects for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatars_delete_own" on storage.objects;
+create policy "avatars_delete_own"
+  on storage.objects for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);

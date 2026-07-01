@@ -16,6 +16,8 @@ export function RequestCard({ request, onPress }: Props) {
   const birreLabel = request.birre
     .map((b) => `${b.quantita}× ${b.nome}`)
     .join(' · ');
+  const rightHint =
+    request.distanzaKm != null ? `${request.distanzaKm.toFixed(1)} km` : (request.fascia ?? '');
 
   return (
     <Pressable
@@ -26,9 +28,9 @@ export function RequestCard({ request, onPress }: Props) {
       ]}>
       <View style={styles.headerRow}>
         <ThemedText type="defaultSemiBold">{request.host.nome}</ThemedText>
-        <ThemedText style={[styles.distance, { color: c.textSecondary }]}>
-          {request.distanzaKm.toFixed(1)} km
-        </ThemedText>
+        {rightHint ? (
+          <ThemedText style={[styles.distance, { color: c.textSecondary }]}>{rightHint}</ThemedText>
+        ) : null}
       </View>
 
       <ThemedText style={[styles.beers, { color: c.textSecondary }]}>{birreLabel}</ThemedText>
