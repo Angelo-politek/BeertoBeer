@@ -224,10 +224,16 @@ export type NewOrder = {
   indirizzo: string;
   fascia?: string;
   vibeMode: boolean;
-  creditiOfferti: number;
+  /** coordinate di consegna (geocodate dall'indirizzo). */
+  lat?: number | null;
+  lng?: number | null;
 };
 
-/** Crea una richiesta a nome dell'utente corrente. Ritorna l'id del nuovo ordine. */
+/**
+ * Crea una richiesta a nome dell'utente corrente. Ritorna l'id del nuovo ordine.
+ * I crediti NON si passano: li calcola il trigger `set_order_credits` (peso +
+ * distanza) e blocca la creazione se l'host non ha crediti sufficienti.
+ */
 export async function createOrder(input: NewOrder): Promise<string> {
   const id = await requireUserId();
   const { data, error } = await supabase
@@ -236,9 +242,10 @@ export async function createOrder(input: NewOrder): Promise<string> {
       host_id: id,
       lista_birre: input.birre,
       indirizzo: input.indirizzo.trim(),
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
       fascia: input.fascia ?? null,
       vibe_mode: input.vibeMode,
-      crediti_offerti: input.creditiOfferti,
     })
     .select('id')
     .single();

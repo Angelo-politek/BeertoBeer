@@ -19,6 +19,7 @@ type Props = {
   multiline?: boolean;
   secureTextEntry?: boolean;
   autoCapitalize?: TextInputProps['autoCapitalize'];
+  onBlur?: () => void;
 };
 
 export function TextField({
@@ -30,6 +31,7 @@ export function TextField({
   multiline,
   secureTextEntry,
   autoCapitalize,
+  onBlur,
 }: Props) {
   const c = useColors();
 
@@ -46,6 +48,7 @@ export function TextField({
         secureTextEntry={secureTextEntry}
         autoCapitalize={autoCapitalize}
         autoCorrect={!secureTextEntry}
+        onBlur={onBlur}
         style={[
           styles.input,
           {

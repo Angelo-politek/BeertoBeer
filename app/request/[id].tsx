@@ -1,17 +1,20 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
+import { DeliveryMap } from '@/components/delivery-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { acceptOrder, advanceOrder, cancelOrder, confirmOrder, getRequestById } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
+import { FORMATS } from '@/lib/credits';
+import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
 import { STATO_LABEL } from '@/lib/orders';
 import type { BeerRequest } from '@/types';
 
@@ -25,6 +28,18 @@ export default function RequestDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [driverCoords, setDriverCoords] = useState<Coords | null>(null);
+
+  // Posizione dell'utente (per la distanza dalla consegna). Best-effort.
+  useEffect(() => {
+    let active = true;
+    getCurrentCoords().then((coords) => {
+      if (active) setDriverCoords(coords);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -110,6 +125,13 @@ export default function RequestDetailScreen() {
   const isHost = host.id === myId;
   const isDriver = request.driverId != null && request.driverId === myId;
   const canSeeAddress = isHost || isDriver;
+
+  const formatLabel = (key?: string) => FORMATS.find((f) => f.key === key)?.label ?? '';
+  const hasCoords = request.lat != null && request.lng != null;
+  const distanceKm =
+    driverCoords && hasCoords
+      ? haversineKm(driverCoords, { lat: request.lat as number, lng: request.lng as number })
+      : null;
 
   function renderFooter() {
     if (!request) return null;
@@ -212,7 +234,10 @@ export default function RequestDetailScreen() {
                 styles.beerRow,
                 i < request.birre.length - 1 && { borderBottomWidth: 1, borderBottomColor: c.border },
               ]}>
-              <ThemedText>{b.nome}</ThemedText>
+              <ThemedText>
+                {b.nome}
+                {b.formato ? ` · ${formatLabel(b.formato)}` : ''}
+              </ThemedText>
               <ThemedText type="defaultSemiBold">{b.quantita}×</ThemedText>
             </View>
           ))}
@@ -229,6 +254,17 @@ export default function RequestDetailScreen() {
           )}
           {request.fascia ? (
             <ThemedText style={{ color: c.textSecondary }}>Quando: {request.fascia}</ThemedText>
+          ) : null}
+          {distanceKm != null ? (
+            <ThemedText style={{ color: c.textSecondary }}>~{distanceKm.toFixed(1)} km da te</ThemedText>
+          ) : null}
+          {!canSeeAddress && hasCoords ? (
+            <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+              La mappa mostra la zona approssimativa; l’indirizzo esatto dopo l’accettazione.
+            </ThemedText>
+          ) : null}
+          {hasCoords ? (
+            <DeliveryMap lat={request.lat as number} lng={request.lng as number} height={180} />
           ) : null}
         </Section>
 
