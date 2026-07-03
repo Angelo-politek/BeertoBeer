@@ -11,6 +11,7 @@
  * Le transizioni di stato passano da funzioni RPC SECURITY DEFINER lato DB.
  */
 
+import type { Coords } from '@/lib/location';
 import { supabase } from '@/lib/supabase';
 import type {
     BeerItem,
@@ -26,7 +27,7 @@ import type {
 
 const PROFILE_COLUMNS = 'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati';
 const ORDER_COLUMNS =
-  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at';
+  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, citta';
 const REVIEW_COLUMNS = 'id, order_id, from_user_id, to_user_id, voto, commento, created_at';
 const MESSAGE_COLUMNS = 'id, order_id, sender_id, testo, created_at';
 
@@ -157,6 +158,7 @@ type OrderRow = {
   host_confermato: boolean;
   driver_confermato: boolean;
   created_at: string;
+  citta: string | null;
 };
 
 /** Riga ordine (+ profilo host) → BeerRequest per la UI. */
@@ -176,6 +178,7 @@ function mapOrder(row: OrderRow, host: User | undefined): BeerRequest {
     hostConfermato: row.host_confermato,
     driverConfermato: row.driver_confermato,
     createdAt: row.created_at,
+    citta: row.citta,
   };
 }
 
@@ -228,16 +231,18 @@ function mapMessage(row: MessageRow, sender?: User): Message {
 }
 
 /**
- * Le richieste aperte pubblicate da ALTRI: il feed dei driver.
- * Legge dalla vista `open_requests` (senza indirizzo): l'indirizzo esatto si vede
- * solo dopo aver accettato, quando si diventa partecipanti dell'ordine.
+ * Le richieste aperte pubblicate da ALTRI nella città selezionata: il feed dei
+ * driver. Legge dalla vista `open_requests` (senza indirizzo): l'indirizzo esatto
+ * si vede solo dopo aver accettato, quando si diventa partecipanti dell'ordine.
+ * Gli ordini storici senza città (citta NULL) restano fuori dal feed.
  */
-export async function getRequests(): Promise<BeerRequest[]> {
+export async function getRequests(citta: string): Promise<BeerRequest[]> {
   const id = await requireUserId();
   const { data, error } = await supabase
     .from('open_requests')
     .select(ORDER_COLUMNS)
     .neq('host_id', id)
+    .eq('citta', citta)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return withHosts((data ?? []) as OrderRow[]);
@@ -283,6 +288,8 @@ export type NewOrder = {
   indirizzo: string;
   fascia?: string;
   vibeMode: boolean;
+  /** chiave della città selezionata (lib/cities.ts). */
+  citta: string;
   /** coordinate di consegna (geocodate dall'indirizzo). */
   lat?: number | null;
   lng?: number | null;
@@ -290,8 +297,8 @@ export type NewOrder = {
 
 /**
  * Crea una richiesta a nome dell'utente corrente. Ritorna l'id del nuovo ordine.
- * I crediti NON si passano: li calcola il trigger `set_order_credits` (peso +
- * distanza) e blocca la creazione se l'host non ha crediti sufficienti.
+ * I crediti NON si passano: li calcola il trigger `set_order_credits` (solo peso,
+ * cap 10) e blocca la creazione se l'host non ha crediti sufficienti.
  */
 export async function createOrder(input: NewOrder): Promise<string> {
   const id = await requireUserId();
@@ -301,6 +308,7 @@ export async function createOrder(input: NewOrder): Promise<string> {
       host_id: id,
       lista_birre: input.birre,
       indirizzo: input.indirizzo.trim(),
+      citta: input.citta,
       lat: input.lat ?? null,
       lng: input.lng ?? null,
       fascia: input.fascia ?? null,
@@ -312,9 +320,17 @@ export async function createOrder(input: NewOrder): Promise<string> {
   return (data as { id: string }).id;
 }
 
-/** Un driver accetta una richiesta aperta. */
-export async function acceptOrder(orderId: string): Promise<void> {
-  const { error } = await supabase.rpc('accept_order', { p_order_id: orderId });
+/**
+ * Un driver accetta una richiesta aperta. Le coordinate (opzionali: GPS negato
+ * → null) servono al server SOLO per calcolare il bonus distanza dei crediti;
+ * non vengono salvate.
+ */
+export async function acceptOrder(orderId: string, coords?: Coords | null): Promise<void> {
+  const { error } = await supabase.rpc('accept_order', {
+    p_order_id: orderId,
+    p_lat: coords?.lat ?? null,
+    p_lng: coords?.lng ?? null,
+  });
   if (error) throw error;
 }
 

@@ -9,6 +9,7 @@ import { ToastProvider } from '@/components/toast';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useColors } from '@/hooks/use-colors';
 import { SessionProvider, useSession } from '@/lib/auth-context';
+import { CityProvider } from '@/lib/city-context';
 import { registerForPushNotifications } from '@/lib/push-notifications';
 import { supabaseConfigError } from '@/lib/supabase';
 
@@ -79,10 +80,12 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <SessionProvider>
-        <ToastProvider>
-          <RootNavigator />
-          <StatusBar style="auto" />
-        </ToastProvider>
+        <CityProvider>
+          <ToastProvider>
+            <RootNavigator />
+            <StatusBar style="auto" />
+          </ToastProvider>
+        </CityProvider>
       </SessionProvider>
     </ThemeProvider>
   );

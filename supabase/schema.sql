@@ -88,6 +88,10 @@ alter table public.users add column if not exists is_admin boolean not null defa
 alter table public.orders add column if not exists host_confermato   boolean not null default false;
 alter table public.orders add column if not exists driver_confermato boolean not null default false;
 alter table public.orders add column if not exists fascia text;
+-- Città dell'ordine (chiave da lib/cities.ts: torino/milano/roma/bologna).
+-- NULL per le righe storiche pre-città: non compaiono nel feed filtrato.
+alter table public.orders add column if not exists citta text;
+create index if not exists orders_citta_open_idx on public.orders (citta) where stato = 'richiesto';
 
 -- Blocchi utente: chi blocca non vede piu interazioni dirette con l'utente bloccato.
 create table if not exists public.blocks (
@@ -365,7 +369,8 @@ select
   crediti_offerti,
   host_confermato,
   driver_confermato,
-  created_at
+  created_at,
+  citta
 from public.orders
 where stato = 'richiesto';
 
@@ -378,18 +383,46 @@ grant select on public.open_requests to authenticated;
 -- diretto (nessuna policy UPDATE).
 -- ============================================================
 
--- Un driver accetta una richiesta aperta (non sua).
-create or replace function public.accept_order(p_order_id uuid)
+-- Un driver accetta una richiesta aperta (non sua). Le coordinate del driver
+-- (opzionali: GPS negato → null) servono SOLO a calcolare il bonus distanza
+-- e non vengono mai salvate. Il totale non supera mai 10 crediti né il saldo
+-- corrente dell'host (così confirm_order non può fallire per colpa del bonus).
+-- NB: drop esplicito della vecchia firma a 1 argomento — senza, il create
+-- sotto genererebbe un OVERLOAD e la chiamata RPC diventerebbe ambigua.
+drop function if exists public.accept_order(uuid);
+
+create or replace function public.accept_order(
+  p_order_id uuid,
+  p_lat double precision default null,
+  p_lng double precision default null
+)
 returns void language plpgsql security definer set search_path = public as $$
-declare v_host uuid; v_stato text;
+declare
+  v_d constant numeric := 0.5;  -- crediti per km di distanza driver→consegna (mirror lib/credits.ts)
+  v_host uuid; v_stato text; v_lat double precision; v_lng double precision; v_lista jsonb;
+  v_weight int; v_bonus int := 0; v_dist numeric; v_saldo int; v_total int;
 begin
-  select host_id, stato into v_host, v_stato
+  select host_id, stato, lat, lng, lista_birre
+    into v_host, v_stato, v_lat, v_lng, v_lista
     from public.orders where id = p_order_id for update;
   if not found then raise exception 'Ordine inesistente'; end if;
   if v_stato <> 'richiesto' then raise exception 'Ordine non più disponibile'; end if;
   if v_host = auth.uid() then raise exception 'Non puoi accettare un tuo ordine'; end if;
+
+  v_weight := public.credits_for_weight(v_lista);
+  if p_lat is not null and p_lng is not null and v_lat is not null and v_lng is not null then
+    v_dist := public.haversine_km(p_lat, p_lng, v_lat, v_lng);
+    -- oltre 50 km è un glitch GPS o spoofing: niente bonus.
+    if v_dist <= 50 then v_bonus := round(v_dist * v_d)::int; end if;
+  end if;
+
+  v_total := least(10, v_weight + v_bonus);
+  select crediti_saldo into v_saldo from public.users where id = v_host;
+  v_total := greatest(v_weight, least(v_total, coalesce(v_saldo, 0)));
+
   update public.orders
-    set driver_id = auth.uid(), stato = 'accettato', updated_at = now()
+    set driver_id = auth.uid(), stato = 'accettato',
+        crediti_offerti = v_total, updated_at = now()
     where id = p_order_id;
 end; $$;
 
@@ -548,12 +581,13 @@ create trigger on_message_send_push
   for each row execute function public.notify_new_message();
 
 -- ============================================================
--- Calcolo automatico dei crediti (peso + distanza)
--- I crediti NON sono più scelti dall'host: un trigger BEFORE INSERT li calcola
--- dal peso (formato di ogni birra) e dalla distanza della consegna da un punto
--- di riferimento configurabile. Così l'importo è derivato e non falsificabile.
--- NB: questa formula è la "fonte di verità"; lib/credits.ts la rispecchia solo
--- per l'anteprima lato app — vanno tenute allineate.
+-- Calcolo automatico dei crediti (peso alla creazione + bonus distanza all'accettazione)
+-- I crediti NON sono scelti dall'host: il trigger BEFORE INSERT li calcola dal
+-- peso (credits_for_weight, cap 10); accept_order aggiunge il bonus in base
+-- alla distanza del DRIVER dal punto di consegna. Importo derivato e non
+-- falsificabile; massimo assoluto 10 crediti per consegna.
+-- NB: queste funzioni sono la "fonte di verità"; lib/credits.ts le rispecchia
+-- solo per l'anteprima lato app — vanno tenute allineate.
 -- ============================================================
 
 -- Peso (kg, contenitore incluso) per formato di bottiglia/lattina.
@@ -579,6 +613,13 @@ returns numeric language sql immutable as $$
   from jsonb_array_elements(coalesce(p_lista, '[]'::jsonb)) as item;
 $$;
 
+-- FONTE DI VERITÀ della parte peso dei crediti (mirror client: lib/credits.ts).
+-- BASE=1, W=0.5 crediti/kg, CAP=10. Usata dal trigger di insert e da accept_order.
+create or replace function public.credits_for_weight(p_lista jsonb)
+returns integer language sql immutable as $$
+  select least(10, ceil(1 + public.order_weight_kg(p_lista) * 0.5))::int;
+$$;
+
 -- Distanza geodetica in km tra due coordinate (formula dell'emisenoverso).
 create or replace function public.haversine_km(lat1 double precision, lng1 double precision, lat2 double precision, lng2 double precision)
 returns numeric language sql immutable as $$
@@ -591,27 +632,16 @@ returns numeric language sql immutable as $$
   )::numeric;
 $$;
 
--- Trigger: imposta crediti_offerti = ceil(BASE + peso·W + distanza·D).
--- Ignora qualsiasi valore inviato dal client e blocca la creazione se l'host
--- non ha abbastanza crediti per coprirli.
+-- Trigger: imposta crediti_offerti = credits_for_weight(lista_birre): SOLO peso,
+-- cap 10. Il bonus distanza (rispetto al driver reale) viene aggiunto da
+-- accept_order al momento dell'accettazione. Ignora qualsiasi valore inviato
+-- dal client e blocca la creazione se l'host non ha abbastanza crediti.
 create or replace function public.set_order_credits()
 returns trigger language plpgsql as $$
 declare
-  v_base     constant numeric := 1;        -- crediti base
-  v_w        constant numeric := 0.4;      -- crediti per kg di peso
-  v_d        constant numeric := 1.2;      -- crediti per km di distanza
-  v_base_lat constant double precision := 45.0703;  -- punto di riferimento (Torino centro), configurabile
-  v_base_lng constant double precision := 7.6869;
-  v_peso numeric;
-  v_dist numeric := 0;
   v_saldo integer;
 begin
-  v_peso := public.order_weight_kg(new.lista_birre);
-  if new.lat is not null and new.lng is not null then
-    v_dist := public.haversine_km(new.lat, new.lng, v_base_lat, v_base_lng);
-  end if;
-
-  new.crediti_offerti := ceil(v_base + v_peso * v_w + v_dist * v_d);
+  new.crediti_offerti := public.credits_for_weight(new.lista_birre);
 
   select crediti_saldo into v_saldo from public.users where id = new.host_id;
   if coalesce(v_saldo, 0) < new.crediti_offerti then

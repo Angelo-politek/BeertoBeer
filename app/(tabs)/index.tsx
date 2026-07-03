@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CityPicker } from '@/components/city-picker';
 import { EmptyState } from '@/components/empty-state';
 import { RequestCard } from '@/components/request-card';
 import { SkeletonCard } from '@/components/skeleton';
@@ -11,12 +12,15 @@ import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { getRequests } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
+import { nearestCity } from '@/lib/cities';
+import { useCity } from '@/lib/city-context';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
 import type { BeerRequest } from '@/types';
 
 export default function FeedScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { city, ready, hasChosen, setCityKey } = useCity();
   const [requests, setRequests] = useState<BeerRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -24,24 +28,34 @@ export default function FeedScreen() {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (asRefresh = false) => {
-    if (asRefresh) setRefreshing(true);
-    else setLoading(true);
-    try {
-      const rows = await getRequests();
-      setRequests(rows);
-      setError(null);
-    } catch {
-      setError('Impossibile caricare le richieste. Riprova.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (asRefresh = false) => {
+      if (asRefresh) setRefreshing(true);
+      else setLoading(true);
+      try {
+        const rows = await getRequests(city.key);
+        setRequests(rows);
+        setError(null);
+      } catch {
+        setError('Impossibile caricare le richieste. Riprova.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [city.key],
+  );
 
   useEffect(() => {
     getCurrentCoords().then(setCoords).catch(() => setCoords(null));
   }, []);
+
+  // Primo avvio senza città scelta: proponi quella più vicina al GPS.
+  useEffect(() => {
+    if (ready && !hasChosen && coords) {
+      setCityKey(nearestCity(coords).key);
+    }
+  }, [ready, hasChosen, coords, setCityKey]);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,7 +81,7 @@ export default function FeedScreen() {
           <View style={styles.headerText}>
             <ThemedText type="title">Richieste</ThemedText>
             <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Birre da consegnare vicino a te
+              Birre da consegnare a {city.label}
             </ThemedText>
           </View>
           <Pressable
@@ -81,6 +95,7 @@ export default function FeedScreen() {
         </View>
 
         <View style={styles.tools}>
+          <CityPicker selectedKey={city.key} onSelect={setCityKey} />
           <Pressable onPress={() => router.push('/my-orders')} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
             <ThemedText type="defaultSemiBold" style={{ color: colors.accent }}>
               I miei ordini
@@ -122,8 +137,8 @@ export default function FeedScreen() {
             )}
             ListEmptyComponent={
               <EmptyState
-                title="Nessuna richiesta aperta"
-                message="Quando qualcuno pubblica una richiesta di birre nelle vicinanze, comparira qui."
+                title={`Nessuna richiesta a ${city.label}`}
+                message="Quando qualcuno pubblica una richiesta di birre in questa citta, comparira qui. Puoi cambiare citta dal selettore in alto."
               />
             }
           />

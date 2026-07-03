@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,12 +8,29 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { CITIES, nearestCity } from '@/lib/cities';
+import { useCity } from '@/lib/city-context';
+import { getCurrentCoords } from '@/lib/location';
 
 export default function OnboardingScreen() {
   const c = useColors();
   const router = useRouter();
+  const { city, hasChosen, setCityKey } = useCity();
   const [over18, setOver18] = useState(false);
   const [acceptedRules, setAcceptedRules] = useState(false);
+
+  // Se l'utente non ha ancora una città, proponi la più vicina al GPS.
+  useEffect(() => {
+    if (hasChosen) return;
+    let active = true;
+    getCurrentCoords().then((coords) => {
+      if (active && coords) setCityKey(nearestCity(coords).key);
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const canContinue = over18 && acceptedRules;
 
@@ -34,6 +51,32 @@ export default function OnboardingScreen() {
             <Step n="1" title="Richiedi" text="Scegli birre, indirizzo e fascia oraria." />
             <Step n="2" title="Consegna" text="Un altro utente accetta e vi coordinate in chat." />
             <Step n="3" title="Conferma" text="Entrambi confermate e lasciate una recensione." />
+          </View>
+          <View style={styles.citySection}>
+            <ThemedText type="defaultSemiBold">La tua città</ThemedText>
+            <View style={styles.cityChips}>
+              {CITIES.map((item) => {
+                const selected = item.key === city.key;
+                return (
+                  <Pressable
+                    key={item.key}
+                    onPress={() => setCityKey(item.key)}
+                    style={[
+                      styles.cityChip,
+                      {
+                        backgroundColor: selected ? c.accent : c.surface,
+                        borderColor: selected ? c.accent : c.border,
+                      },
+                    ]}>
+                    <ThemedText
+                      type="defaultSemiBold"
+                      style={{ color: selected ? c.accentText : c.text }}>
+                      {item.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
           <View style={styles.checklist}>
             <ToggleRow
@@ -120,6 +163,14 @@ const styles = StyleSheet.create({
   step: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
   stepNumber: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   stepText: { flex: 1, gap: 2 },
+  citySection: { gap: Spacing.xs },
+  cityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  cityChip: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
   checklist: { gap: Spacing.sm },
   toggleRow: {
     flexDirection: 'row',

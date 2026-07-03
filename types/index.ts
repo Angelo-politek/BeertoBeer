@@ -93,6 +93,8 @@ export type BeerRequest = {
   lng?: number | null;
   /** fascia oraria desiderata (testo libero, es. "Stasera") */
   fascia?: string;
+  /** chiave della città (lib/cities.ts); null per ordini storici pre-città */
+  citta?: string | null;
   /** distanza dall'utente in km — opzionale finché non c'è la geolocalizzazione */
   distanzaKm?: number;
   stato: OrderStatus;

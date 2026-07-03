@@ -13,7 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { acceptOrder, advanceOrder, cancelOrder, confirmOrder, getRequestById } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
-import { FORMATS } from '@/lib/credits';
+import { CREDIT_CAP, estimateBonus, FORMATS } from '@/lib/credits';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
 import { STATO_LABEL } from '@/lib/orders';
 import type { BeerRequest } from '@/types';
@@ -142,7 +142,11 @@ export default function RequestDetailScreen() {
         return <Button label="Annulla richiesta" variant="danger" onPress={handleCancel} loading={acting} />;
       }
       return (
-        <Button label="Accetta consegna" onPress={() => runAction(() => acceptOrder(id))} loading={acting} />
+        <Button
+          label="Accetta consegna"
+          onPress={() => runAction(() => acceptOrder(id, driverCoords))}
+          loading={acting}
+        />
       );
     }
 
@@ -286,6 +290,13 @@ export default function RequestDetailScreen() {
           <ThemedText type="title" style={{ color: c.accent }}>
             {request.creditiOfferti} crediti
           </ThemedText>
+          {request.stato === 'richiesto' && !isHost ? (
+            <ThemedText style={{ color: c.textSecondary }}>
+              {distanceKm != null
+                ? `Se accetti tu si aggiunge un bonus distanza di circa ${estimateBonus(distanceKm)} crediti (massimo ${CREDIT_CAP} totali).`
+                : `Quando accetti si aggiunge un bonus in base alla tua distanza (massimo ${CREDIT_CAP} totali).`}
+            </ThemedText>
+          ) : null}
           <ThemedText style={{ color: c.textSecondary }}>
             Più il rimborso esatto della spesa, al momento della consegna.
           </ThemedText>

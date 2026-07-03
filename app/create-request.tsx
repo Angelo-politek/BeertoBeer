@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -12,16 +13,20 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { LocationPickerMap } from '@/components/location-picker-map';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { createOrder, getCreditBalance } from '@/data/api';
-import { DEFAULT_FORMAT, estimateCredits, FORMATS } from '@/lib/credits';
-import { geocodeAddress } from '@/lib/geocoding';
+import { isWithinCity } from '@/lib/cities';
+import { useCity } from '@/lib/city-context';
+import { CREDIT_CAP, DEFAULT_FORMAT, estimateCredits, FORMATS, maxDistanceBonus } from '@/lib/credits';
+import { geocodeAddress, reverseGeocode } from '@/lib/geocoding';
 import type { Coords } from '@/lib/location';
 import type { BeerItem } from '@/types';
 
@@ -32,6 +37,7 @@ const FASCE = ['Adesso', 'Tra 1 ora', 'Stasera', 'Domani'];
 export default function CreateRequestScreen() {
   const c = useColors();
   const router = useRouter();
+  const { city } = useCity();
 
   const [birre, setBirre] = useState<BeerInput[]>([{ nome: '', quantita: '', formato: DEFAULT_FORMAT }]);
   const [indirizzo, setIndirizzo] = useState('');
@@ -42,6 +48,8 @@ export default function CreateRequestScreen() {
   const [geocoding, setGeocoding] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [mapPick, setMapPick] = useState<Coords | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -68,7 +76,8 @@ export default function CreateRequestScreen() {
     .filter((b) => b.nome.trim().length > 0)
     .map((b) => ({ nome: b.nome.trim(), quantita: Math.max(1, Number(b.quantita) || 1), formato: b.formato }));
 
-  const stima = estimateCredits(cleanBirre, coords);
+  const stima = estimateCredits(cleanBirre);
+  const bonusMax = maxDistanceBonus(cleanBirre);
   const nonCopribile = balance != null && stima > balance;
 
   async function handleFindAddress() {
@@ -77,24 +86,43 @@ export default function CreateRequestScreen() {
       return;
     }
     setGeocoding(true);
-    const found = await geocodeAddress(indirizzo);
+    const found = await geocodeAddress(indirizzo, city);
     setGeocoding(false);
     if (!found) {
       setCoords(null);
-      Alert.alert('Indirizzo non trovato', 'Prova a scriverlo in modo più preciso (via, numero, città).');
+      Alert.alert(
+        'Indirizzo non trovato',
+        `Nessun risultato a ${city.label}. Scrivilo in modo più preciso (via e numero) oppure scegli il punto sulla mappa.`,
+      );
+      return;
+    }
+    if (!isWithinCity(found, city)) {
+      setCoords(null);
+      Alert.alert(
+        'Indirizzo fuori città',
+        `Il punto trovato è fuori da ${city.label}. Controlla l'indirizzo o scegli il punto sulla mappa.`,
+      );
       return;
     }
     setCoords(found);
   }
 
-  // Geocoding automatico quando l'indirizzo perde il focus, così la stima crediti
-  // include SUBITO la distanza (senza dover toccare il bottone). Silenzioso.
+  // Geocoding automatico (vincolato alla città) quando l'indirizzo perde il focus.
   async function geocodeSilently() {
     if (indirizzo.trim().length === 0 || coords) return;
     setGeocoding(true);
-    const found = await geocodeAddress(indirizzo);
+    const found = await geocodeAddress(indirizzo, city);
     setGeocoding(false);
-    if (found) setCoords(found);
+    if (found && isWithinCity(found, city)) setCoords(found);
+  }
+
+  async function handleMapConfirm() {
+    if (!mapPick) return;
+    setCoords(mapPick);
+    setMapOpen(false);
+    // Precompila l'indirizzo dal punto scelto (poi resta modificabile).
+    const label = await reverseGeocode(mapPick);
+    if (label) setIndirizzo(label);
   }
 
   function errorMessage(e: unknown): string {
@@ -112,20 +140,20 @@ export default function CreateRequestScreen() {
     }
     setSubmitting(true);
     try {
-      // Assicura le coordinate (geocode al volo se non già trovate).
+      // Assicura le coordinate (geocode al volo, vincolato alla città, se mancano).
       let point = coords;
       if (!point) {
-        point = await geocodeAddress(indirizzo);
-        if (point) setCoords(point);
+        const found = await geocodeAddress(indirizzo, city);
+        if (found && isWithinCity(found, city)) {
+          point = found;
+          setCoords(found);
+        }
       }
-      // Ricontrollo la copertura con le coordinate reali (distanza inclusa) PRIMA
-      // di inviare: così non mostro "ok" per poi ricevere un errore dal trigger.
-      const costoReale = estimateCredits(cleanBirre, point);
-      if (balance != null && costoReale > balance) {
+      if (balance != null && stima > balance) {
         setSubmitting(false);
         Alert.alert(
           'Crediti insufficienti',
-          `Questa richiesta costa ${costoReale} crediti e ne hai ${balance}. Guadagnane consegnando, oppure riduci l'ordine.`,
+          `Questa richiesta costa ${stima} crediti e ne hai ${balance}. Guadagnane consegnando, oppure riduci l'ordine.`,
         );
         return;
       }
@@ -134,6 +162,7 @@ export default function CreateRequestScreen() {
         indirizzo,
         fascia,
         vibeMode,
+        citta: city.key,
         lat: point?.lat ?? null,
         lng: point?.lng ?? null,
       });
@@ -215,23 +244,35 @@ export default function CreateRequestScreen() {
             </Pressable>
           </View>
 
-          {/* Indirizzo + geocoding */}
+          {/* Indirizzo + geocoding (vincolato alla città selezionata nel feed) */}
           <TextField
-            label="Indirizzo di consegna"
+            label={`Indirizzo di consegna a ${city.label}`}
             value={indirizzo}
             onChangeText={(t) => {
               setIndirizzo(t);
               setCoords(null); // l'indirizzo è cambiato: va ri-cercato
             }}
             onBlur={geocodeSilently}
-            placeholder="Via, numero, città"
+            placeholder="Via e numero civico"
           />
-          <Button
-            label={coords ? '📍 Posizione trovata' : 'Trova indirizzo sulla mappa'}
-            variant="secondary"
-            onPress={handleFindAddress}
-            loading={geocoding}
-          />
+          <View style={styles.addressButtons}>
+            <Button
+              label={coords ? '📍 Posizione trovata' : 'Trova indirizzo'}
+              variant="secondary"
+              onPress={handleFindAddress}
+              loading={geocoding}
+              style={styles.addressButton}
+            />
+            <Button
+              label="🗺 Scegli sulla mappa"
+              variant="secondary"
+              onPress={() => {
+                setMapPick(coords);
+                setMapOpen(true);
+              }}
+              style={styles.addressButton}
+            />
+          </View>
 
           {/* Fascia oraria */}
           <View style={styles.field}>
@@ -268,15 +309,17 @@ export default function CreateRequestScreen() {
             <Switch value={vibeMode} onValueChange={setVibeMode} />
           </View>
 
-          {/* Stima crediti (calcolati da peso + distanza) */}
+          {/* Stima crediti: parte peso subito, bonus distanza quando un driver accetta */}
           <View style={[styles.creditsCard, { backgroundColor: c.accentSoft, borderColor: c.accent }]}>
-            <ThemedText style={{ color: c.textSecondary }}>Crediti richiesti (stima)</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>Crediti offerti</ThemedText>
             <ThemedText type="title" style={{ color: c.accent }}>
               {stima} crediti
             </ThemedText>
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-              Calcolati automaticamente da peso e distanza
-              {coords ? '' : ' (aggiungi l’indirizzo per includere la distanza)'}.
+              Calcolati dal peso delle birre.
+              {bonusMax > 0
+                ? ` Quando un driver accetta si aggiunge un bonus in base alla sua distanza (fino a +${bonusMax}, massimo ${CREDIT_CAP} totali).`
+                : ` Sei già al massimo di ${CREDIT_CAP} crediti per consegna.`}
               {balance != null ? ` Hai ${balance} crediti.` : ''}
             </ThemedText>
             {nonCopribile ? (
@@ -294,6 +337,25 @@ export default function CreateRequestScreen() {
           />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Picker del punto di consegna sulla mappa (centrata sulla città) */}
+      <Modal visible={mapOpen} animationType="slide" onRequestClose={() => setMapOpen(false)}>
+        <ThemedView style={styles.container}>
+          <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
+            <View style={styles.mapHeader}>
+              <ThemedText type="subtitle">Tocca il punto di consegna</ThemedText>
+              <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+                {city.label} — sposta e zooma la mappa, poi tocca dove consegnare.
+              </ThemedText>
+            </View>
+            <LocationPickerMap center={coords ?? city.center} onPick={setMapPick} />
+            <View style={styles.mapFooter}>
+              <Button label="Annulla" variant="secondary" onPress={() => setMapOpen(false)} style={styles.addressButton} />
+              <Button label="Conferma punto" onPress={handleMapConfirm} disabled={!mapPick} style={styles.addressButton} />
+            </View>
+          </SafeAreaView>
+        </ThemedView>
+      </Modal>
     </ThemedView>
   );
 }
@@ -349,4 +411,8 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.xs,
   },
+  addressButtons: { flexDirection: 'row', gap: Spacing.sm },
+  addressButton: { flex: 1 },
+  mapHeader: { padding: Spacing.md, gap: 2 },
+  mapFooter: { flexDirection: 'row', gap: Spacing.sm, padding: Spacing.md },
 });

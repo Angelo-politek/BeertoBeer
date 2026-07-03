@@ -1,10 +1,14 @@
-import { haversineKm, type Coords } from '@/lib/location';
 import type { BeerItem } from '@/types';
 
 /**
- * Anteprima crediti lato app. La FONTE DI VERITÀ è il trigger Postgres
- * `set_order_credits` in supabase/schema.sql: i valori qui sotto DEVONO restare
- * allineati a quelli (format_weight, BASE/W/D, punto di riferimento).
+ * Anteprima crediti lato app. La FONTE DI VERITÀ è in supabase/schema.sql:
+ * `credits_for_weight` (parte peso, usata dal trigger di insert) e
+ * `accept_order` (bonus distanza driver→consegna). I valori qui sotto DEVONO
+ * restare allineati (format_weight, BASE/W/D, CAP).
+ *
+ * Modello: alla creazione l'host offre solo la parte peso; quando un driver
+ * accetta si aggiunge round(km · D) in base alla SUA distanza dal punto di
+ * consegna. Totale mai oltre CREDIT_CAP né oltre il saldo dell'host.
  */
 
 /** Pesi per formato (kg, contenitore incluso). Allineato a public.format_weight(). */
@@ -38,20 +42,23 @@ export function orderWeightKg(birre: BeerItem[]): number {
   return birre.reduce((sum, b) => sum + (Number(b.quantita) || 0) * formatWeight(b.formato), 0);
 }
 
-/** Punto di riferimento per la distanza (Torino centro). Allineato al trigger SQL. */
-export const BASE_POINT: Coords = { lat: 45.0703, lng: 7.6869 };
+export const CREDIT_BASE = 1;
+export const CREDIT_PER_KG = 0.5;
+export const CREDIT_PER_KM = 0.5;
+export const CREDIT_CAP = 10;
 
-const CREDIT_BASE = 1;
-const CREDIT_PER_KG = 0.4;
-const CREDIT_PER_KM = 1.2;
-
-/**
- * Stima dei crediti = ceil(BASE + peso·W + distanza·D), dove la distanza è tra
- * le coordinate di consegna e il punto di riferimento. Se le coordinate mancano,
- * la distanza vale 0 (solo peso).
- */
-export function estimateCredits(birre: BeerItem[], coords: Coords | null): number {
+/** Parte peso dei crediti: min(CAP, ceil(BASE + peso·W)). Mirror di credits_for_weight(). */
+export function estimateCredits(birre: BeerItem[]): number {
   const peso = orderWeightKg(birre);
-  const dist = coords ? haversineKm(coords, BASE_POINT) : 0;
-  return Math.ceil(CREDIT_BASE + peso * CREDIT_PER_KG + dist * CREDIT_PER_KM);
+  return Math.min(CREDIT_CAP, Math.ceil(CREDIT_BASE + peso * CREDIT_PER_KG));
+}
+
+/** Margine massimo che il bonus distanza può aggiungere prima del cap. */
+export function maxDistanceBonus(birre: BeerItem[]): number {
+  return CREDIT_CAP - estimateCredits(birre);
+}
+
+/** Stima del bonus per una distanza driver→consegna nota (mirror di accept_order). */
+export function estimateBonus(distKm: number): number {
+  return Math.round(distKm * CREDIT_PER_KM);
 }
