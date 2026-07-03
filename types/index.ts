@@ -19,6 +19,44 @@ export type User = {
   preferenzeBirra?: string;
   /** URL pubblico della foto profilo (Supabase Storage), se impostata */
   fotoUrl?: string;
+  /** true solo per i moderatori; valorizzato solo da getCurrentUser (campo privato) */
+  isAdmin?: boolean;
+};
+
+export type Review = {
+  id: string;
+  orderId: string;
+  fromUserId: string;
+  toUserId: string;
+  voto: number;
+  commento?: string;
+  createdAt: string;
+  author?: User;
+};
+
+export type ReportReason =
+  | 'comportamento_scorretto'
+  | 'ordine_falso'
+  | 'molestie'
+  | 'spam'
+  | 'sicurezza'
+  | 'altro';
+
+export type BlockedUser = {
+  id: string;
+  blockerUserId: string;
+  blockedUserId: string;
+  createdAt: string;
+  user?: User;
+};
+
+export type Message = {
+  id: string;
+  orderId: string;
+  senderId: string;
+  testo: string;
+  createdAt: string;
+  sender?: User;
 };
 
 /** Una voce della lista birre richiesta. Parte di `orders.lista_birre`. */

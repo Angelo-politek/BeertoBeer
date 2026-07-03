@@ -1,14 +1,17 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { EmptyState } from '@/components/empty-state';
 import { RequestCard } from '@/components/request-card';
+import { SkeletonCard } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { useColors } from '@/hooks/use-colors';
 import { getRequests } from '@/data/api';
+import { useColors } from '@/hooks/use-colors';
+import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
 import type { BeerRequest } from '@/types';
 
 export default function FeedScreen() {
@@ -16,29 +19,46 @@ export default function FeedScreen() {
   const colors = useColors();
   const [requests, setRequests] = useState<BeerRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [vibeOnly, setVibeOnly] = useState(false);
+  const [coords, setCoords] = useState<Coords | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (asRefresh = false) => {
+    if (asRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const rows = await getRequests();
+      setRequests(rows);
+      setError(null);
+    } catch {
+      setError('Impossibile caricare le richieste. Riprova.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    getCurrentCoords().then(setCoords).catch(() => setCoords(null));
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      setLoading(true);
-      getRequests()
-        .then((r) => {
-          if (!active) return;
-          setRequests(r);
-          setError(null);
-        })
-        .catch(() => {
-          if (active) setError('Impossibile caricare le richieste. Riprova.');
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-      return () => {
-        active = false;
-      };
-    }, []),
+      load();
+    }, [load]),
   );
+
+  const visibleRequests = useMemo(() => {
+    return requests
+      .filter((item) => !vibeOnly || item.vibeMode)
+      .map((item) => {
+        const distanzaKm =
+          coords && item.lat != null && item.lng != null ? haversineKm(coords, { lat: item.lat, lng: item.lng }) : undefined;
+        return { ...item, distanzaKm };
+      })
+      .sort((a, b) => (a.distanzaKm ?? Number.MAX_VALUE) - (b.distanzaKm ?? Number.MAX_VALUE));
+  }, [coords, requests, vibeOnly]);
 
   return (
     <ThemedView style={styles.container}>
@@ -60,17 +80,29 @@ export default function FeedScreen() {
           </Pressable>
         </View>
 
-        <Pressable
-          onPress={() => router.push('/my-orders')}
-          style={({ pressed }) => [styles.myOrders, { opacity: pressed ? 0.6 : 1 }]}>
-          <ThemedText type="defaultSemiBold" style={{ color: colors.accent }}>
-            I miei ordini ›
-          </ThemedText>
-        </Pressable>
+        <View style={styles.tools}>
+          <Pressable onPress={() => router.push('/my-orders')} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
+            <ThemedText type="defaultSemiBold" style={{ color: colors.accent }}>
+              I miei ordini
+            </ThemedText>
+          </Pressable>
+          <Pressable
+            onPress={() => setVibeOnly((value) => !value)}
+            style={[
+              styles.filter,
+              { borderColor: vibeOnly ? colors.accent : colors.border, backgroundColor: vibeOnly ? colors.accentSoft : colors.surface },
+            ]}>
+            <ThemedText type="defaultSemiBold" style={{ color: vibeOnly ? colors.accent : colors.text }}>
+              Vibe
+            </ThemedText>
+          </Pressable>
+        </View>
 
         {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.accent} size="large" />
+          <View style={styles.skeletons}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
           </View>
         ) : error ? (
           <View style={styles.center}>
@@ -78,9 +110,10 @@ export default function FeedScreen() {
           </View>
         ) : (
           <FlatList
-            data={requests}
+            data={visibleRequests}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} />}
             renderItem={({ item }) => (
               <RequestCard
                 request={item}
@@ -88,12 +121,10 @@ export default function FeedScreen() {
               />
             )}
             ListEmptyComponent={
-              <View style={styles.empty}>
-                <ThemedText type="defaultSemiBold">Nessuna richiesta aperta</ThemedText>
-                <ThemedText style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                  Quando qualcuno pubblica una richiesta di birre nelle vicinanze, comparirà qui.
-                </ThemedText>
-              </View>
+              <EmptyState
+                title="Nessuna richiesta aperta"
+                message="Quando qualcuno pubblica una richiesta di birre nelle vicinanze, comparira qui."
+              />
             }
           />
         )}
@@ -103,12 +134,8 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  safe: {
-    flex: 1,
-  },
+  container: { flex: 1 },
+  safe: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -118,13 +145,8 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     gap: Spacing.sm,
   },
-  headerText: {
-    flex: 1,
-    gap: 2,
-  },
-  subtitle: {
-    fontSize: 15,
-  },
+  headerText: { flex: 1, gap: 2 },
+  subtitle: { fontSize: 15 },
   newButton: {
     height: 38,
     paddingHorizontal: 14,
@@ -132,29 +154,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  newButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  myOrders: {
+  newButtonText: { fontSize: 15, fontWeight: '600' },
+  tools: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
     paddingBottom: Spacing.sm,
   },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.md,
-  },
-  empty: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingTop: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
-  },
-  list: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.xl,
-    gap: Spacing.sm,
-  },
+  filter: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md },
+  skeletons: { padding: Spacing.md, gap: Spacing.sm },
+  list: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.sm },
 });

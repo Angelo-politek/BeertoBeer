@@ -12,11 +12,23 @@
  */
 
 import { supabase } from '@/lib/supabase';
-import type { BeerItem, BeerRequest, CreditTransaction, OrderStatus, User } from '@/types';
+import type {
+    BeerItem,
+    BeerRequest,
+    BlockedUser,
+    CreditTransaction,
+    Message,
+    OrderStatus,
+    ReportReason,
+    Review,
+    User,
+} from '@/types';
 
 const PROFILE_COLUMNS = 'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati';
 const ORDER_COLUMNS =
   'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at';
+const REVIEW_COLUMNS = 'id, order_id, from_user_id, to_user_id, voto, commento, created_at';
+const MESSAGE_COLUMNS = 'id, order_id, sender_id, testo, created_at';
 
 // ---------- Helper sessione ----------
 
@@ -88,12 +100,17 @@ async function fetchProfiles(ids: string[]): Promise<Map<string, User>> {
 export async function getCurrentUser(): Promise<User> {
   const id = await requireUserId();
   const [priv, pub] = await Promise.all([
-    supabase.from('users').select('crediti_saldo').eq('id', id).single(),
+    supabase.from('users').select('crediti_saldo, is_admin').eq('id', id).single(),
     supabase.from('public_profiles').select(PROFILE_COLUMNS).eq('id', id).single(),
   ]);
   if (priv.error) throw priv.error;
   if (pub.error) throw pub.error;
-  return { ...mapPublicProfile(pub.data as PublicProfileRow), creditiSaldo: (priv.data as { crediti_saldo: number }).crediti_saldo };
+  const privData = priv.data as { crediti_saldo: number; is_admin: boolean };
+  return {
+    ...mapPublicProfile(pub.data as PublicProfileRow),
+    creditiSaldo: privData.crediti_saldo,
+    isAdmin: privData.is_admin,
+  };
 }
 
 /** Profilo pubblico di un utente qualsiasi (null se non leggibile). */
@@ -166,6 +183,48 @@ function mapOrder(row: OrderRow, host: User | undefined): BeerRequest {
 async function withHosts(rows: OrderRow[]): Promise<BeerRequest[]> {
   const hosts = await fetchProfiles(rows.map((r) => r.host_id));
   return rows.map((r) => mapOrder(r, hosts.get(r.host_id)));
+}
+
+type ReviewRow = {
+  id: string;
+  order_id: string;
+  from_user_id: string;
+  to_user_id: string;
+  voto: number;
+  commento: string | null;
+  created_at: string;
+};
+
+function mapReview(row: ReviewRow, author?: User): Review {
+  return {
+    id: row.id,
+    orderId: row.order_id,
+    fromUserId: row.from_user_id,
+    toUserId: row.to_user_id,
+    voto: row.voto,
+    commento: row.commento ?? undefined,
+    createdAt: row.created_at,
+    author,
+  };
+}
+
+type MessageRow = {
+  id: string;
+  order_id: string;
+  sender_id: string;
+  testo: string;
+  created_at: string;
+};
+
+function mapMessage(row: MessageRow, sender?: User): Message {
+  return {
+    id: row.id,
+    orderId: row.order_id,
+    senderId: row.sender_id,
+    testo: row.testo,
+    createdAt: row.created_at,
+    sender,
+  };
 }
 
 /**
@@ -325,4 +384,219 @@ export async function getTransactions(): Promise<CreditTransaction[]> {
       data: t.created_at,
     };
   });
+}
+
+// ---------- Reviews / report / blocchi ----------
+
+export type ReviewContext = {
+  order: BeerRequest;
+  target: User;
+  existingReview: Review | null;
+};
+
+export async function getReviewContext(orderId: string): Promise<ReviewContext | null> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase.from('orders').select(ORDER_COLUMNS).eq('id', orderId).maybeSingle();
+  if (error) throw error;
+  const row = data as OrderRow | null;
+  if (!row || row.stato !== 'confermato' || !row.driver_id) return null;
+  if (row.host_id !== myId && row.driver_id !== myId) return null;
+
+  const profiles = await fetchProfiles([row.host_id, row.driver_id]);
+  const targetId = row.host_id === myId ? row.driver_id : row.host_id;
+  const target = profiles.get(targetId);
+  const host = profiles.get(row.host_id);
+  if (!target || !host) return null;
+
+  const existing = await supabase
+    .from('reviews')
+    .select(REVIEW_COLUMNS)
+    .eq('order_id', orderId)
+    .eq('from_user_id', myId)
+    .maybeSingle();
+  if (existing.error) throw existing.error;
+
+  return {
+    order: mapOrder(row, host),
+    target,
+    existingReview: existing.data ? mapReview(existing.data as ReviewRow, profiles.get(myId)) : null,
+  };
+}
+
+export async function submitReview(orderId: string, voto: number, commento: string): Promise<void> {
+  const { error } = await supabase.rpc('submit_review', {
+    p_order_id: orderId,
+    p_voto: voto,
+    p_commento: commento.trim() || null,
+  });
+  if (error) throw error;
+}
+
+export async function getReviewsForUser(userId: string): Promise<Review[]> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select(REVIEW_COLUMNS)
+    .eq('to_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  const rows = (data ?? []) as ReviewRow[];
+  const authors = await fetchProfiles(rows.map((r) => r.from_user_id));
+  return rows.map((r) => mapReview(r, authors.get(r.from_user_id)));
+}
+
+export async function reportUser(userId: string, reason: ReportReason, details: string, orderId?: string): Promise<void> {
+  const myId = await requireUserId();
+  const motivo = details.trim() ? `${reason}: ${details.trim()}` : reason;
+  const { error } = await supabase.from('reports').insert({
+    reported_user_id: userId,
+    reporting_user_id: myId,
+    order_id: orderId ?? null,
+    motivo,
+  });
+  if (error) throw error;
+}
+
+export async function blockUser(userId: string): Promise<void> {
+  const myId = await requireUserId();
+  const { error } = await supabase.from('blocks').upsert(
+    { blocker_user_id: myId, blocked_user_id: userId },
+    { onConflict: 'blocker_user_id,blocked_user_id' },
+  );
+  if (error) throw error;
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  const myId = await requireUserId();
+  const { error } = await supabase
+    .from('blocks')
+    .delete()
+    .eq('blocker_user_id', myId)
+    .eq('blocked_user_id', userId);
+  if (error) throw error;
+}
+
+export async function isUserBlocked(userId: string): Promise<boolean> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('id')
+    .eq('blocker_user_id', myId)
+    .eq('blocked_user_id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return !!data;
+}
+
+export async function getBlockedUsers(): Promise<BlockedUser[]> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase
+    .from('blocks')
+    .select('id, blocker_user_id, blocked_user_id, created_at')
+    .eq('blocker_user_id', myId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const rows = (data ?? []) as {
+    id: string;
+    blocker_user_id: string;
+    blocked_user_id: string;
+    created_at: string;
+  }[];
+  const profiles = await fetchProfiles(rows.map((r) => r.blocked_user_id));
+  return rows.map((r) => ({
+    id: r.id,
+    blockerUserId: r.blocker_user_id,
+    blockedUserId: r.blocked_user_id,
+    createdAt: r.created_at,
+    user: profiles.get(r.blocked_user_id),
+  }));
+}
+
+// ---------- Chat + push token ----------
+
+export async function getMessages(orderId: string): Promise<Message[]> {
+  const { data, error } = await supabase
+    .from('messages')
+    .select(MESSAGE_COLUMNS)
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  const rows = (data ?? []) as MessageRow[];
+  const senders = await fetchProfiles(rows.map((r) => r.sender_id));
+  return rows.map((r) => mapMessage(r, senders.get(r.sender_id)));
+}
+
+export async function sendMessage(orderId: string, testo: string): Promise<void> {
+  const senderId = await requireUserId();
+  const clean = testo.trim();
+  if (!clean) return;
+  const { error } = await supabase.from('messages').insert({ order_id: orderId, sender_id: senderId, testo: clean });
+  if (error) throw error;
+}
+
+export function subscribeToMessages(orderId: string, onMessage: (message: Message) => void) {
+  const channel = supabase
+    .channel(`messages:${orderId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages', filter: `order_id=eq.${orderId}` },
+      (payload) => onMessage(mapMessage(payload.new as MessageRow)),
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+export async function savePushToken(token: string, platform: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase.from('push_tokens').upsert(
+    { user_id: userId, token, platform, updated_at: new Date().toISOString() },
+    { onConflict: 'token' },
+  );
+  if (error) throw error;
+}
+
+export type AdminReport = {
+  id: string;
+  reportedUserId: string;
+  reportingUserId: string;
+  orderId: string | null;
+  motivo: string;
+  createdAt: string;
+  reportedUser?: User;
+  reportingUser?: User;
+};
+
+export async function getAdminReports(): Promise<AdminReport[]> {
+  const { data, error } = await supabase
+    .from('reports')
+    .select('id, reported_user_id, reporting_user_id, order_id, motivo, created_at')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const rows = (data ?? []) as {
+    id: string;
+    reported_user_id: string;
+    reporting_user_id: string;
+    order_id: string | null;
+    motivo: string;
+    created_at: string;
+  }[];
+  const profiles = await fetchProfiles(rows.flatMap((r) => [r.reported_user_id, r.reporting_user_id]));
+  return rows.map((r) => ({
+    id: r.id,
+    reportedUserId: r.reported_user_id,
+    reportingUserId: r.reporting_user_id,
+    orderId: r.order_id,
+    motivo: r.motivo,
+    createdAt: r.created_at,
+    reportedUser: profiles.get(r.reported_user_id),
+    reportingUser: profiles.get(r.reporting_user_id),
+  }));
+}
+
+export async function deleteAdminReport(reportId: string): Promise<void> {
+  const { error } = await supabase.from('reports').delete().eq('id', reportId);
+  if (error) throw error;
 }

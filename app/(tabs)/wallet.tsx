@@ -1,6 +1,6 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -16,29 +16,29 @@ export default function WalletScreen() {
   const [balance, setBalance] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (asRefresh = false) => {
+    if (asRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const [b, txs] = await Promise.all([getCreditBalance(), getTransactions()]);
+      setBalance(b);
+      setTransactions(txs);
+      setError(null);
+    } catch {
+      setError('Impossibile caricare il wallet. Riprova.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      setLoading(true);
-      Promise.all([getCreditBalance(), getTransactions()])
-        .then(([b, txs]) => {
-          if (!active) return;
-          setBalance(b);
-          setTransactions(txs);
-          setError(null);
-        })
-        .catch(() => {
-          if (active) setError('Impossibile caricare il wallet. Riprova.');
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-      return () => {
-        active = false;
-      };
-    }, []),
+      load();
+    }, [load]),
   );
 
   if (loading) {
@@ -70,6 +70,7 @@ export default function WalletScreen() {
           data={transactions}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}
           ListHeaderComponent={
             <View style={styles.headerArea}>
               <ThemedText type="title">Wallet</ThemedText>

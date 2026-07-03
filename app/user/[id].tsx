@@ -4,13 +4,24 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-na
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
+import { EmptyState } from '@/components/empty-state';
+import { ReportModal } from '@/components/report-modal';
+import { StarRating } from '@/components/star-rating';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import {
+  blockUser,
+  getReviewsForUser,
+  getUserById,
+  isUserBlocked,
+  reportUser,
+  unblockUser,
+} from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
-import { getUserById } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
-import type { User } from '@/types';
+import { formatShortDate } from '@/lib/format';
+import type { ReportReason, Review, User } from '@/types';
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,14 +30,23 @@ export default function UserProfileScreen() {
   const isMe = session?.user.id === id;
 
   const [user, setUser] = useState<User | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [blocked, setBlocked] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>('comportamento_scorretto');
+  const [reportDetails, setReportDetails] = useState('');
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getUserById(id)
-      .then((u) => {
-        if (active) setUser(u);
+    Promise.all([getUserById(id), getReviewsForUser(id), isMe ? Promise.resolve(false) : isUserBlocked(id)])
+      .then(([profile, profileReviews, isBlocked]) => {
+        if (!active) return;
+        setUser(profile);
+        setReviews(profileReviews);
+        setBlocked(isBlocked);
       })
       .catch(() => {
         if (active) setUser(null);
@@ -37,7 +57,38 @@ export default function UserProfileScreen() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, isMe]);
+
+  async function handleReport() {
+    setActionLoading(true);
+    try {
+      await reportUser(id, reportReason, reportDetails);
+      setReportOpen(false);
+      setReportDetails('');
+      Alert.alert('Segnalazione inviata', 'Grazie, il team di moderazione la controllera.');
+    } catch {
+      Alert.alert('Errore', 'Segnalazione non inviata.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleBlockToggle() {
+    setActionLoading(true);
+    try {
+      if (blocked) {
+        await unblockUser(id);
+        setBlocked(false);
+      } else {
+        await blockUser(id);
+        setBlocked(true);
+      }
+    } catch {
+      Alert.alert('Errore', 'Operazione non riuscita.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -61,17 +112,6 @@ export default function UserProfileScreen() {
     );
   }
 
-  function handleReport() {
-    Alert.alert(
-      'Segnala utente',
-      `In questa demo la segnalazione di ${user?.nome ?? 'questo utente'} non è ancora attiva. Arriverà con motivazioni predefinite e moderazione.`,
-      [
-        { text: 'Annulla', style: 'cancel' },
-        { text: 'Segnala', style: 'destructive' },
-      ],
-    );
-  }
-
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: user.nome }} />
@@ -87,7 +127,7 @@ export default function UserProfileScreen() {
         <View style={[styles.statsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
           <View style={styles.stat}>
             <ThemedText type="title" style={styles.statValue}>
-              ⭐ {user.ratingMedio.toFixed(1)}
+              {user.ratingMedio.toFixed(1)}
             </ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>Rating</ThemedText>
           </View>
@@ -114,8 +154,46 @@ export default function UserProfileScreen() {
           </View>
         ) : null}
 
-        {!isMe ? <Button label="Segnala utente" variant="danger" onPress={handleReport} /> : null}
+        <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <ThemedText type="defaultSemiBold">Recensioni</ThemedText>
+          {reviews.length === 0 ? (
+            <EmptyState title="Nessuna recensione" message="Le recensioni degli scambi completati appariranno qui." />
+          ) : (
+            reviews.map((review) => (
+              <View key={review.id} style={[styles.review, { borderTopColor: c.border }]}>
+                <View style={styles.reviewHeader}>
+                  <ThemedText type="defaultSemiBold">{review.author?.nome ?? 'Utente'}</ThemedText>
+                  <ThemedText style={{ color: c.textSecondary }}>{formatShortDate(review.createdAt)}</ThemedText>
+                </View>
+                <StarRating value={review.voto} readonly size={20} />
+                {review.commento ? <ThemedText style={{ color: c.textSecondary }}>{review.commento}</ThemedText> : null}
+              </View>
+            ))
+          )}
+        </View>
+
+        {!isMe ? (
+          <View style={styles.actions}>
+            <Button label="Segnala utente" variant="danger" onPress={() => setReportOpen(true)} disabled={actionLoading} />
+            <Button
+              label={blocked ? 'Sblocca utente' : 'Blocca utente'}
+              variant="secondary"
+              onPress={handleBlockToggle}
+              loading={actionLoading}
+            />
+          </View>
+        ) : null}
       </ScrollView>
+      <ReportModal
+        visible={reportOpen}
+        reason={reportReason}
+        details={reportDetails}
+        loading={actionLoading}
+        onReasonChange={setReportReason}
+        onDetailsChange={setReportDetails}
+        onClose={() => setReportOpen(false)}
+        onSubmit={handleReport}
+      />
     </ThemedView>
   );
 }
@@ -140,5 +218,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: Spacing.md,
     gap: Spacing.xs,
+  },
+  review: {
+    borderTopWidth: 1,
+    paddingTop: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  actions: {
+    gap: Spacing.sm,
   },
 });

@@ -20,16 +20,22 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.ACCESS_FINE_LOCATION"
       ],
       "package": "com.quantumalbe.beertobeer"
     },
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3983baf5-d755-4e7f-b03c-1d09593cd22b"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "plugins": [
       "expo-router",
@@ -58,6 +64,13 @@
           "photosPermission": "Beer to Beer accede alle tue foto per impostare l'immagine del profilo.",
           "cameraPermission": "Beer to Beer usa la fotocamera per scattare la foto del profilo."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#C77D0E",
+          "defaultChannel": "messages"
+        }
       ]
     ],
     "experiments": {
@@ -67,8 +80,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "8c459bd5-8115-4ec8-8702-e4663f8a27b3"
+        "projectId": "3983baf5-d755-4e7f-b03c-1d09593cd22b"
       }
-    }
+    },
+    "owner": "angelopolitek"
   }
 }

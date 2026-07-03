@@ -7,10 +7,18 @@ import { AppState } from 'react-native';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Variabili Supabase mancanti. Controlla EXPO_PUBLIC_SUPABASE_URL e ' +
-      'EXPO_PUBLIC_SUPABASE_ANON_KEY nel file .env, poi RIAVVIA Expo (Ctrl+C e .\\start.ps1).',
+/**
+ * True se le variabili EXPO_PUBLIC_* non sono state inlined nel bundle
+ * (manca il .env in dev, o manca il blocco `env` in eas.json per le build EAS).
+ * Non lanciamo a import-time: un throw qui crasha l'app all'avvio senza alcun
+ * messaggio in una build release. Il RootLayout mostra una schermata di errore.
+ */
+export const supabaseConfigError = !supabaseUrl || !supabaseAnonKey;
+
+if (supabaseConfigError) {
+  console.error(
+    'Variabili Supabase mancanti. In dev: controlla il file .env e riavvia Expo. ' +
+      'In build EAS: controlla il blocco "env" del profilo in eas.json.',
   );
 }
 
@@ -19,7 +27,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * - La sessione è persistita su AsyncStorage → l'utente resta loggato tra i riavvii.
  * - detectSessionInUrl è false perché su mobile non c'è una URL del browser.
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient(
+  supabaseUrl ?? 'https://config-mancante.supabase.co',
+  supabaseAnonKey ?? 'anon-key-mancante',
+  {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,

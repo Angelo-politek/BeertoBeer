@@ -1,47 +1,83 @@
 import { useFocusEffect, useRouter } from 'expo-router';
+import * as Updates from 'expo-updates';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
+import { EmptyState } from '@/components/empty-state';
+import { StarRating } from '@/components/star-rating';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
+import { getCurrentUser, getReviewsForUser } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
-import { getCurrentUser } from '@/data/api';
+import { formatShortDate } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
-import type { User } from '@/types';
+import type { Review, User } from '@/types';
 
 export default function ProfileScreen() {
   const c = useColors();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (asRefresh = false) => {
+    if (asRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const u = await getCurrentUser();
+      const latestReviews = await getReviewsForUser(u.id);
+      setUser(u);
+      setReviews(latestReviews.slice(0, 3));
+      setError(null);
+    } catch {
+      setError('Impossibile caricare il profilo. Riprova.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  const handleCheckForUpdates = useCallback(async () => {
+    if (__DEV__ || !Updates.isEnabled) {
+      setUpdateMessage('Gli update OTA si testano su una build preview o production.');
+      return;
+    }
+
+    setCheckingUpdate(true);
+    setUpdateMessage(null);
+
+    try {
+      const result = await Updates.checkForUpdateAsync();
+
+      if (!result.isAvailable) {
+        setUpdateMessage('Sei gia all\'ultima versione disponibile.');
+        return;
+      }
+
+      setUpdateMessage('Aggiornamento trovato, scarico e riavvio...');
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync();
+    } catch {
+      setUpdateMessage('Controllo aggiornamenti non riuscito.');
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }, []);
 
   // Ricarica il profilo ogni volta che la schermata torna in primo piano,
   // così le modifiche fatte in "Modifica profilo" si vedono subito al ritorno.
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      setLoading(true);
-      getCurrentUser()
-        .then((u) => {
-          if (!active) return;
-          setUser(u);
-          setError(null);
-        })
-        .catch(() => {
-          if (active) setError('Impossibile caricare il profilo. Riprova.');
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-      return () => {
-        active = false;
-      };
-    }, []),
+      load();
+    }, [load]),
   );
 
   if (loading) {
@@ -72,7 +108,9 @@ export default function ProfileScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}>
           {/* Intestazione profilo */}
           <View style={styles.header}>
             <Avatar name={user.nome} size={88} uri={user.fotoUrl} />
@@ -115,8 +153,50 @@ export default function ProfileScreen() {
             </View>
           ) : null}
 
+          <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <ThemedText type="defaultSemiBold">Ultime recensioni</ThemedText>
+            {reviews.length === 0 ? (
+              <EmptyState title="Nessuna recensione" message="Le recensioni ricevute appariranno qui." />
+            ) : (
+              reviews.map((review) => (
+                <View key={review.id} style={[styles.review, { borderTopColor: c.border }]}>
+                  <View style={styles.reviewHeader}>
+                    <ThemedText type="defaultSemiBold">{review.author?.nome ?? 'Utente'}</ThemedText>
+                    <ThemedText style={{ color: c.textSecondary }}>{formatShortDate(review.createdAt)}</ThemedText>
+                  </View>
+                  <StarRating value={review.voto} readonly size={20} />
+                  {review.commento ? <ThemedText style={{ color: c.textSecondary }}>{review.commento}</ThemedText> : null}
+                </View>
+              ))
+            )}
+          </View>
+
           {/* Modifica profilo */}
           <Button label="Modifica profilo" variant="secondary" onPress={() => router.push('/edit-profile')} />
+
+          {/* Moderazione — visibile solo agli admin (flag privato is_admin) */}
+          {user.isAdmin ? (
+            <Button
+              label="Pannello segnalazioni"
+              variant="secondary"
+              onPress={() => router.push('/admin/reports' as never)}
+            />
+          ) : null}
+
+          <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <ThemedText type="defaultSemiBold">Aggiornamenti beta</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>
+              Le build preview e production scaricano gli update JS senza rifare l'APK.
+            </ThemedText>
+            {updateMessage ? <ThemedText style={{ color: c.textSecondary }}>{updateMessage}</ThemedText> : null}
+            <Button
+              label="Controlla aggiornamenti"
+              variant="secondary"
+              onPress={handleCheckForUpdates}
+              loading={checkingUpdate}
+              disabled={checkingUpdate}
+            />
+          </View>
 
           {/* Esci — temporaneo, per testare il logout in questo step. Il redirect
               alle schermate di accesso avviene dal guard nel root layout. */}
@@ -172,5 +252,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: Spacing.md,
     gap: Spacing.xs,
+  },
+  review: {
+    borderTopWidth: 1,
+    paddingTop: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.sm,
   },
 });

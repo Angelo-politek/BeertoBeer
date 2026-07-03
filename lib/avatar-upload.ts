@@ -43,5 +43,18 @@ export async function pickAndUploadAvatar(userId: string): Promise<string | null
     .eq('id', userId);
   if (updateError) throw updateError;
 
+  const { data: files, error: listError } = await supabase.storage.from('avatars').list(userId, {
+    limit: 100,
+  });
+  if (!listError) {
+    const oldFiles = (files ?? [])
+      .filter((file) => file.id !== null && file.name.startsWith('avatar-'))
+      .map((file) => `${userId}/${file.name}`)
+      .filter((filePath) => filePath !== path);
+    if (oldFiles.length > 0) {
+      await supabase.storage.from('avatars').remove(oldFiles);
+    }
+  }
+
   return publicUrl;
 }

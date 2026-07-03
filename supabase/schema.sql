@@ -84,9 +84,39 @@ create table if not exists public.reports (
 -- porta qualsiasi database allo schema corrente (è ciò che rende il file idempotente).
 -- ============================================================
 alter table public.users add column if not exists preferenze_birra text;
+alter table public.users add column if not exists is_admin boolean not null default false;
 alter table public.orders add column if not exists host_confermato   boolean not null default false;
 alter table public.orders add column if not exists driver_confermato boolean not null default false;
 alter table public.orders add column if not exists fascia text;
+
+-- Blocchi utente: chi blocca non vede piu interazioni dirette con l'utente bloccato.
+create table if not exists public.blocks (
+  id uuid primary key default gen_random_uuid(),
+  blocker_user_id uuid not null references public.users(id) on delete cascade,
+  blocked_user_id uuid not null references public.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  unique (blocker_user_id, blocked_user_id),
+  check (blocker_user_id <> blocked_user_id)
+);
+
+-- Chat per ordine, visibile solo ai partecipanti.
+create table if not exists public.messages (
+  id uuid primary key default gen_random_uuid(),
+  order_id uuid not null references public.orders(id) on delete cascade,
+  sender_id uuid not null references public.users(id) on delete cascade,
+  testo text not null check (char_length(trim(testo)) between 1 and 1000),
+  created_at timestamptz not null default now()
+);
+
+-- Token Expo push dell'utente corrente.
+create table if not exists public.push_tokens (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  token text not null unique,
+  platform text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
 -- Vincoli di integrità dei crediti (idempotenti): niente offerte negative,
 -- niente saldi negativi. Sono la garanzia "dura" contro la creazione di crediti
@@ -110,6 +140,9 @@ alter table public.orders              enable row level security;
 alter table public.credit_transactions enable row level security;
 alter table public.reviews             enable row level security;
 alter table public.reports             enable row level security;
+alter table public.blocks              enable row level security;
+alter table public.messages            enable row level security;
+alter table public.push_tokens         enable row level security;
 
 -- USERS: ognuno può leggere e aggiornare la PROPRIA riga.
 -- (La lettura dei profili altrui — es. l'host nel feed — sarà aggiunta
@@ -171,7 +204,112 @@ create policy "credit_transactions_select"
   on public.credit_transactions for select
   using (from_user_id = auth.uid() or to_user_id = auth.uid());
 
--- reviews / reports: RLS attiva, policy definite in uno step successivo.
+-- REVIEWS: chiunque autenticato puo leggere le recensioni pubbliche.
+-- L'inserimento passa dalla funzione submit_review(), che valida ordine e controparte.
+drop policy if exists "reviews_select" on public.reviews;
+create policy "reviews_select"
+  on public.reviews for select
+  using (auth.role() = 'authenticated');
+
+-- REPORTS: l'utente puo creare e leggere le proprie segnalazioni; gli admin vedono tutto.
+drop policy if exists "reports_insert_own" on public.reports;
+create policy "reports_insert_own"
+  on public.reports for insert
+  with check (reporting_user_id = auth.uid() and reported_user_id <> auth.uid());
+
+drop policy if exists "reports_select_own_or_admin" on public.reports;
+create policy "reports_select_own_or_admin"
+  on public.reports for select
+  using (
+    reporting_user_id = auth.uid()
+    or exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin)
+  );
+
+drop policy if exists "reports_delete_admin" on public.reports;
+create policy "reports_delete_admin"
+  on public.reports for delete
+  using (exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin));
+
+grant delete on public.reports to authenticated;
+
+-- BLOCKS: ognuno gestisce solo la propria lista blocchi.
+drop policy if exists "blocks_select_own" on public.blocks;
+create policy "blocks_select_own"
+  on public.blocks for select
+  using (blocker_user_id = auth.uid());
+
+drop policy if exists "blocks_insert_own" on public.blocks;
+create policy "blocks_insert_own"
+  on public.blocks for insert
+  with check (blocker_user_id = auth.uid() and blocked_user_id <> auth.uid());
+
+drop policy if exists "blocks_delete_own" on public.blocks;
+create policy "blocks_delete_own"
+  on public.blocks for delete
+  using (blocker_user_id = auth.uid());
+
+-- MESSAGES: solo host e driver dell'ordine possono leggere/scrivere.
+drop policy if exists "messages_select_participants" on public.messages;
+create policy "messages_select_participants"
+  on public.messages for select
+  using (
+    exists (
+      select 1 from public.orders o
+      where o.id = order_id and (o.host_id = auth.uid() or o.driver_id = auth.uid())
+    )
+  );
+
+drop policy if exists "messages_insert_participants" on public.messages;
+create policy "messages_insert_participants"
+  on public.messages for insert
+  with check (
+    sender_id = auth.uid()
+    and exists (
+      select 1 from public.orders o
+      where o.id = order_id
+        and o.stato in ('accettato','in_consegna','consegnato','confermato')
+        and (o.host_id = auth.uid() or o.driver_id = auth.uid())
+    )
+    and not exists (
+      select 1 from public.orders o
+      join public.blocks b on (
+        (b.blocker_user_id = o.host_id and b.blocked_user_id = o.driver_id)
+        or (b.blocker_user_id = o.driver_id and b.blocked_user_id = o.host_id)
+      )
+      where o.id = order_id
+    )
+  );
+
+-- Realtime: senza questa publication la chat non riceve i messaggi in tempo reale
+-- (subscribeToMessages in data/api.ts usa postgres_changes su public.messages).
+do $$
+begin
+  alter publication supabase_realtime add table public.messages;
+exception
+  when duplicate_object then null;
+end $$;
+
+-- PUSH TOKENS: ogni utente gestisce i propri token.
+drop policy if exists "push_tokens_select_own" on public.push_tokens;
+create policy "push_tokens_select_own"
+  on public.push_tokens for select
+  using (user_id = auth.uid());
+
+drop policy if exists "push_tokens_insert_own" on public.push_tokens;
+create policy "push_tokens_insert_own"
+  on public.push_tokens for insert
+  with check (user_id = auth.uid());
+
+drop policy if exists "push_tokens_update_own" on public.push_tokens;
+create policy "push_tokens_update_own"
+  on public.push_tokens for update
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists "push_tokens_delete_own" on public.push_tokens;
+create policy "push_tokens_delete_own"
+  on public.push_tokens for delete
+  using (user_id = auth.uid());
 
 -- ============================================================
 -- Profili pubblici
@@ -325,6 +463,89 @@ begin
   end if;
 end; $$;
 
+-- Lascia una recensione alla controparte di un ordine confermato.
+create or replace function public.submit_review(p_order_id uuid, p_voto int, p_commento text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_host uuid;
+  v_driver uuid;
+  v_stato text;
+  v_to_user uuid;
+begin
+  if p_voto < 1 or p_voto > 5 then
+    raise exception 'Il voto deve essere tra 1 e 5';
+  end if;
+
+  select host_id, driver_id, stato into v_host, v_driver, v_stato
+    from public.orders where id = p_order_id;
+  if not found then raise exception 'Ordine inesistente'; end if;
+  if v_stato <> 'confermato' then raise exception 'Puoi recensire solo uno scambio completato'; end if;
+  if auth.uid() = v_host then
+    v_to_user := v_driver;
+  elsif auth.uid() = v_driver then
+    v_to_user := v_host;
+  else
+    raise exception 'Non fai parte di questo ordine';
+  end if;
+  if v_to_user is null then raise exception 'Controparte non disponibile'; end if;
+
+  insert into public.reviews (order_id, from_user_id, to_user_id, voto, commento)
+  values (p_order_id, auth.uid(), v_to_user, p_voto, nullif(trim(p_commento), ''))
+  on conflict (order_id, from_user_id) do update
+    set voto = excluded.voto,
+        commento = excluded.commento,
+        created_at = now();
+
+  update public.users u
+    set rating_medio = coalesce((
+      select round(avg(r.voto)::numeric, 1)
+      from public.reviews r
+      where r.to_user_id = v_to_user
+    ), 0)
+    where u.id = v_to_user;
+end; $$;
+
+drop index if exists reviews_order_from_unique;
+create unique index if not exists reviews_order_from_unique
+  on public.reviews(order_id, from_user_id);
+
+-- Trigger best-effort: invoca l'edge function send-push quando pg_net e configurazione sono presenti.
+create or replace function public.notify_new_message()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_receiver uuid;
+  v_url text;
+  v_key text;
+begin
+  select case when o.host_id = new.sender_id then o.driver_id else o.host_id end
+    into v_receiver
+    from public.orders o
+    where o.id = new.order_id;
+
+  if v_receiver is null then return new; end if;
+
+  begin
+    v_url := current_setting('app.settings.supabase_url', true);
+    v_key := current_setting('app.settings.service_role_key', true);
+    if v_url is not null and v_key is not null then
+      perform net.http_post(
+        url := v_url || '/functions/v1/send-push',
+        headers := jsonb_build_object('Authorization', 'Bearer ' || v_key, 'Content-Type', 'application/json'),
+        body := jsonb_build_object('userId', v_receiver, 'orderId', new.order_id, 'message', new.testo)
+      );
+    end if;
+  exception when undefined_function then
+    null;
+  end;
+
+  return new;
+end; $$;
+
+drop trigger if exists on_message_send_push on public.messages;
+create trigger on_message_send_push
+  after insert on public.messages
+  for each row execute function public.notify_new_message();
+
 -- ============================================================
 -- Calcolo automatico dei crediti (peso + distanza)
 -- I crediti NON sono più scelti dall'host: un trigger BEFORE INSERT li calcola
@@ -358,13 +579,15 @@ returns numeric language sql immutable as $$
 $$;
 
 -- Distanza geodetica in km tra due coordinate (formula dell'emisenoverso).
-create or replace function public.haversine_km(lat1 numeric, lng1 numeric, lat2 numeric, lng2 numeric)
+create or replace function public.haversine_km(lat1 double precision, lng1 double precision, lat2 double precision, lng2 double precision)
 returns numeric language sql immutable as $$
-  select 2 * 6371 * asin(sqrt(
-    power(sin(radians(lat2 - lat1) / 2), 2) +
-    cos(radians(lat1)) * cos(radians(lat2)) *
-    power(sin(radians(lng2 - lng1) / 2), 2)
-  ));
+  select (
+    2 * 6371 * asin(sqrt(
+      power(sin(radians(lat2 - lat1) / 2), 2) +
+      cos(radians(lat1)) * cos(radians(lat2)) *
+      power(sin(radians(lng2 - lng1) / 2), 2)
+    ))
+  )::numeric;
 $$;
 
 -- Trigger: imposta crediti_offerti = ceil(BASE + peso·W + distanza·D).
@@ -376,8 +599,8 @@ declare
   v_base     constant numeric := 1;        -- crediti base
   v_w        constant numeric := 0.4;      -- crediti per kg di peso
   v_d        constant numeric := 1.2;      -- crediti per km di distanza
-  v_base_lat constant numeric := 45.0703;  -- punto di riferimento (Torino centro), configurabile
-  v_base_lng constant numeric := 7.6869;
+  v_base_lat constant double precision := 45.0703;  -- punto di riferimento (Torino centro), configurabile
+  v_base_lng constant double precision := 7.6869;
   v_peso numeric;
   v_dist numeric := 0;
   v_saldo integer;

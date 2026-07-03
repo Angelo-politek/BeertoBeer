@@ -182,7 +182,20 @@ export default function RequestDetailScreen() {
       return <StatusNote text="In attesa della conferma dell'altra persona." />;
     }
 
-    return <StatusNote text="✅ Scambio completato. Crediti trasferiti." />;
+    if (isHost || isDriver) {
+      return (
+        <View style={styles.footerActions}>
+          <Button
+            label="Apri chat"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/chat/[orderId]', params: { orderId: id } } as never)}
+          />
+          <Button label="Lascia recensione" onPress={() => router.push({ pathname: '/review', params: { orderId: id } } as never)} />
+        </View>
+      );
+    }
+
+    return <StatusNote text="Scambio completato. Crediti trasferiti." />;
   }
 
   return (
@@ -286,6 +299,13 @@ export default function RequestDetailScreen() {
         {actionError ? (
           <ThemedText style={[styles.actionError, { color: c.danger }]}>{actionError}</ThemedText>
         ) : null}
+        {canSeeAddress && request.stato !== 'richiesto' && request.stato !== 'confermato' ? (
+          <Button
+            label="Apri chat"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/chat/[orderId]', params: { orderId: id } } as never)}
+          />
+        ) : null}
         {renderFooter()}
       </SafeAreaView>
     </ThemedView>
@@ -361,6 +381,9 @@ const styles = StyleSheet.create({
   },
   actionError: {
     textAlign: 'center',
+  },
+  footerActions: {
+    gap: Spacing.sm,
   },
   statusNote: {
     textAlign: 'center',

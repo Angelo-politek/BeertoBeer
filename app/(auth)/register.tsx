@@ -1,6 +1,6 @@
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 
 export default function RegisterScreen() {
   const c = useColors();
+  const router = useRouter();
   const [nome, setNome] = useState('');
   const [birthdate, setBirthdate] = useState('');
   const [email, setEmail] = useState('');
@@ -49,7 +50,7 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
       options: {
@@ -66,7 +67,20 @@ export default function RegisterScreen() {
       setError(signUpError.message);
       return;
     }
-    // Conferma email disattivata → si è subito loggati. Il redirect avviene dal guard.
+
+    if (data.session) {
+      // Email confirmation disattivata: sessione subito attiva → onboarding.
+      router.replace('/onboarding' as never);
+      return;
+    }
+
+    // Email confirmation attiva: senza sessione il guard in _layout riporterebbe
+    // al login prima che l'onboarding sia visibile. Avvisiamo e portiamo al login.
+    Alert.alert(
+      'Conferma la tua email',
+      `Ti abbiamo inviato una email a ${email.trim()}. Apri il link di conferma, poi accedi.`,
+    );
+    router.replace('/(auth)/login');
   }
 
   return (

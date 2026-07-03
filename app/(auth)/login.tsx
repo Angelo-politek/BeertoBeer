@@ -75,6 +75,12 @@ export default function LoginScreen() {
 
             <Button label="Accedi" onPress={handleLogin} loading={loading} />
 
+            <Link href="/(auth)/forgot-password">
+              <ThemedText type="defaultSemiBold" style={{ color: c.accent, textAlign: 'center' }}>
+                Password dimenticata?
+              </ThemedText>
+            </Link>
+
             <View style={styles.footer}>
               <ThemedText style={{ color: c.textSecondary }}>Non hai un account? </ThemedText>
               <Link href="/(auth)/register" replace>

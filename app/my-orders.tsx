@@ -1,8 +1,9 @@
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
+import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -20,28 +21,33 @@ export default function MyOrdersScreen() {
 
   const [orders, setOrders] = useState<BeerRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCompleted, setShowCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async (asRefresh = false) => {
+    if (asRefresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const rows = await getMyOrders();
+      setOrders(rows);
+      setError(null);
+    } catch {
+      setError('Impossibile caricare i tuoi ordini. Riprova.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      setLoading(true);
-      getMyOrders()
-        .then((o) => {
-          if (!active) return;
-          setOrders(o);
-          setError(null);
-        })
-        .catch(() => {
-          if (active) setError('Impossibile caricare i tuoi ordini. Riprova.');
-        })
-        .finally(() => {
-          if (active) setLoading(false);
-        });
-      return () => {
-        active = false;
-      };
-    }, []),
+      load();
+    }, [load]),
+  );
+
+  const visibleOrders = orders.filter((order) =>
+    showCompleted ? order.stato === 'confermato' : order.stato !== 'confermato',
   );
 
   return (
@@ -57,9 +63,28 @@ export default function MyOrdersScreen() {
         </View>
       ) : (
         <FlatList
-          data={orders}
+          data={visibleOrders}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}
+          ListHeaderComponent={
+            <View style={styles.filters}>
+              <Pressable
+                onPress={() => setShowCompleted(false)}
+                style={[styles.filter, { borderColor: !showCompleted ? c.accent : c.border, backgroundColor: !showCompleted ? c.accentSoft : c.surface }]}>
+                <ThemedText type="defaultSemiBold" style={{ color: !showCompleted ? c.accent : c.text }}>
+                  Attivi
+                </ThemedText>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowCompleted(true)}
+                style={[styles.filter, { borderColor: showCompleted ? c.accent : c.border, backgroundColor: showCompleted ? c.accentSoft : c.surface }]}>
+                <ThemedText type="defaultSemiBold" style={{ color: showCompleted ? c.accent : c.text }}>
+                  Completati
+                </ThemedText>
+              </Pressable>
+            </View>
+          }
           renderItem={({ item }) => {
             const isHost = item.host.id === myId;
             const birreLabel = item.birre.map((b) => `${b.quantita}× ${b.nome}`).join(' · ');
@@ -84,12 +109,7 @@ export default function MyOrdersScreen() {
             );
           }}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <ThemedText type="defaultSemiBold">Nessun ordine</ThemedText>
-              <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>
-                Le richieste che crei e le consegne che accetti compariranno qui.
-              </ThemedText>
-            </View>
+            <EmptyState title="Nessun ordine" message="Le richieste che crei e le consegne che accetti compariranno qui." />
           }
         />
       )}
@@ -100,8 +120,9 @@ export default function MyOrdersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md },
-  empty: { alignItems: 'center', gap: Spacing.xs, paddingTop: Spacing.xl, paddingHorizontal: Spacing.lg },
   list: { padding: Spacing.md, gap: Spacing.sm },
+  filters: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
+  filter: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   card: {
     borderWidth: 1,
     borderRadius: 14,
