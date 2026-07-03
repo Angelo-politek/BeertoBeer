@@ -1,5 +1,5 @@
 import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
@@ -36,6 +36,14 @@ type Props = {
 export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, onDeleteShop, onAddShop }: Props) {
   const c = useColors();
   const [selection, setSelection] = useState<Selection>(null);
+  // Il tap su un marker si propaga ANCHE alla mappa sotto: senza questa guardia
+  // l'onPress della mappa chiuderebbe subito l'anteprima appena aperta.
+  const lastMarkerPressRef = useRef(0);
+
+  function selectMarker(next: Selection) {
+    lastMarkerPressRef.current = Date.now();
+    setSelection(next);
+  }
 
   function openDirections(shop: Shop) {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${shop.lat},${shop.lng}`;
@@ -47,7 +55,10 @@ export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, o
       <Map
         mapStyle={MAP_STYLE_URL}
         style={styles.map}
-        onPress={() => setSelection(null)}>
+        onPress={() => {
+          if (Date.now() - lastMarkerPressRef.current < 350) return;
+          setSelection(null);
+        }}>
         <Camera initialViewState={{ center: [city.center.lng, city.center.lat], zoom: 12 }} />
 
         {shops.map((shop) => {
@@ -55,7 +66,7 @@ export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, o
           return (
             <Marker key={`shop-${shop.id}`} lngLat={[shop.lng, shop.lat]}>
               <Pressable
-                onPress={() => setSelection({ kind: 'shop', shop })}
+                onPress={() => selectMarker({ kind: 'shop', shop })}
                 hitSlop={6}
                 style={[styles.shopMarker, active && styles.markerActive]}>
                 <Text style={styles.shopIcon}>🏪</Text>
@@ -70,7 +81,7 @@ export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, o
           return (
             <Marker key={request.id} lngLat={[request.lng, request.lat]}>
               <Pressable
-                onPress={() => setSelection({ kind: 'request', request })}
+                onPress={() => selectMarker({ kind: 'request', request })}
                 hitSlop={6}
                 style={[
                   styles.requestMarker,
