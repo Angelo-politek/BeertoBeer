@@ -21,6 +21,10 @@ export type User = {
   fotoUrl?: string;
   /** true solo per i moderatori; valorizzato solo da getCurrentUser (campo privato) */
   isAdmin?: boolean;
+  /** sospensione moderazione (ISO): finché è nel futuro non può creare richieste */
+  sospesoFino?: string | null;
+  /** città preferita salvata sul server (per le push); solo da getCurrentUser */
+  citta?: string | null;
 };
 
 export type Review = {
@@ -95,6 +99,8 @@ export type BeerRequest = {
   fascia?: string;
   /** chiave della città (lib/cities.ts); null per ordini storici pre-città */
   citta?: string | null;
+  /** moderazione: 'ok' | 'oscurato' (in verifica) | 'rimosso' */
+  statoModerazione?: string;
   /** distanza dall'utente in km — opzionale finché non c'è la geolocalizzazione */
   distanzaKm?: number;
   stato: OrderStatus;

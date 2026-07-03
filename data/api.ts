@@ -27,7 +27,7 @@ import type {
 
 const PROFILE_COLUMNS = 'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati';
 const ORDER_COLUMNS =
-  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, citta';
+  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, citta, stato_moderazione';
 const REVIEW_COLUMNS = 'id, order_id, from_user_id, to_user_id, voto, commento, created_at';
 const MESSAGE_COLUMNS = 'id, order_id, sender_id, testo, created_at';
 
@@ -101,16 +101,23 @@ async function fetchProfiles(ids: string[]): Promise<Map<string, User>> {
 export async function getCurrentUser(): Promise<User> {
   const id = await requireUserId();
   const [priv, pub] = await Promise.all([
-    supabase.from('users').select('crediti_saldo, is_admin').eq('id', id).single(),
+    supabase.from('users').select('crediti_saldo, is_admin, sospeso_fino, citta').eq('id', id).single(),
     supabase.from('public_profiles').select(PROFILE_COLUMNS).eq('id', id).single(),
   ]);
   if (priv.error) throw priv.error;
   if (pub.error) throw pub.error;
-  const privData = priv.data as { crediti_saldo: number; is_admin: boolean };
+  const privData = priv.data as {
+    crediti_saldo: number;
+    is_admin: boolean;
+    sospeso_fino: string | null;
+    citta: string | null;
+  };
   return {
     ...mapPublicProfile(pub.data as PublicProfileRow),
     creditiSaldo: privData.crediti_saldo,
     isAdmin: privData.is_admin,
+    sospesoFino: privData.sospeso_fino,
+    citta: privData.citta,
   };
 }
 
@@ -159,6 +166,7 @@ type OrderRow = {
   driver_confermato: boolean;
   created_at: string;
   citta: string | null;
+  stato_moderazione: string;
 };
 
 /** Riga ordine (+ profilo host) → BeerRequest per la UI. */
@@ -179,6 +187,7 @@ function mapOrder(row: OrderRow, host: User | undefined): BeerRequest {
     driverConfermato: row.driver_confermato,
     createdAt: row.created_at,
     citta: row.citta,
+    statoModerazione: row.stato_moderazione,
   };
 }
 
@@ -614,5 +623,238 @@ export async function getAdminReports(): Promise<AdminReport[]> {
 
 export async function deleteAdminReport(reportId: string): Promise<void> {
   const { error } = await supabase.from('reports').delete().eq('id', reportId);
+  if (error) throw error;
+}
+
+// ---------- Città utente (per il fan-out delle push "nuova richiesta") ----------
+
+/** Sincronizza sul server la città selezionata nell'app. Best-effort. */
+export async function updateUserCity(citta: string): Promise<void> {
+  const id = await requireUserId();
+  const { error } = await supabase.from('users').update({ citta }).eq('id', id);
+  if (error) throw error;
+}
+
+// ---------- Negozi ("bangladini") mappati dalla community ----------
+
+export type Shop = {
+  id: string;
+  nome: string;
+  citta: string;
+  lat: number;
+  lng: number;
+  createdBy: string | null;
+};
+
+type ShopRow = {
+  id: string;
+  nome: string;
+  citta: string;
+  lat: number;
+  lng: number;
+  created_by: string | null;
+};
+
+export async function getShops(citta: string): Promise<Shop[]> {
+  const { data, error } = await supabase
+    .from('shops')
+    .select('id, nome, citta, lat, lng, created_by')
+    .eq('citta', citta);
+  if (error) throw error;
+  return ((data ?? []) as ShopRow[]).map((r) => ({
+    id: r.id,
+    nome: r.nome,
+    citta: r.citta,
+    lat: r.lat,
+    lng: r.lng,
+    createdBy: r.created_by,
+  }));
+}
+
+export async function addShop(input: { nome: string; citta: string; lat: number; lng: number }): Promise<void> {
+  const id = await requireUserId();
+  const { error } = await supabase.from('shops').insert({
+    nome: input.nome.trim(),
+    citta: input.citta,
+    lat: input.lat,
+    lng: input.lng,
+    created_by: id,
+  });
+  if (error) throw error;
+}
+
+export async function deleteShop(shopId: string): Promise<void> {
+  const { error } = await supabase.from('shops').delete().eq('id', shopId);
+  if (error) throw error;
+}
+
+// ---------- Connessioni + chat diretta ----------
+
+export type Connection = {
+  user: User;
+  /** numero di scambi confermati insieme */
+  scambi: number;
+  /** data dell'ultimo scambio confermato (ISO) */
+  ultimoScambio: string;
+};
+
+/** Le persone con cui ho completato almeno uno scambio confermato. */
+export async function getConnections(): Promise<Connection[]> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase
+    .from('orders')
+    .select('host_id, driver_id, updated_at')
+    .eq('stato', 'confermato')
+    .or(`host_id.eq.${myId},driver_id.eq.${myId}`)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+
+  const rows = (data ?? []) as { host_id: string; driver_id: string | null; updated_at: string }[];
+  const byUser = new Map<string, { scambi: number; ultimoScambio: string }>();
+  for (const r of rows) {
+    const other = r.host_id === myId ? r.driver_id : r.host_id;
+    if (!other) continue;
+    const entry = byUser.get(other);
+    if (entry) entry.scambi += 1;
+    else byUser.set(other, { scambi: 1, ultimoScambio: r.updated_at });
+  }
+
+  const profiles = await fetchProfiles([...byUser.keys()]);
+  return [...byUser.entries()]
+    .map(([id, info]) => ({ user: profiles.get(id) ?? { ...UNKNOWN_USER, id }, ...info }))
+    .filter((c) => c.user.id !== '');
+}
+
+type DirectMessageRow = {
+  id: string;
+  from_user_id: string;
+  to_user_id: string;
+  testo: string;
+  created_at: string;
+};
+
+function mapDirectMessage(row: DirectMessageRow, sender?: User): Message {
+  return {
+    id: row.id,
+    orderId: '',
+    senderId: row.from_user_id,
+    testo: row.testo,
+    createdAt: row.created_at,
+    sender,
+  };
+}
+
+export async function getDirectMessages(otherUserId: string): Promise<Message[]> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase
+    .from('direct_messages')
+    .select('id, from_user_id, to_user_id, testo, created_at')
+    .or(
+      `and(from_user_id.eq.${myId},to_user_id.eq.${otherUserId}),and(from_user_id.eq.${otherUserId},to_user_id.eq.${myId})`,
+    )
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  const rows = (data ?? []) as DirectMessageRow[];
+  const senders = await fetchProfiles(rows.map((r) => r.from_user_id));
+  return rows.map((r) => mapDirectMessage(r, senders.get(r.from_user_id)));
+}
+
+/** Invia un messaggio diretto e ritorna la riga creata (per l'append locale). */
+export async function sendDirectMessage(otherUserId: string, testo: string): Promise<Message | null> {
+  const myId = await requireUserId();
+  const clean = testo.trim();
+  if (!clean) return null;
+  const { data, error } = await supabase
+    .from('direct_messages')
+    .insert({ from_user_id: myId, to_user_id: otherUserId, testo: clean })
+    .select('id, from_user_id, to_user_id, testo, created_at')
+    .single();
+  if (error) throw error;
+  return mapDirectMessage(data as DirectMessageRow);
+}
+
+/**
+ * Messaggi diretti in arrivo dall'altro utente, in tempo reale.
+ * NB: il filtro realtime supporta UNA sola colonna → ci si iscrive ai messaggi
+ * indirizzati a me e si filtra il mittente lato client; i propri invii vanno
+ * appesi localmente dal chiamante.
+ */
+export function subscribeToDirectMessages(myId: string, otherUserId: string, onMessage: (message: Message) => void) {
+  const channel = supabase
+    .channel(`direct:${otherUserId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: `to_user_id=eq.${myId}` },
+      (payload) => {
+        const row = payload.new as DirectMessageRow;
+        if (row.from_user_id === otherUserId) onMessage(mapDirectMessage(row));
+      },
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
+
+// ---------- Amministrazione (RPC SECURITY DEFINER, gate is_admin lato server) ----------
+
+export type AdminUser = {
+  id: string;
+  nome: string;
+  email: string;
+  citta: string | null;
+  creditiSaldo: number;
+  ratingMedio: number;
+  isAdmin: boolean;
+  sospesoFino: string | null;
+  createdAt: string;
+  nRichieste: number;
+  nConsegne: number;
+};
+
+export async function adminListUsers(): Promise<AdminUser[]> {
+  const { data, error } = await supabase.rpc('admin_list_users');
+  if (error) throw error;
+  const rows = (data ?? []) as {
+    id: string;
+    nome: string;
+    email: string;
+    citta: string | null;
+    crediti_saldo: number;
+    rating_medio: number;
+    is_admin: boolean;
+    sospeso_fino: string | null;
+    created_at: string;
+    n_richieste: number;
+    n_consegne: number;
+  }[];
+  return rows.map((r) => ({
+    id: r.id,
+    nome: r.nome,
+    email: r.email,
+    citta: r.citta,
+    creditiSaldo: r.crediti_saldo,
+    ratingMedio: Number(r.rating_medio),
+    isAdmin: r.is_admin,
+    sospesoFino: r.sospeso_fino,
+    createdAt: r.created_at,
+    nRichieste: Number(r.n_richieste),
+    nConsegne: Number(r.n_consegne),
+  }));
+}
+
+export async function adminSuspendUser(userId: string, until: string | null): Promise<void> {
+  const { error } = await supabase.rpc('admin_suspend_user', { p_user_id: userId, p_until: until });
+  if (error) throw error;
+}
+
+export async function adminDeleteUser(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId });
+  if (error) throw error;
+}
+
+export async function adminSetOrderModeration(orderId: string, stato: 'ok' | 'rimosso'): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_order_moderation', { p_order_id: orderId, p_stato: stato });
   if (error) throw error;
 }

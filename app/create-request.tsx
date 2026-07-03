@@ -22,7 +22,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { createOrder, getCreditBalance } from '@/data/api';
+import { createOrder, getCurrentUser } from '@/data/api';
 import { isWithinCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { CREDIT_CAP, DEFAULT_FORMAT, estimateCredits, FORMATS, maxDistanceBonus } from '@/lib/credits';
@@ -47,19 +47,27 @@ export default function CreateRequestScreen() {
   const [coords, setCoords] = useState<Coords | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
+  const [sospesoFino, setSospesoFino] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
   const [mapPick, setMapPick] = useState<Coords | null>(null);
 
   useEffect(() => {
     let active = true;
-    getCreditBalance()
-      .then((b) => active && setBalance(b))
+    getCurrentUser()
+      .then((u) => {
+        if (!active) return;
+        setBalance(u.creditiSaldo);
+        setSospesoFino(u.sospesoFino ?? null);
+      })
       .catch(() => {});
     return () => {
       active = false;
     };
   }, []);
+
+  // Moderazione: sospeso finché la data è nel futuro (il server è il gate vero).
+  const suspended = sospesoFino != null && new Date(sospesoFino).getTime() > Date.now();
 
   function updateBeer(index: number, field: keyof BeerInput, value: string) {
     setBirre((prev) => prev.map((b, i) => (i === index ? { ...b, [field]: value } : b)));
@@ -180,6 +188,25 @@ export default function CreateRequestScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {/* Banner moderazione: account sospeso */}
+          {suspended ? (
+            <View style={[styles.suspendedBanner, { borderColor: c.danger, backgroundColor: c.surface }]}>
+              <ThemedText type="defaultSemiBold" style={{ color: c.danger }}>
+                Account temporaneamente sospeso
+              </ThemedText>
+              <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+                Una tua richiesta è stata segnalata ed è in verifica. Potrai pubblicare di nuovo dal{' '}
+                {new Date(sospesoFino as string).toLocaleString('it-IT', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                , o prima se la moderazione approva la richiesta.
+              </ThemedText>
+            </View>
+          ) : null}
+
           {/* Birre */}
           <View style={styles.field}>
             <Text style={[styles.label, { color: c.textSecondary }]}>Cosa vuoi ordinare?</Text>
@@ -333,7 +360,7 @@ export default function CreateRequestScreen() {
             label="Pubblica richiesta"
             onPress={handleSubmit}
             loading={submitting}
-            disabled={nonCopribile}
+            disabled={nonCopribile || suspended}
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -411,6 +438,7 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     gap: Spacing.xs,
   },
+  suspendedBanner: { borderWidth: 1, borderRadius: 12, padding: Spacing.md, gap: Spacing.xs },
   addressButtons: { flexDirection: 'row', gap: Spacing.sm },
   addressButton: { flex: 1 },
   mapHeader: { padding: Spacing.md, gap: 2 },

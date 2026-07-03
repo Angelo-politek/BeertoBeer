@@ -7,16 +7,18 @@ import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { DeliveryMap } from '@/components/delivery-map';
+import { ReportModal } from '@/components/report-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useToast } from '@/components/toast';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { acceptOrder, advanceOrder, cancelOrder, confirmOrder, getRequestById } from '@/data/api';
+import { acceptOrder, advanceOrder, cancelOrder, confirmOrder, getRequestById, reportUser } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
 import { CREDIT_CAP, estimateBonus, FORMATS } from '@/lib/credits';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
 import { STATO_LABEL } from '@/lib/orders';
-import type { BeerRequest } from '@/types';
+import type { BeerRequest, ReportReason } from '@/types';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,11 +26,16 @@ export default function RequestDetailScreen() {
   const router = useRouter();
   const { session } = useSession();
 
+  const toast = useToast();
   const [request, setRequest] = useState<BeerRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [driverCoords, setDriverCoords] = useState<Coords | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>('ordine_falso');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
 
   // Posizione dell'utente (per la distanza dalla consegna). Best-effort.
   useEffect(() => {
@@ -98,6 +105,21 @@ export default function RequestDetailScreen() {
     }
   }
 
+  async function handleReport() {
+    if (!request) return;
+    setReportLoading(true);
+    try {
+      await reportUser(request.host.id, reportReason, reportDetails, request.id);
+      setReportOpen(false);
+      setReportDetails('');
+      toast.show('Segnalazione inviata: la richiesta è in verifica');
+    } catch {
+      toast.show('Segnalazione non inviata (già segnalata?)', 'error');
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <ThemedView style={styles.container}>
@@ -114,7 +136,12 @@ export default function RequestDetailScreen() {
       <ThemedView style={styles.container}>
         <Stack.Screen options={{ title: 'Richiesta' }} />
         <View style={styles.center}>
-          <ThemedText type="subtitle">Richiesta non trovata</ThemedText>
+          <ThemedText type="subtitle">Richiesta scaduta o non disponibile</ThemedText>
+          <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>
+            Potrebbe essere già stata accettata, scaduta dopo 12 ore o rimossa. Torna al feed per
+            vedere le richieste attive.
+          </ThemedText>
+          <Button label="Torna al feed" variant="secondary" onPress={() => router.back()} />
         </View>
       </ThemedView>
     );
@@ -207,9 +234,14 @@ export default function RequestDetailScreen() {
       <Stack.Screen options={{ title: 'Dettaglio richiesta' }} />
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Stato corrente */}
+        {/* Stato corrente + segnalazione */}
         <View style={styles.statusRow}>
           <Badge label={STATO_LABEL[request.stato]} tone="accent" />
+          {!isHost && request.stato === 'richiesto' ? (
+            <Pressable onPress={() => setReportOpen(true)} hitSlop={8}>
+              <ThemedText style={{ color: c.danger, fontSize: 13 }}>⚠ Segnala richiesta</ThemedText>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Profilo host (toccabile → apre il profilo) */}
@@ -319,6 +351,18 @@ export default function RequestDetailScreen() {
         ) : null}
         {renderFooter()}
       </SafeAreaView>
+
+      <ReportModal
+        visible={reportOpen}
+        title="Segnala richiesta"
+        reason={reportReason}
+        details={reportDetails}
+        loading={reportLoading}
+        onReasonChange={setReportReason}
+        onDetailsChange={setReportDetails}
+        onClose={() => setReportOpen(false)}
+        onSubmit={handleReport}
+      />
     </ThemedView>
   );
 }
@@ -349,6 +393,8 @@ const styles = StyleSheet.create({
   },
   statusRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   hostRow: {
     flexDirection: 'row',

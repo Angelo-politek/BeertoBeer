@@ -1,15 +1,17 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { ToastProvider } from '@/components/toast';
+import { updateUserCity } from '@/data/api';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useColors } from '@/hooks/use-colors';
 import { SessionProvider, useSession } from '@/lib/auth-context';
-import { CityProvider } from '@/lib/city-context';
+import { CityProvider, useCity } from '@/lib/city-context';
 import { registerForPushNotifications } from '@/lib/push-notifications';
 import { supabaseConfigError } from '@/lib/supabase';
 
@@ -45,6 +47,37 @@ function RootNavigator() {
     if (!session) return;
     registerForPushNotifications().catch(() => null);
   }, [session]);
+
+  // Sincronizza sul server la città selezionata (serve alle push "nuova
+  // richiesta in città"). Best-effort.
+  const { city, hasChosen } = useCity();
+  useEffect(() => {
+    if (!session || !hasChosen) return;
+    updateUserCity(city.key).catch(() => null);
+  }, [session, hasChosen, city.key]);
+
+  // Tap su una notifica → naviga al deep link in data.url (anche a freddo:
+  // getLastNotificationResponseAsync copre l'app aperta DALLA notifica).
+  const handledNotificationRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!session) return;
+
+    function handleResponse(response: Notifications.NotificationResponse) {
+      const id = response.notification.request.identifier;
+      if (handledNotificationRef.current === id) return; // anti doppio (cold start + listener)
+      handledNotificationRef.current = id;
+      const url = response.notification.request.content.data?.url;
+      if (typeof url === 'string' && url.startsWith('/')) {
+        router.push(url as never);
+      }
+    }
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      if (response) handleResponse(response);
+    });
+    const subscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
+    return () => subscription.remove();
+  }, [session, router]);
 
   if (loading) {
     return (

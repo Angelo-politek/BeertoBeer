@@ -6,14 +6,22 @@ import { Button } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useToast } from '@/components/toast';
 import { Spacing } from '@/constants/theme';
-import { deleteAdminReport, getAdminReports, type AdminReport } from '@/data/api';
+import {
+  adminSetOrderModeration,
+  adminSuspendUser,
+  deleteAdminReport,
+  getAdminReports,
+  type AdminReport,
+} from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { formatShortDate } from '@/lib/format';
 
 export default function AdminReportsScreen() {
   const c = useColors();
   const router = useRouter();
+  const toast = useToast();
   const mountedRef = useRef(true);
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +62,60 @@ export default function AdminReportsScreen() {
     }
   }
 
+  /** Approva la richiesta segnalata: torna nel feed, sospensione azzerata. */
+  async function handleApproveOrder(report: AdminReport) {
+    if (!report.orderId) return;
+    try {
+      await adminSetOrderModeration(report.orderId, 'ok');
+      await deleteAdminReport(report.id);
+      setReports((current) => current.filter((r) => r.id !== report.id));
+      toast.show('Richiesta approvata e ripubblicata');
+    } catch {
+      Alert.alert('Operazione non riuscita', 'Controlla i permessi admin o riprova.');
+    }
+  }
+
+  /** Rimuove definitivamente la richiesta segnalata. */
+  function handleRemoveOrder(report: AdminReport) {
+    if (!report.orderId) return;
+    Alert.alert('Rimuovere la richiesta?', 'La richiesta resterà nascosta dal feed in modo definitivo.', [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Rimuovi',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await adminSetOrderModeration(report.orderId as string, 'rimosso');
+            await deleteAdminReport(report.id);
+            setReports((current) => current.filter((r) => r.id !== report.id));
+            toast.show('Richiesta rimossa');
+          } catch {
+            Alert.alert('Operazione non riuscita', 'Controlla i permessi admin o riprova.');
+          }
+        },
+      },
+    ]);
+  }
+
+  /** Sospende l'utente segnalato per 48 ore (segnalazioni account). */
+  function handleSuspendUser(report: AdminReport) {
+    Alert.alert('Sospendere l’utente?', 'Non potrà creare nuove richieste per 48 ore.', [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Sospendi 48h',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await adminSuspendUser(report.reportedUserId, new Date(Date.now() + 48 * 3600 * 1000).toISOString());
+            toast.show('Utente sospeso per 48 ore');
+          } catch (e) {
+            Alert.alert('Operazione non riuscita', (e as { message?: string })?.message ?? 'Riprova.');
+          }
+        },
+      },
+    ]);
+  }
+
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Moderazione' }} />
@@ -85,21 +147,61 @@ export default function AdminReportsScreen() {
                 Da {item.reportingUser?.nome ?? 'utente'} · {formatShortDate(item.createdAt)}
               </ThemedText>
               <ThemedText>{item.motivo}</ThemedText>
-              {item.orderId ? <ThemedText style={{ color: c.textSecondary }}>Ordine: {item.orderId}</ThemedText> : null}
-              <View style={styles.actions}>
-                <Button
-                  label="Apri profilo"
-                  variant="secondary"
-                  onPress={() => router.push({ pathname: '/user/[id]', params: { id: item.reportedUserId } })}
-                  style={styles.actionButton}
-                />
-                <Button
-                  label="Archivia"
-                  variant="danger"
-                  onPress={() => void handleDismiss(item.id)}
-                  style={styles.actionButton}
-                />
-              </View>
+              {item.orderId ? (
+                <>
+                  <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+                    Segnalazione di una RICHIESTA (oscurata in attesa di verifica)
+                  </ThemedText>
+                  <View style={styles.actions}>
+                    <Button
+                      label="Apri richiesta"
+                      variant="secondary"
+                      onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.orderId as string } })}
+                      style={styles.actionButton}
+                    />
+                    <Button
+                      label="Apri profilo"
+                      variant="secondary"
+                      onPress={() => router.push({ pathname: '/user/[id]', params: { id: item.reportedUserId } })}
+                      style={styles.actionButton}
+                    />
+                  </View>
+                  <View style={styles.actions}>
+                    <Button
+                      label="✓ Approva"
+                      onPress={() => void handleApproveOrder(item)}
+                      style={styles.actionButton}
+                    />
+                    <Button
+                      label="Rimuovi"
+                      variant="danger"
+                      onPress={() => handleRemoveOrder(item)}
+                      style={styles.actionButton}
+                    />
+                  </View>
+                </>
+              ) : (
+                <View style={styles.actions}>
+                  <Button
+                    label="Apri profilo"
+                    variant="secondary"
+                    onPress={() => router.push({ pathname: '/user/[id]', params: { id: item.reportedUserId } })}
+                    style={styles.actionButton}
+                  />
+                  <Button
+                    label="Sospendi 48h"
+                    variant="danger"
+                    onPress={() => handleSuspendUser(item)}
+                    style={styles.actionButton}
+                  />
+                  <Button
+                    label="Archivia"
+                    variant="secondary"
+                    onPress={() => void handleDismiss(item.id)}
+                    style={styles.actionButton}
+                  />
+                </View>
+              )}
             </View>
           )}
         />

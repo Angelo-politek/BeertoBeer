@@ -1,17 +1,21 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AddShopModal } from '@/components/add-shop-modal';
 import { CityPicker } from '@/components/city-picker';
 import { EmptyState } from '@/components/empty-state';
+import { FeedMap } from '@/components/feed-map';
 import { RequestCard } from '@/components/request-card';
 import { SkeletonCard } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useToast } from '@/components/toast';
 import { Spacing } from '@/constants/theme';
-import { getRequests } from '@/data/api';
+import { addShop, deleteShop, getCurrentUser, getRequests, getShops, type Shop } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
+import { useSession } from '@/lib/auth-context';
 import { nearestCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
@@ -20,6 +24,8 @@ import type { BeerRequest } from '@/types';
 export default function FeedScreen() {
   const router = useRouter();
   const colors = useColors();
+  const toast = useToast();
+  const { session } = useSession();
   const { city, ready, hasChosen, setCityKey } = useCity();
   const [requests, setRequests] = useState<BeerRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +33,11 @@ export default function FeedScreen() {
   const [vibeOnly, setVibeOnly] = useState(false);
   const [coords, setCoords] = useState<Coords | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [shops, setShops] = useState<Shop[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [addShopOpen, setAddShopOpen] = useState(false);
+  const [addingShop, setAddingShop] = useState(false);
 
   const load = useCallback(
     async (asRefresh = false) => {
@@ -48,7 +59,15 @@ export default function FeedScreen() {
 
   useEffect(() => {
     getCurrentCoords().then(setCoords).catch(() => setCoords(null));
+    getCurrentUser()
+      .then((u) => setIsAdmin(!!u.isAdmin))
+      .catch(() => null);
   }, []);
+
+  // Negozi della città per la vista mappa.
+  useEffect(() => {
+    getShops(city.key).then(setShops).catch(() => setShops([]));
+  }, [city.key]);
 
   // Primo avvio senza città scelta: proponi quella più vicina al GPS.
   useEffect(() => {
@@ -73,6 +92,46 @@ export default function FeedScreen() {
       })
       .sort((a, b) => (a.distanzaKm ?? Number.MAX_VALUE) - (b.distanzaKm ?? Number.MAX_VALUE));
   }, [coords, requests, vibeOnly]);
+
+  async function handleAddShop(input: { nome: string; coords: Coords }) {
+    setAddingShop(true);
+    try {
+      await addShop({ nome: input.nome, citta: city.key, lat: input.coords.lat, lng: input.coords.lng });
+      setAddShopOpen(false);
+      setShops(await getShops(city.key));
+      toast.show('Negozio aggiunto alla mappa, grazie!');
+    } catch {
+      toast.show('Negozio non aggiunto, riprova', 'error');
+    } finally {
+      setAddingShop(false);
+    }
+  }
+
+  function handleShopPress(shop: Shop) {
+    const canDelete = isAdmin || shop.createdBy === session?.user.id;
+    Alert.alert(
+      `🏪 ${shop.nome}`,
+      'Negozio segnalato dalla community.',
+      canDelete
+        ? [
+            { text: 'Chiudi', style: 'cancel' },
+            {
+              text: 'Elimina',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await deleteShop(shop.id);
+                  setShops((current) => current.filter((s) => s.id !== shop.id));
+                  toast.show('Negozio eliminato');
+                } catch {
+                  toast.show('Eliminazione non riuscita', 'error');
+                }
+              },
+            },
+          ]
+        : [{ text: 'Chiudi', style: 'cancel' }],
+    );
+  }
 
   return (
     <ThemedView style={styles.container}>
@@ -102,6 +161,11 @@ export default function FeedScreen() {
             </ThemedText>
           </Pressable>
           <Pressable
+            onPress={() => setViewMode((mode) => (mode === 'list' ? 'map' : 'list'))}
+            style={[styles.filter, { borderColor: colors.border, backgroundColor: colors.surface }]}>
+            <ThemedText type="defaultSemiBold">{viewMode === 'list' ? '🗺 Mappa' : '☰ Lista'}</ThemedText>
+          </Pressable>
+          <Pressable
             onPress={() => setVibeOnly((value) => !value)}
             style={[
               styles.filter,
@@ -123,6 +187,15 @@ export default function FeedScreen() {
           <View style={styles.center}>
             <ThemedText style={{ color: colors.danger }}>{error}</ThemedText>
           </View>
+        ) : viewMode === 'map' ? (
+          <FeedMap
+            city={city}
+            requests={visibleRequests}
+            shops={shops}
+            onRequestPress={(id) => router.push({ pathname: '/request/[id]', params: { id } })}
+            onShopPress={handleShopPress}
+            onAddShop={() => setAddShopOpen(true)}
+          />
         ) : (
           <FlatList
             data={visibleRequests}
@@ -144,6 +217,14 @@ export default function FeedScreen() {
           />
         )}
       </SafeAreaView>
+
+      <AddShopModal
+        visible={addShopOpen}
+        city={city}
+        loading={addingShop}
+        onClose={() => setAddShopOpen(false)}
+        onSubmit={handleAddShop}
+      />
     </ThemedView>
   );
 }

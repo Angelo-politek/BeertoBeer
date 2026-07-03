@@ -93,6 +93,29 @@ alter table public.orders add column if not exists fascia text;
 alter table public.orders add column if not exists citta text;
 create index if not exists orders_citta_open_idx on public.orders (citta) where stato = 'richiesto';
 
+-- Città preferita dell'utente (sincronizzata dall'app): serve al fan-out delle
+-- push "nuova richiesta in città".
+alter table public.users add column if not exists citta text;
+create index if not exists users_citta_idx on public.users (citta);
+
+-- Sospensione temporanea (moderazione): finché è nel futuro l'utente non può
+-- creare nuove richieste (check nel trigger set_order_credits).
+alter table public.users add column if not exists sospeso_fino timestamptz;
+
+-- Moderazione richieste: 'oscurato' = nascosta dal feed in attesa di verifica
+-- admin; 'rimosso' = decisione definitiva. approvato_admin = true rende
+-- l'approvazione "sticky": segnalazioni successive non ri-oscurano (anti
+-- report-bombing).
+alter table public.orders add column if not exists stato_moderazione text not null default 'ok';
+alter table public.orders drop constraint if exists orders_stato_moderazione_chk;
+alter table public.orders add  constraint orders_stato_moderazione_chk
+  check (stato_moderazione in ('ok','oscurato','rimosso'));
+alter table public.orders add column if not exists approvato_admin boolean not null default false;
+
+-- Una sola segnalazione per utente per ordine (anti spam/report-bombing).
+create unique index if not exists reports_one_per_user_order
+  on public.reports (reporting_user_id, order_id) where order_id is not null;
+
 -- Blocchi utente: chi blocca non vede piu interazioni dirette con l'utente bloccato.
 create table if not exists public.blocks (
   id uuid primary key default gen_random_uuid(),
@@ -122,6 +145,32 @@ create table if not exists public.push_tokens (
   updated_at timestamptz not null default now()
 );
 
+-- Negozietti ("bangladini") mappati dalla community: chiunque può aggiungerne,
+-- creatore e admin possono rimuoverli.
+create table if not exists public.shops (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null check (char_length(trim(nome)) between 1 and 80),
+  citta text not null,
+  lat double precision not null,
+  lng double precision not null,
+  created_by uuid references public.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists shops_citta_idx on public.shops (citta);
+
+-- Chat diretta tra "connessioni" (persone con almeno uno scambio confermato
+-- insieme), indipendente dagli ordini. L'anima social/dating dell'app.
+create table if not exists public.direct_messages (
+  id uuid primary key default gen_random_uuid(),
+  from_user_id uuid not null references public.users(id) on delete cascade,
+  to_user_id   uuid not null references public.users(id) on delete cascade,
+  testo text not null check (char_length(trim(testo)) between 1 and 1000),
+  created_at timestamptz not null default now(),
+  check (from_user_id <> to_user_id)
+);
+create index if not exists direct_messages_pair_idx
+  on public.direct_messages ((least(from_user_id, to_user_id)), (greatest(from_user_id, to_user_id)), created_at);
+
 -- Vincoli di integrità dei crediti (idempotenti): niente offerte negative,
 -- niente saldi negativi. Sono la garanzia "dura" contro la creazione di crediti
 -- dal nulla o il furto via offerta negativa.
@@ -147,6 +196,8 @@ alter table public.reports             enable row level security;
 alter table public.blocks              enable row level security;
 alter table public.messages            enable row level security;
 alter table public.push_tokens         enable row level security;
+alter table public.shops               enable row level security;
+alter table public.direct_messages     enable row level security;
 
 -- USERS: ognuno può leggere e aggiornare la PROPRIA riga.
 -- (La lettura dei profili altrui — es. l'host nel feed — sarà aggiunta
@@ -167,7 +218,7 @@ create policy "users_update_own"
 -- le UPDATE dirette alle SOLE colonne di profilo. crediti_saldo / rating_medio si
 -- muovono esclusivamente dentro le funzioni SECURITY DEFINER (ledger non falsificabile).
 revoke update on public.users from anon, authenticated;
-grant  update (nome, bio, preferenze_birra, foto_url) on public.users to authenticated;
+grant  update (nome, bio, preferenze_birra, foto_url, citta) on public.users to authenticated;
 
 -- ORDERS:
 --  * lettura diretta della tabella: SOLO i partecipanti (host o driver), in
@@ -181,7 +232,12 @@ grant  update (nome, bio, preferenze_birra, foto_url) on public.users to authent
 drop policy if exists "orders_select" on public.orders;
 create policy "orders_select"
   on public.orders for select
-  using (host_id = auth.uid() or driver_id = auth.uid());
+  using (
+    host_id = auth.uid()
+    or driver_id = auth.uid()
+    -- gli admin aprono qualsiasi ordine (per gestire le segnalazioni dall'app)
+    or exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin)
+  );
 
 drop policy if exists "orders_insert" on public.orders;
 create policy "orders_insert"
@@ -252,6 +308,19 @@ create policy "blocks_delete_own"
   on public.blocks for delete
   using (blocker_user_id = auth.uid());
 
+-- Helper SECURITY DEFINER: esiste un blocco in QUALSIASI direzione tra a e b?
+-- Deve essere definer: una policy normale vede solo i blocchi del chiamante
+-- (blocks_select_own), quindi il "sono stato bloccato dall'altro" passerebbe
+-- silenziosamente.
+create or replace function public.pair_blocked(a uuid, b uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.blocks bl
+    where (bl.blocker_user_id = a and bl.blocked_user_id = b)
+       or (bl.blocker_user_id = b and bl.blocked_user_id = a)
+  );
+$$;
+
 -- MESSAGES: solo host e driver dell'ordine possono leggere/scrivere.
 drop policy if exists "messages_select_participants" on public.messages;
 create policy "messages_select_participants"
@@ -273,14 +342,8 @@ create policy "messages_insert_participants"
       where o.id = order_id
         and o.stato in ('accettato','in_consegna','consegnato','confermato')
         and (o.host_id = auth.uid() or o.driver_id = auth.uid())
-    )
-    and not exists (
-      select 1 from public.orders o
-      join public.blocks b on (
-        (b.blocker_user_id = o.host_id and b.blocked_user_id = o.driver_id)
-        or (b.blocker_user_id = o.driver_id and b.blocked_user_id = o.host_id)
-      )
-      where o.id = order_id
+        -- pair_blocked è SECURITY DEFINER: vede i blocchi di ENTRAMBE le direzioni
+        and not public.pair_blocked(o.host_id, coalesce(o.driver_id, o.host_id))
     )
   );
 
@@ -314,6 +377,57 @@ drop policy if exists "push_tokens_delete_own" on public.push_tokens;
 create policy "push_tokens_delete_own"
   on public.push_tokens for delete
   using (user_id = auth.uid());
+
+-- SHOPS: lettura per tutti gli autenticati; inserimento a proprio nome;
+-- cancellazione per il creatore o per gli admin.
+drop policy if exists "shops_select" on public.shops;
+create policy "shops_select"
+  on public.shops for select
+  using (auth.role() = 'authenticated');
+
+drop policy if exists "shops_insert_own" on public.shops;
+create policy "shops_insert_own"
+  on public.shops for insert
+  with check (created_by = auth.uid());
+
+drop policy if exists "shops_delete_own_or_admin" on public.shops;
+create policy "shops_delete_own_or_admin"
+  on public.shops for delete
+  using (
+    created_by = auth.uid()
+    or exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin)
+  );
+
+-- Due utenti sono "connessi" se hanno almeno uno scambio confermato insieme
+-- e nessun blocco in nessuna direzione. Gate della chat diretta.
+create or replace function public.pair_allowed(a uuid, b uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.orders o
+    where o.stato = 'confermato'
+      and ((o.host_id = a and o.driver_id = b) or (o.host_id = b and o.driver_id = a))
+  )
+  and not public.pair_blocked(a, b);
+$$;
+
+-- DIRECT MESSAGES: si legge se partecipanti; si scrive solo verso una connessione.
+drop policy if exists "direct_messages_select_participants" on public.direct_messages;
+create policy "direct_messages_select_participants"
+  on public.direct_messages for select
+  using (auth.uid() in (from_user_id, to_user_id));
+
+drop policy if exists "direct_messages_insert_connected" on public.direct_messages;
+create policy "direct_messages_insert_connected"
+  on public.direct_messages for insert
+  with check (from_user_id = auth.uid() and public.pair_allowed(from_user_id, to_user_id));
+
+-- Realtime per la chat diretta (stesso pattern di messages).
+do $$
+begin
+  alter publication supabase_realtime add table public.direct_messages;
+exception
+  when duplicate_object then null;
+end $$;
 
 -- ============================================================
 -- Profili pubblici
@@ -370,9 +484,15 @@ select
   host_confermato,
   driver_confermato,
   created_at,
-  citta
+  citta,
+  stato_moderazione
 from public.orders
-where stato = 'richiesto';
+where stato = 'richiesto'
+  -- fuori dal feed: richieste oscurate/rimosse dalla moderazione
+  and stato_moderazione = 'ok'
+  -- fuori dal feed: richieste aperte da più di 12 ore (restano in "I miei ordini";
+  -- mirror client: REQUEST_TTL_HOURS in lib/orders.ts)
+  and created_at > now() - interval '12 hours';
 
 grant select on public.open_requests to authenticated;
 
@@ -542,17 +662,47 @@ drop index if exists reviews_order_from_unique;
 create unique index if not exists reviews_order_from_unique
   on public.reviews(order_id, from_user_id);
 
--- Trigger best-effort: invoca l'edge function send-push quando pg_net è presente.
--- L'URL del progetto non è un segreto e sta hardcoded qui: ALTER DATABASE (per
--- passare la config via current_setting) non è permesso sui progetti Supabase
--- hosted. La edge function va deployata con "Enforce JWT verification" OFF:
--- nessuna chiave nel database. Hardening futuro: spostare la chiamata su un
--- token letto da Supabase Vault e riattivare la verifica.
+-- ============================================================
+-- Notifiche push — infrastruttura e trigger
+-- Tutte le push passano da push_to_users → edge function send-push (payload
+-- {userIds, title, body, url}). Best-effort SEMPRE: nessun flusso applicativo
+-- deve fallire perché la push non parte (pg_net assente, edge function giù...).
+-- L'URL del progetto non è un segreto e sta hardcoded qui: ALTER DATABASE non è
+-- permesso sui progetti Supabase hosted. La edge function va deployata con
+-- "Enforce JWT verification" OFF. Hardening futuro: token da Vault + verifica ON.
+-- ============================================================
+create or replace function public.push_to_users(
+  p_user_ids uuid[],
+  p_title text,
+  p_body text,
+  p_url text
+)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_url constant text := 'https://kjxahufzseybvxtfsiwu.supabase.co';
+begin
+  if p_user_ids is null or array_length(p_user_ids, 1) is null then return; end if;
+  begin
+    perform net.http_post(
+      url := v_url || '/functions/v1/send-push',
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body := jsonb_build_object(
+        'userIds', to_jsonb(p_user_ids),
+        'title', p_title,
+        'body', p_body,
+        'url', p_url
+      )
+    );
+  exception when others then
+    null;
+  end;
+end; $$;
+
+-- Nuovo messaggio nella chat di un ordine → push all'altro partecipante.
 create or replace function public.notify_new_message()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_receiver uuid;
-  v_url constant text := 'https://kjxahufzseybvxtfsiwu.supabase.co';
 begin
   select case when o.host_id = new.sender_id then o.driver_id else o.host_id end
     into v_receiver
@@ -560,18 +710,8 @@ begin
     where o.id = new.order_id;
 
   if v_receiver is null then return new; end if;
-
-  begin
-    perform net.http_post(
-      url := v_url || '/functions/v1/send-push',
-      headers := jsonb_build_object('Content-Type', 'application/json'),
-      body := jsonb_build_object('userId', v_receiver, 'orderId', new.order_id, 'message', new.testo)
-    );
-  exception when undefined_function or invalid_schema_name then
-    -- pg_net non abilitata: la chat funziona comunque, solo senza push.
-    null;
-  end;
-
+  perform public.push_to_users(
+    array[v_receiver], 'Nuovo messaggio', left(new.testo, 120), '/chat/' || new.order_id);
   return new;
 end; $$;
 
@@ -579,6 +719,227 @@ drop trigger if exists on_message_send_push on public.messages;
 create trigger on_message_send_push
   after insert on public.messages
   for each row execute function public.notify_new_message();
+
+-- Nuovo messaggio diretto (connessioni) → push al destinatario.
+create or replace function public.notify_direct_message()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_sender text;
+begin
+  select nome into v_sender from public.users where id = new.from_user_id;
+  perform public.push_to_users(
+    array[new.to_user_id],
+    coalesce(v_sender, 'Nuovo messaggio'),
+    left(new.testo, 120),
+    '/chat/direct/' || new.from_user_id);
+  return new;
+end; $$;
+
+drop trigger if exists on_direct_message_push on public.direct_messages;
+create trigger on_direct_message_push
+  after insert on public.direct_messages
+  for each row execute function public.notify_direct_message();
+
+-- Cambio stato ordine → push alla controparte interessata.
+create or replace function public.notify_order_status()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.stato is not distinct from old.stato then return new; end if;
+
+  if new.stato = 'accettato' then
+    perform public.push_to_users(array[new.host_id],
+      'Richiesta accettata 🍺', 'Un driver ha preso in carico la tua richiesta.',
+      '/request/' || new.id);
+  elsif new.stato = 'in_consegna' then
+    perform public.push_to_users(array[new.host_id],
+      'Birre in viaggio', 'Il driver è partito: le tue birre sono in consegna.',
+      '/request/' || new.id);
+  elsif new.stato = 'consegnato' then
+    perform public.push_to_users(array[new.host_id],
+      'Consegna effettuata', 'Conferma lo scambio per chiudere e trasferire i crediti.',
+      '/request/' || new.id);
+  elsif new.stato = 'confermato' and new.driver_id is not null then
+    perform public.push_to_users(array[new.host_id, new.driver_id],
+      'Scambio completato ✅', 'Crediti trasferiti. Lascia una recensione!',
+      '/request/' || new.id);
+  end if;
+
+  return new;
+end; $$;
+
+drop trigger if exists on_order_status_push on public.orders;
+create trigger on_order_status_push
+  after update of stato on public.orders
+  for each row execute function public.notify_order_status();
+
+-- Nuova richiesta pubblicata → push a tutti gli utenti della stessa città
+-- (max 1 push per richiesta by construction: AFTER INSERT scatta una volta).
+-- Esclusi: l'host stesso e le coppie con un blocco in qualsiasi direzione.
+create or replace function public.notify_new_request()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_ids uuid[];
+begin
+  if new.citta is null then return new; end if;
+
+  select array_agg(u.id) into v_ids
+    from public.users u
+    where u.citta = new.citta
+      and u.id <> new.host_id
+      and not public.pair_blocked(u.id, new.host_id);
+
+  perform public.push_to_users(v_ids,
+    '🍺 Qualcuno ha bisogno di birre!',
+    'Nuova richiesta a ' || initcap(new.citta) || ': apri per i dettagli.',
+    '/request/' || new.id);
+  return new;
+end; $$;
+
+drop trigger if exists on_order_new_push on public.orders;
+create trigger on_order_new_push
+  after insert on public.orders
+  for each row execute function public.notify_new_request();
+
+-- ============================================================
+-- Moderazione — trigger segnalazioni e RPC admin
+-- Segnalazione di una RICHIESTA: oscuramento immediato dal feed + sospensione
+-- 48h dell'host (solo creazione nuove richieste) + push agli admin. L'admin poi
+-- approva (torna nel feed, sospensione azzerata, approvazione sticky) o rimuove.
+-- Segnalazione di un ACCOUNT: nessuna auto-azione, solo push agli admin.
+-- ============================================================
+create or replace function public.handle_new_report()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_host uuid;
+  v_stato text;
+  v_approvato boolean;
+  v_admins uuid[];
+begin
+  if new.order_id is not null then
+    select host_id, stato, approvato_admin into v_host, v_stato, v_approvato
+      from public.orders where id = new.order_id;
+    -- auto-oscuramento solo se: il segnalato è l'host, l'ordine è ancora aperto
+    -- e un admin non l'ha già approvato in passato (anti report-bombing).
+    if v_host = new.reported_user_id and v_stato = 'richiesto' and not v_approvato then
+      update public.orders
+        set stato_moderazione = 'oscurato', updated_at = now()
+        where id = new.order_id;
+      update public.users
+        set sospeso_fino = now() + interval '48 hours'
+        where id = new.reported_user_id;
+    end if;
+  end if;
+
+  select array_agg(id) into v_admins from public.users where is_admin;
+  perform public.push_to_users(v_admins,
+    '⚠️ Nuova segnalazione',
+    case when new.order_id is not null
+      then 'Una richiesta è stata segnalata e oscurata: verifica dal pannello.'
+      else 'Un utente è stato segnalato: verifica dal pannello.' end,
+    '/admin/reports');
+  return new;
+end; $$;
+
+drop trigger if exists on_report_created on public.reports;
+create trigger on_report_created
+  after insert on public.reports
+  for each row execute function public.handle_new_report();
+
+-- Approva ('ok') o rimuove ('rimosso') una richiesta segnalata.
+create or replace function public.admin_set_order_moderation(p_order_id uuid, p_stato text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_host uuid;
+begin
+  if not exists (select 1 from public.users where id = auth.uid() and is_admin) then
+    raise exception 'Operazione riservata agli admin';
+  end if;
+  if p_stato not in ('ok', 'rimosso') then
+    raise exception 'Stato moderazione non valido';
+  end if;
+
+  select host_id into v_host from public.orders where id = p_order_id;
+  if not found then raise exception 'Ordine inesistente'; end if;
+
+  if p_stato = 'ok' then
+    update public.orders
+      set stato_moderazione = 'ok', approvato_admin = true, updated_at = now()
+      where id = p_order_id;
+    -- la segnalazione era infondata: azzera la sospensione dell'host
+    update public.users set sospeso_fino = null
+      where id = v_host and sospeso_fino > now();
+  else
+    update public.orders
+      set stato_moderazione = 'rimosso', updated_at = now()
+      where id = p_order_id;
+  end if;
+end; $$;
+
+-- Sospende (o riattiva con p_until = null) un utente. Mai contro un admin.
+create or replace function public.admin_suspend_user(p_user_id uuid, p_until timestamptz)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.users where id = auth.uid() and is_admin) then
+    raise exception 'Operazione riservata agli admin';
+  end if;
+  if exists (select 1 from public.users where id = p_user_id and is_admin) then
+    raise exception 'Non puoi sospendere un account admin';
+  end if;
+  update public.users set sospeso_fino = p_until where id = p_user_id;
+  if not found then raise exception 'Utente inesistente'; end if;
+end; $$;
+
+-- Lista utenti per il pannello admin: include l'email (da auth.users, leggibile
+-- solo qui grazie a SECURITY DEFINER) e i contatori richieste/consegne.
+create or replace function public.admin_list_users()
+returns table (
+  id uuid,
+  nome text,
+  email text,
+  citta text,
+  crediti_saldo integer,
+  rating_medio numeric,
+  is_admin boolean,
+  sospeso_fino timestamptz,
+  created_at timestamptz,
+  n_richieste bigint,
+  n_consegne bigint
+) language plpgsql stable security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin) then
+    raise exception 'Operazione riservata agli admin';
+  end if;
+  return query
+    select u.id, u.nome, au.email::text, u.citta, u.crediti_saldo, u.rating_medio,
+           u.is_admin, u.sospeso_fino, u.created_at,
+           (select count(*) from public.orders o where o.host_id = u.id) as n_richieste,
+           (select count(*) from public.orders o where o.driver_id = u.id and o.stato = 'confermato') as n_consegne
+    from public.users u
+    join auth.users au on au.id = u.id
+    order by u.created_at desc;
+end; $$;
+
+-- Elimina definitivamente un account (cascata su tutti i suoi dati). Rifiutato
+-- per gli admin (copre anche auto-eliminazione) e per chi ha consegne in corso.
+create or replace function public.admin_delete_user(p_user_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.users where id = auth.uid() and is_admin) then
+    raise exception 'Operazione riservata agli admin';
+  end if;
+  if exists (select 1 from public.users where id = p_user_id and is_admin) then
+    raise exception 'Non puoi eliminare un account admin';
+  end if;
+  if exists (
+    select 1 from public.orders
+    where (host_id = p_user_id or driver_id = p_user_id)
+      and stato in ('accettato', 'in_consegna', 'consegnato')
+  ) then
+    raise exception 'L''utente ha consegne in corso: chiudile o annullale prima di eliminarlo';
+  end if;
+  delete from auth.users where id = p_user_id;
+  if not found then raise exception 'Utente inesistente'; end if;
+end; $$;
 
 -- ============================================================
 -- Calcolo automatico dei crediti (peso alla creazione + bonus distanza all'accettazione)
@@ -640,7 +1001,15 @@ create or replace function public.set_order_credits()
 returns trigger language plpgsql as $$
 declare
   v_saldo integer;
+  v_sospeso timestamptz;
 begin
+  -- Moderazione: un utente sospeso non può creare nuove richieste.
+  select sospeso_fino into v_sospeso from public.users where id = new.host_id;
+  if v_sospeso > now() then
+    raise exception 'Account sospeso fino al % per una segnalazione in verifica',
+      to_char(v_sospeso, 'DD/MM HH24:MI');
+  end if;
+
   new.crediti_offerti := public.credits_for_weight(new.lista_birre);
 
   select crediti_saldo into v_saldo from public.users where id = new.host_id;

@@ -21,6 +21,8 @@ type Props = {
   reason: ReportReason;
   details: string;
   loading?: boolean;
+  /** Titolo della modale (default: "Segnala utente"). */
+  title?: string;
   onReasonChange: (reason: ReportReason) => void;
   onDetailsChange: (details: string) => void;
   onClose: () => void;
@@ -32,6 +34,7 @@ export function ReportModal({
   reason,
   details,
   loading,
+  title = 'Segnala utente',
   onReasonChange,
   onDetailsChange,
   onClose,
@@ -43,7 +46,7 @@ export function ReportModal({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.sheet, { backgroundColor: c.background }]}>
-          <ThemedText type="subtitle">Segnala utente</ThemedText>
+          <ThemedText type="subtitle">{title}</ThemedText>
           <View style={styles.reasons}>
             {REASONS.map((item) => {
               const active = item.value === reason;

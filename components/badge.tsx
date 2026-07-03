@@ -4,14 +4,14 @@ import { useColors } from '@/hooks/use-colors';
 
 type Props = {
   label: string;
-  /** 'accent' = pillola colorata (es. vibe mode); 'neutral' = grigia */
-  tone?: 'accent' | 'neutral';
+  /** 'accent' = pillola colorata (es. vibe mode); 'neutral' = grigia; 'danger' = rossa */
+  tone?: 'accent' | 'neutral' | 'danger';
 };
 
 export function Badge({ label, tone = 'neutral' }: Props) {
   const c = useColors();
-  const backgroundColor = tone === 'accent' ? c.accent : c.border;
-  const color = tone === 'accent' ? c.accentText : c.text;
+  const backgroundColor = tone === 'accent' ? c.accent : tone === 'danger' ? c.danger : c.border;
+  const color = tone === 'accent' || tone === 'danger' ? c.accentText : c.text;
 
   return (
     <View style={[styles.badge, { backgroundColor }]}>

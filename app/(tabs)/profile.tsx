@@ -171,22 +171,35 @@ export default function ProfileScreen() {
             )}
           </View>
 
-          {/* Modifica profilo */}
+          {/* Modifica profilo + connessioni */}
           <Button label="Modifica profilo" variant="secondary" onPress={() => router.push('/edit-profile')} />
+          <Button
+            label="💬 Le mie connessioni"
+            variant="secondary"
+            onPress={() => router.push('/connections' as never)}
+          />
 
           {/* Moderazione — visibile solo agli admin (flag privato is_admin) */}
           {user.isAdmin ? (
-            <Button
-              label="Pannello segnalazioni"
-              variant="secondary"
-              onPress={() => router.push('/admin/reports' as never)}
-            />
+            <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
+              <ThemedText type="defaultSemiBold">Amministrazione</ThemedText>
+              <Button
+                label="Pannello segnalazioni"
+                variant="secondary"
+                onPress={() => router.push('/admin/reports' as never)}
+              />
+              <Button
+                label="Utenti registrati"
+                variant="secondary"
+                onPress={() => router.push('/admin/users' as never)}
+              />
+            </View>
           ) : null}
 
           <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
             <ThemedText type="defaultSemiBold">Aggiornamenti beta</ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>
-              Le build preview e production scaricano gli update JS senza rifare l'APK.
+              Le build preview e production scaricano gli update JS senza rifare l’APK.
             </ThemedText>
             {updateMessage ? <ThemedText style={{ color: c.textSecondary }}>{updateMessage}</ThemedText> : null}
             <Button

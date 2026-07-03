@@ -92,7 +92,7 @@ export default function ReviewScreen() {
           <View style={styles.header}>
             <Avatar name={context.target.nome} uri={context.target.fotoUrl} size={82} />
             <ThemedText type="title">{context.target.nome}</ThemedText>
-            <ThemedText style={{ color: c.textSecondary }}>Com'è andato lo scambio?</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>Com’è andato lo scambio?</ThemedText>
           </View>
           <View style={styles.ratingWrap}>
             <StarRating value={rating} onChange={setRating} size={42} />

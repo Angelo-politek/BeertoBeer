@@ -10,7 +10,7 @@ import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { getMyOrders } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
-import { STATO_LABEL } from '@/lib/orders';
+import { isExpired, STATO_LABEL } from '@/lib/orders';
 import type { BeerRequest } from '@/types';
 
 export default function MyOrdersScreen() {
@@ -88,6 +88,15 @@ export default function MyOrdersScreen() {
           renderItem={({ item }) => {
             const isHost = item.host.id === myId;
             const birreLabel = item.birre.map((b) => `${b.quantita}× ${b.nome}`).join(' · ');
+            // Stati speciali: moderazione e scadenza vincono sull'etichetta di stato.
+            const badge =
+              item.statoModerazione === 'rimosso'
+                ? { label: 'Rimossa', tone: 'danger' as const }
+                : item.statoModerazione === 'oscurato'
+                  ? { label: 'In verifica', tone: 'danger' as const }
+                  : isExpired(item)
+                    ? { label: 'Scaduta', tone: 'neutral' as const }
+                    : { label: STATO_LABEL[item.stato], tone: 'accent' as const };
             return (
               <Pressable
                 onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })}
@@ -99,7 +108,7 @@ export default function MyOrdersScreen() {
                   <ThemedText type="defaultSemiBold">
                     {isHost ? 'La tua richiesta' : `Consegna per ${item.host.nome}`}
                   </ThemedText>
-                  <Badge label={STATO_LABEL[item.stato]} tone="accent" />
+                  <Badge label={badge.label} tone={badge.tone} />
                 </View>
                 <ThemedText style={{ color: c.textSecondary }}>{birreLabel}</ThemedText>
                 <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>
