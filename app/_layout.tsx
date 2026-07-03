@@ -1,4 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -14,6 +15,14 @@ import { SessionProvider, useSession } from '@/lib/auth-context';
 import { CityProvider, useCity } from '@/lib/city-context';
 import { registerForPushNotifications } from '@/lib/push-notifications';
 import { supabaseConfigError } from '@/lib/supabase';
+
+// Crash & error monitoring (solo build release: in dev gli errori si vedono
+// già in console). Il DSN non è un segreto.
+Sentry.init({
+  dsn: 'https://a68771bbdcf8ffd303f083cf35279982@o4511671935959040.ingest.de.sentry.io/4511671940808784',
+  enabled: !__DEV__,
+  tracesSampleRate: 0.2,
+});
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -95,7 +104,7 @@ function RootNavigator() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const colorScheme = useColorScheme();
 
   if (supabaseConfigError) {
@@ -123,6 +132,8 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);
 
 const styles = StyleSheet.create({
   loader: {

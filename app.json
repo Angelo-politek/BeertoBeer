@@ -2,7 +2,7 @@
   "expo": {
     "name": "Beer to Beer",
     "slug": "beer-to-beer",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "beertobeer",
@@ -70,7 +70,8 @@
           "color": "#C77D0E",
           "defaultChannel": "messages"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,
