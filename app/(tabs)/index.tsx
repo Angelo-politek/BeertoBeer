@@ -93,13 +93,19 @@ export default function FeedScreen() {
       .sort((a, b) => (a.distanzaKm ?? Number.MAX_VALUE) - (b.distanzaKm ?? Number.MAX_VALUE));
   }, [coords, requests, vibeOnly]);
 
-  async function handleAddShop(input: { nome: string; coords: Coords }) {
+  async function handleAddShop(input: { nome: string; coords: Coords; orari?: string }) {
     setAddingShop(true);
     try {
-      await addShop({ nome: input.nome, citta: city.key, lat: input.coords.lat, lng: input.coords.lng });
+      await addShop({
+        nome: input.nome,
+        citta: city.key,
+        lat: input.coords.lat,
+        lng: input.coords.lng,
+        orari: input.orari,
+      });
       setAddShopOpen(false);
       setShops(await getShops(city.key));
-      toast.show('Negozio aggiunto alla mappa, grazie!');
+      toast.show('Negozio proposto: sarà visibile dopo l’approvazione');
     } catch {
       toast.show('Negozio non aggiunto, riprova', 'error');
     } finally {
@@ -107,30 +113,23 @@ export default function FeedScreen() {
     }
   }
 
-  function handleShopPress(shop: Shop) {
-    const canDelete = isAdmin || shop.createdBy === session?.user.id;
-    Alert.alert(
-      `🏪 ${shop.nome}`,
-      'Negozio segnalato dalla community.',
-      canDelete
-        ? [
-            { text: 'Chiudi', style: 'cancel' },
-            {
-              text: 'Elimina',
-              style: 'destructive',
-              onPress: async () => {
-                try {
-                  await deleteShop(shop.id);
-                  setShops((current) => current.filter((s) => s.id !== shop.id));
-                  toast.show('Negozio eliminato');
-                } catch {
-                  toast.show('Eliminazione non riuscita', 'error');
-                }
-              },
-            },
-          ]
-        : [{ text: 'Chiudi', style: 'cancel' }],
-    );
+  function handleDeleteShop(shop: Shop) {
+    Alert.alert(`Eliminare "${shop.nome}"?`, 'Il negozio sparirà dalla mappa.', [
+      { text: 'Annulla', style: 'cancel' },
+      {
+        text: 'Elimina',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteShop(shop.id);
+            setShops((current) => current.filter((s) => s.id !== shop.id));
+            toast.show('Negozio eliminato');
+          } catch {
+            toast.show('Eliminazione non riuscita', 'error');
+          }
+        },
+      },
+    ]);
   }
 
   return (
@@ -192,8 +191,9 @@ export default function FeedScreen() {
             city={city}
             requests={visibleRequests}
             shops={shops}
-            onRequestPress={(id) => router.push({ pathname: '/request/[id]', params: { id } })}
-            onShopPress={handleShopPress}
+            onOpenRequest={(id) => router.push({ pathname: '/request/[id]', params: { id } })}
+            canDeleteShop={(shop) => isAdmin || shop.createdBy === session?.user.id}
+            onDeleteShop={handleDeleteShop}
             onAddShop={() => setAddShopOpen(true)}
           />
         ) : (

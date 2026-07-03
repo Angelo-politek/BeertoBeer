@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
@@ -9,7 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
 import { Spacing } from '@/constants/theme';
-import { adminDeleteUser, adminListUsers, adminSuspendUser, type AdminUser } from '@/data/api';
+import { adminAdjustCredits, adminDeleteUser, adminListUsers, adminSuspendUser, type AdminUser } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { formatShortDate } from '@/lib/format';
 import { getCity } from '@/lib/cities';
@@ -23,6 +23,10 @@ export default function AdminUsersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [creditTarget, setCreditTarget] = useState<AdminUser | null>(null);
+  const [creditDelta, setCreditDelta] = useState('');
+  const [creditMotivo, setCreditMotivo] = useState('');
+  const [creditLoading, setCreditLoading] = useState(false);
 
   const load = useCallback(async (asRefresh = false) => {
     if (asRefresh) setRefreshing(true);
@@ -83,6 +87,32 @@ export default function AdminUsersScreen() {
         },
       ],
     );
+  }
+
+  async function handleAdjustCredits() {
+    if (!creditTarget) return;
+    const delta = Number(creditDelta);
+    if (!Number.isInteger(delta) || delta === 0) {
+      Alert.alert('Valore non valido', 'Inserisci un numero intero diverso da zero (es. 5 o -3).');
+      return;
+    }
+    setCreditLoading(true);
+    try {
+      await adminAdjustCredits(creditTarget.id, delta, creditMotivo.trim() || undefined);
+      toast.show(
+        delta > 0
+          ? `+${delta} crediti a ${creditTarget.nome}`
+          : `${delta} crediti a ${creditTarget.nome}`,
+      );
+      setCreditTarget(null);
+      setCreditDelta('');
+      setCreditMotivo('');
+      load(true);
+    } catch (e) {
+      Alert.alert('Operazione non riuscita', (e as { message?: string })?.message ?? 'Riprova.');
+    } finally {
+      setCreditLoading(false);
+    }
   }
 
   function handleDelete(user: AdminUser) {
@@ -160,26 +190,77 @@ export default function AdminUsersScreen() {
                   ? ` · sospeso fino al ${new Date(item.sospesoFino as string).toLocaleString('it-IT', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}`
                   : ''}
               </ThemedText>
-              {!item.isAdmin ? (
-                <View style={styles.actions}>
-                  <Button
-                    label={isSuspended(item) ? 'Riattiva' : 'Sospendi 48h'}
-                    variant="secondary"
-                    onPress={() => handleSuspend(item)}
-                    style={styles.actionButton}
-                  />
-                  <Button
-                    label="Elimina"
-                    variant="danger"
-                    onPress={() => handleDelete(item)}
-                    style={styles.actionButton}
-                  />
-                </View>
-              ) : null}
+              <View style={styles.actions}>
+                <Button
+                  label="Crediti ±"
+                  variant="secondary"
+                  onPress={() => setCreditTarget(item)}
+                  style={styles.actionButton}
+                />
+                {!item.isAdmin ? (
+                  <>
+                    <Button
+                      label={isSuspended(item) ? 'Riattiva' : 'Sospendi 48h'}
+                      variant="secondary"
+                      onPress={() => handleSuspend(item)}
+                      style={styles.actionButton}
+                    />
+                    <Button
+                      label="Elimina"
+                      variant="danger"
+                      onPress={() => handleDelete(item)}
+                      style={styles.actionButton}
+                    />
+                  </>
+                ) : null}
+              </View>
             </View>
           )}
         />
       )}
+
+      {/* Rettifica crediti (tracciata nel ledger con tipo 'admin') */}
+      <Modal visible={creditTarget != null} transparent animationType="fade" onRequestClose={() => setCreditTarget(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setCreditTarget(null)}>
+          <Pressable style={[styles.sheet, { backgroundColor: c.background }]}>
+            <ThemedText type="subtitle">Crediti di {creditTarget?.nome}</ThemedText>
+            <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+              Saldo attuale: {creditTarget?.creditiSaldo} crediti. Inserisci la variazione (positiva per
+              accreditare, negativa per togliere). Il movimento finisce nel ledger.
+            </ThemedText>
+            <TextInput
+              value={creditDelta}
+              onChangeText={(t) => setCreditDelta(t.replace(/[^0-9-]/g, ''))}
+              placeholder="Es. 5 oppure -3"
+              placeholderTextColor={c.textSecondary}
+              keyboardType="numbers-and-punctuation"
+              style={[styles.search, { color: c.text, borderColor: c.border, backgroundColor: c.surface }]}
+            />
+            <TextInput
+              value={creditMotivo}
+              onChangeText={setCreditMotivo}
+              placeholder="Motivo (facoltativo, es. bonus evento)"
+              placeholderTextColor={c.textSecondary}
+              style={[styles.search, { color: c.text, borderColor: c.border, backgroundColor: c.surface }]}
+            />
+            <View style={styles.actions}>
+              <Button
+                label="Annulla"
+                variant="secondary"
+                onPress={() => setCreditTarget(null)}
+                disabled={creditLoading}
+                style={styles.actionButton}
+              />
+              <Button
+                label="Applica"
+                onPress={() => void handleAdjustCredits()}
+                loading={creditLoading}
+                style={styles.actionButton}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ThemedView>
   );
 }
@@ -201,4 +282,15 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   actions: { flexDirection: 'row', gap: Spacing.sm, marginTop: Spacing.xs },
   actionButton: { flex: 1 },
+  backdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: Spacing.md,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  sheet: {
+    borderRadius: 14,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
 });

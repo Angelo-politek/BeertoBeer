@@ -179,21 +179,13 @@ export default function ProfileScreen() {
             onPress={() => router.push('/connections' as never)}
           />
 
-          {/* Moderazione — visibile solo agli admin (flag privato is_admin) */}
+          {/* Amministrazione — visibile solo agli admin (flag privato is_admin) */}
           {user.isAdmin ? (
-            <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <ThemedText type="defaultSemiBold">Amministrazione</ThemedText>
-              <Button
-                label="Pannello segnalazioni"
-                variant="secondary"
-                onPress={() => router.push('/admin/reports' as never)}
-              />
-              <Button
-                label="Utenti registrati"
-                variant="secondary"
-                onPress={() => router.push('/admin/users' as never)}
-              />
-            </View>
+            <Button
+              label="🛡 Pannello amministrazione"
+              variant="secondary"
+              onPress={() => router.push('/admin' as never)}
+            />
           ) : null}
 
           <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>

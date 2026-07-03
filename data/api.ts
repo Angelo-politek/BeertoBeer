@@ -644,6 +644,10 @@ export type Shop = {
   lat: number;
   lng: number;
   createdBy: string | null;
+  /** 'in_attesa' (visibile solo al creatore e agli admin) | 'approvato' | 'rimosso' */
+  stato: string;
+  /** orari stimati segnalati dagli utenti (testo libero) */
+  orari: string | null;
 };
 
 type ShopRow = {
@@ -653,31 +657,50 @@ type ShopRow = {
   lat: number;
   lng: number;
   created_by: string | null;
+  stato: string;
+  orari: string | null;
 };
 
-export async function getShops(citta: string): Promise<Shop[]> {
-  const { data, error } = await supabase
-    .from('shops')
-    .select('id, nome, citta, lat, lng, created_by')
-    .eq('citta', citta);
-  if (error) throw error;
-  return ((data ?? []) as ShopRow[]).map((r) => ({
+const SHOP_COLUMNS = 'id, nome, citta, lat, lng, created_by, stato, orari';
+
+function mapShop(r: ShopRow): Shop {
+  return {
     id: r.id,
     nome: r.nome,
     citta: r.citta,
     lat: r.lat,
     lng: r.lng,
     createdBy: r.created_by,
-  }));
+    stato: r.stato,
+    orari: r.orari,
+  };
 }
 
-export async function addShop(input: { nome: string; citta: string; lat: number; lng: number }): Promise<void> {
+/** Negozi visibili nella città (la RLS mostra: approvati + i propri in attesa; admin tutto). */
+export async function getShops(citta: string): Promise<Shop[]> {
+  const { data, error } = await supabase
+    .from('shops')
+    .select(SHOP_COLUMNS)
+    .eq('citta', citta)
+    .neq('stato', 'rimosso');
+  if (error) throw error;
+  return ((data ?? []) as ShopRow[]).map(mapShop);
+}
+
+export async function addShop(input: {
+  nome: string;
+  citta: string;
+  lat: number;
+  lng: number;
+  orari?: string;
+}): Promise<void> {
   const id = await requireUserId();
   const { error } = await supabase.from('shops').insert({
     nome: input.nome.trim(),
     citta: input.citta,
     lat: input.lat,
     lng: input.lng,
+    orari: input.orari?.trim() || null,
     created_by: id,
   });
   if (error) throw error;
@@ -857,4 +880,66 @@ export async function adminDeleteUser(userId: string): Promise<void> {
 export async function adminSetOrderModeration(orderId: string, stato: 'ok' | 'rimosso'): Promise<void> {
   const { error } = await supabase.rpc('admin_set_order_moderation', { p_order_id: orderId, p_stato: stato });
   if (error) throw error;
+}
+
+/** Tutti i negozi (admin: la RLS mostra ogni stato), per il pannello moderazione. */
+export async function adminListShops(): Promise<Shop[]> {
+  const { data, error } = await supabase
+    .from('shops')
+    .select(SHOP_COLUMNS)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as ShopRow[]).map(mapShop);
+}
+
+export async function adminSetShopStato(shopId: string, stato: 'approvato' | 'rimosso'): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_shop_stato', { p_shop_id: shopId, p_stato: stato });
+  if (error) throw error;
+}
+
+/** Rettifica manuale dei crediti (delta positivo o negativo), tracciata nel ledger. */
+export async function adminAdjustCredits(userId: string, delta: number, motivo?: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_adjust_credits', {
+    p_user_id: userId,
+    p_delta: delta,
+    p_motivo: motivo ?? null,
+  });
+  if (error) throw error;
+}
+
+export type AdminStats = {
+  utentiTotali: number;
+  utentiSospesi: number;
+  utentiPerCitta: Record<string, number>;
+  creditiTotali: number;
+  creditiPerCitta: Record<string, number>;
+  richiesteAperte: number;
+  ordiniInCorso: number;
+  scambiCompletati: number;
+  creditiScambiati7g: number;
+  richiesteOscurate: number;
+  negoziInAttesa: number;
+  negoziApprovati: number;
+  segnalazioniAperte: number;
+};
+
+export async function adminDashboardStats(): Promise<AdminStats> {
+  const { data, error } = await supabase.rpc('admin_dashboard_stats');
+  if (error) throw error;
+  const raw = data as Record<string, unknown>;
+  return {
+    utentiTotali: Number(raw.utenti_totali ?? 0),
+    utentiSospesi: Number(raw.utenti_sospesi ?? 0),
+    utentiPerCitta: (raw.utenti_per_citta ?? {}) as Record<string, number>,
+    creditiTotali: Number(raw.crediti_totali ?? 0),
+    creditiPerCitta: (raw.crediti_per_citta ?? {}) as Record<string, number>,
+    richiesteAperte: Number(raw.richieste_aperte ?? 0),
+    ordiniInCorso: Number(raw.ordini_in_corso ?? 0),
+    scambiCompletati: Number(raw.scambi_completati ?? 0),
+    creditiScambiati7g: Number(raw.crediti_scambiati_7g ?? 0),
+    richiesteOscurate: Number(raw.richieste_oscurate ?? 0),
+    negoziInAttesa: Number(raw.negozi_in_attesa ?? 0),
+    negoziApprovati: Number(raw.negozi_approvati ?? 0),
+    segnalazioniAperte: Number(raw.segnalazioni_aperte ?? 0),
+  };
 }

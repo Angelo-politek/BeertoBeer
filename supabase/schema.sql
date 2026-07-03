@@ -145,8 +145,9 @@ create table if not exists public.push_tokens (
   updated_at timestamptz not null default now()
 );
 
--- Negozietti ("bangladini") mappati dalla community: chiunque può aggiungerne,
--- creatore e admin possono rimuoverli.
+-- Negozietti ("bangladini") mappati dalla community. I nuovi inserimenti
+-- nascono 'in_attesa' e compaiono sulla mappa pubblica solo dopo l'approvazione
+-- di un admin (che può anche rimuoverli in seguito).
 create table if not exists public.shops (
   id uuid primary key default gen_random_uuid(),
   nome text not null check (char_length(trim(nome)) between 1 and 80),
@@ -157,6 +158,12 @@ create table if not exists public.shops (
   created_at timestamptz not null default now()
 );
 create index if not exists shops_citta_idx on public.shops (citta);
+-- Moderazione negozi + orari stimati segnalati dagli utenti.
+alter table public.shops add column if not exists stato text not null default 'in_attesa';
+alter table public.shops drop constraint if exists shops_stato_chk;
+alter table public.shops add  constraint shops_stato_chk
+  check (stato in ('in_attesa','approvato','rimosso'));
+alter table public.shops add column if not exists orari text;
 
 -- Chat diretta tra "connessioni" (persone con almeno uno scambio confermato
 -- insieme), indipendente dagli ordini. L'anima social/dating dell'app.
@@ -378,17 +385,22 @@ create policy "push_tokens_delete_own"
   on public.push_tokens for delete
   using (user_id = auth.uid());
 
--- SHOPS: lettura per tutti gli autenticati; inserimento a proprio nome;
--- cancellazione per il creatore o per gli admin.
+-- SHOPS: si vedono solo i negozi APPROVATI (più i propri in attesa; gli admin
+-- vedono tutto); inserimento a proprio nome; cancellazione creatore o admin.
 drop policy if exists "shops_select" on public.shops;
 create policy "shops_select"
   on public.shops for select
-  using (auth.role() = 'authenticated');
+  using (
+    stato = 'approvato'
+    or created_by = auth.uid()
+    or exists (select 1 from public.users u where u.id = auth.uid() and u.is_admin)
+  );
 
 drop policy if exists "shops_insert_own" on public.shops;
 create policy "shops_insert_own"
   on public.shops for insert
-  with check (created_by = auth.uid());
+  -- stato forzato a 'in_attesa': nessuno si auto-approva un negozio
+  with check (created_by = auth.uid() and stato = 'in_attesa');
 
 drop policy if exists "shops_delete_own_or_admin" on public.shops;
 create policy "shops_delete_own_or_admin"
@@ -939,6 +951,115 @@ begin
   end if;
   delete from auth.users where id = p_user_id;
   if not found then raise exception 'Utente inesistente'; end if;
+end; $$;
+
+-- Nuovo negozio proposto → push agli admin per l'approvazione.
+create or replace function public.notify_new_shop()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare
+  v_admins uuid[];
+begin
+  select array_agg(id) into v_admins from public.users where is_admin;
+  perform public.push_to_users(v_admins,
+    '🏪 Nuovo negozio da approvare',
+    left(new.nome, 60) || ' a ' || initcap(new.citta) || ': approvalo dal pannello.',
+    '/admin/shops');
+  return new;
+end; $$;
+
+drop trigger if exists on_shop_created on public.shops;
+create trigger on_shop_created
+  after insert on public.shops
+  for each row execute function public.notify_new_shop();
+
+-- Approva o rimuove un negozio proposto dalla community.
+create or replace function public.admin_set_shop_stato(p_shop_id uuid, p_stato text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.users where id = auth.uid() and is_admin) then
+    raise exception 'Operazione riservata agli admin';
+  end if;
+  if p_stato not in ('approvato', 'rimosso') then
+    raise exception 'Stato negozio non valido';
+  end if;
+  update public.shops set stato = p_stato where id = p_shop_id;
+  if not found then raise exception 'Negozio inesistente'; end if;
+end; $$;
+
+-- Rettifica manuale dei crediti di un utente (bonus, correzioni, penalità).
+-- Ogni movimento finisce nel ledger con tipo 'admin': niente crediti fantasma.
+create or replace function public.admin_adjust_credits(p_user_id uuid, p_delta integer, p_motivo text default null)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  v_saldo integer;
+begin
+  if not exists (select 1 from public.users where id = auth.uid() and is_admin) then
+    raise exception 'Operazione riservata agli admin';
+  end if;
+  if p_delta = 0 then return; end if;
+
+  select crediti_saldo into v_saldo from public.users where id = p_user_id;
+  if not found then raise exception 'Utente inesistente'; end if;
+  if v_saldo + p_delta < 0 then
+    raise exception 'Il saldo non può andare sotto zero (attuale: %)', v_saldo;
+  end if;
+
+  update public.users set crediti_saldo = crediti_saldo + p_delta where id = p_user_id;
+
+  insert into public.credit_transactions (order_id, from_user_id, to_user_id, importo, tipo)
+  values (
+    null,
+    case when p_delta < 0 then p_user_id else null end,
+    case when p_delta > 0 then p_user_id else null end,
+    abs(p_delta),
+    coalesce(nullif(trim('admin ' || coalesce(p_motivo, '')), 'admin'), 'admin')
+  );
+end; $$;
+
+-- Fotografia completa della piattaforma per la dashboard admin.
+create or replace function public.admin_dashboard_stats()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare
+  v_result jsonb;
+begin
+  if not exists (select 1 from public.users where id = auth.uid() and is_admin) then
+    raise exception 'Operazione riservata agli admin';
+  end if;
+
+  select jsonb_build_object(
+    'utenti_totali', (select count(*) from public.users),
+    'utenti_sospesi', (select count(*) from public.users where sospeso_fino > now()),
+    'utenti_per_citta', (
+      select coalesce(jsonb_object_agg(coalesce(citta, 'sconosciuta'), n), '{}'::jsonb)
+      from (select citta, count(*) as n from public.users group by citta) t
+    ),
+    'crediti_totali', (select coalesce(sum(crediti_saldo), 0) from public.users),
+    'crediti_per_citta', (
+      select coalesce(jsonb_object_agg(coalesce(citta, 'sconosciuta'), tot), '{}'::jsonb)
+      from (select citta, sum(crediti_saldo) as tot from public.users group by citta) t
+    ),
+    'richieste_aperte', (
+      select count(*) from public.orders
+      where stato = 'richiesto' and stato_moderazione = 'ok'
+        and created_at > now() - interval '12 hours'
+    ),
+    'ordini_in_corso', (
+      select count(*) from public.orders where stato in ('accettato','in_consegna','consegnato')
+    ),
+    'scambi_completati', (select count(*) from public.orders where stato = 'confermato'),
+    'crediti_scambiati_7g', (
+      select coalesce(sum(importo), 0) from public.credit_transactions
+      where created_at > now() - interval '7 days' and tipo = 'consegna'
+    ),
+    'richieste_oscurate', (
+      select count(*) from public.orders where stato_moderazione = 'oscurato'
+    ),
+    'negozi_in_attesa', (select count(*) from public.shops where stato = 'in_attesa'),
+    'negozi_approvati', (select count(*) from public.shops where stato = 'approvato'),
+    'segnalazioni_aperte', (select count(*) from public.reports)
+  ) into v_result;
+
+  return v_result;
 end; $$;
 
 -- ============================================================

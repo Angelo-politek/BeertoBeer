@@ -17,19 +17,24 @@ type Props = {
   city: City;
   loading?: boolean;
   onClose: () => void;
-  onSubmit: (input: { nome: string; coords: Coords }) => void;
+  onSubmit: (input: { nome: string; coords: Coords; orari?: string }) => void;
 };
 
-/** Aggiunge un negozio ("bangladino") alla mappa community: nome + punto sulla mappa. */
+/**
+ * Propone un negozio ("bangladino") per la mappa community: nome, orari stimati
+ * e punto sulla mappa. Compare pubblicamente dopo l'approvazione di un admin.
+ */
 export function AddShopModal({ visible, city, loading, onClose, onSubmit }: Props) {
   const c = useColors();
   const [nome, setNome] = useState('');
+  const [orari, setOrari] = useState('');
   const [coords, setCoords] = useState<Coords | null>(null);
 
   function handleSubmit() {
     if (!nome.trim() || !coords) return;
-    onSubmit({ nome: nome.trim(), coords });
+    onSubmit({ nome: nome.trim(), coords, orari: orari.trim() || undefined });
     setNome('');
+    setOrari('');
     setCoords(null);
   }
 
@@ -49,6 +54,12 @@ export function AddShopModal({ visible, city, loading, onClose, onSubmit }: Prop
               value={nome}
               onChangeText={setNome}
               placeholder="Es. Minimarket Via Po"
+            />
+            <TextField
+              label="Orari stimati (facoltativo)"
+              value={orari}
+              onChangeText={setOrari}
+              placeholder="Es. 9–24, anche la domenica"
             />
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
               {coords ? '📍 Punto selezionato' : 'Tocca la posizione del negozio sulla mappa:'}
