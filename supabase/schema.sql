@@ -509,13 +509,17 @@ drop index if exists reviews_order_from_unique;
 create unique index if not exists reviews_order_from_unique
   on public.reviews(order_id, from_user_id);
 
--- Trigger best-effort: invoca l'edge function send-push quando pg_net e configurazione sono presenti.
+-- Trigger best-effort: invoca l'edge function send-push quando pg_net è presente.
+-- L'URL del progetto non è un segreto e sta hardcoded qui: ALTER DATABASE (per
+-- passare la config via current_setting) non è permesso sui progetti Supabase
+-- hosted. La edge function va deployata con "Enforce JWT verification" OFF:
+-- nessuna chiave nel database. Hardening futuro: spostare la chiamata su un
+-- token letto da Supabase Vault e riattivare la verifica.
 create or replace function public.notify_new_message()
 returns trigger language plpgsql security definer set search_path = public as $$
 declare
   v_receiver uuid;
-  v_url text;
-  v_key text;
+  v_url constant text := 'https://kjxahufzseybvxtfsiwu.supabase.co';
 begin
   select case when o.host_id = new.sender_id then o.driver_id else o.host_id end
     into v_receiver
@@ -525,16 +529,13 @@ begin
   if v_receiver is null then return new; end if;
 
   begin
-    v_url := current_setting('app.settings.supabase_url', true);
-    v_key := current_setting('app.settings.service_role_key', true);
-    if v_url is not null and v_key is not null then
-      perform net.http_post(
-        url := v_url || '/functions/v1/send-push',
-        headers := jsonb_build_object('Authorization', 'Bearer ' || v_key, 'Content-Type', 'application/json'),
-        body := jsonb_build_object('userId', v_receiver, 'orderId', new.order_id, 'message', new.testo)
-      );
-    end if;
-  exception when undefined_function then
+    perform net.http_post(
+      url := v_url || '/functions/v1/send-push',
+      headers := jsonb_build_object('Content-Type', 'application/json'),
+      body := jsonb_build_object('userId', v_receiver, 'orderId', new.order_id, 'message', new.testo)
+    );
+  exception when undefined_function or invalid_schema_name then
+    -- pg_net non abilitata: la chat funziona comunque, solo senza push.
     null;
   end;
 
