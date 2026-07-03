@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "194394117584",
+    "project_id": "btbeer-606a4",
+    "storage_bucket": "btbeer-606a4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:194394117584:android:436beec17aa2e75dc295d5",
+        "android_client_info": {
+          "package_name": "com.quantumalbe.beertobeer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB_RiLgPrRKCiDp9qrOegnosbWpS8xkQVE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
