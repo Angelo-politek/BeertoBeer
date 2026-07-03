@@ -5,6 +5,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleShe
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { StarRating } from '@/components/star-rating';
+import { useToast } from '@/components/toast';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -16,6 +17,7 @@ export default function ReviewScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const c = useColors();
   const router = useRouter();
+  const toast = useToast();
   const [context, setContext] = useState<ReviewContext | null>(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -50,6 +52,7 @@ export default function ReviewScreen() {
     setError(null);
     try {
       await submitReview(orderId, rating, comment);
+      toast.show('Recensione salvata');
       router.back();
     } catch (e) {
       setError((e as { message?: string })?.message ?? 'Recensione non salvata.');

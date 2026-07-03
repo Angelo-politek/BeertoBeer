@@ -1,4 +1,11 @@
+import { useEffect } from 'react';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { useColors } from '@/hooks/use-colors';
 
@@ -11,11 +18,20 @@ type Props = {
 
 export function Skeleton({ width = '100%', height = 16, radius = 8, style }: Props) {
   const c = useColors();
+  const pulse = useSharedValue(0.55);
+
+  useEffect(() => {
+    pulse.value = withRepeat(withTiming(1, { duration: 700 }), -1, true);
+  }, [pulse]);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: pulse.value }));
+
   return (
-    <View
+    <Animated.View
       style={[
         styles.block,
         { width, height, borderRadius: radius, backgroundColor: c.skeletonBase },
+        animatedStyle,
         style,
       ]}
     />

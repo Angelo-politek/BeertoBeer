@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { useColors } from '@/hooks/use-colors';
@@ -23,7 +24,10 @@ export function StarRating({ value, onChange, size = 32, readonly }: Props) {
             disabled={readonly}
             accessibilityRole={readonly ? undefined : 'button'}
             accessibilityLabel={`${star} stelle`}
-            onPress={() => onChange?.(star)}
+            onPress={() => {
+              if (Platform.OS !== 'web') Haptics.selectionAsync().catch(() => null);
+              onChange?.(star);
+            }}
             hitSlop={8}
             style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
             <ThemedText style={{ color: active ? c.star : c.starMuted, fontSize: size, lineHeight: size + 4 }}>

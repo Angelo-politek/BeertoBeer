@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 
 import { useColors } from '@/hooks/use-colors';
 
@@ -24,9 +25,16 @@ export function Button({ label, onPress, variant = 'primary', style, loading, di
   const { bg, fg, border } = palette[variant];
   const isDisabled = disabled || loading;
 
+  function handlePress() {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => null);
+    }
+    onPress();
+  }
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       disabled={isDisabled}
       style={({ pressed }) => [
         styles.button,

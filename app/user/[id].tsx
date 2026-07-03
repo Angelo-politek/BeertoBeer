@@ -7,6 +7,7 @@ import { Button } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
 import { ReportModal } from '@/components/report-modal';
 import { StarRating } from '@/components/star-rating';
+import { useToast } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -27,6 +28,7 @@ export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const c = useColors();
   const { session } = useSession();
+  const toast = useToast();
   const isMe = session?.user.id === id;
 
   const [user, setUser] = useState<User | null>(null);
@@ -65,7 +67,7 @@ export default function UserProfileScreen() {
       await reportUser(id, reportReason, reportDetails);
       setReportOpen(false);
       setReportDetails('');
-      Alert.alert('Segnalazione inviata', 'Grazie, il team di moderazione la controllera.');
+      toast.show('Segnalazione inviata, grazie');
     } catch {
       Alert.alert('Errore', 'Segnalazione non inviata.');
     } finally {
@@ -79,9 +81,11 @@ export default function UserProfileScreen() {
       if (blocked) {
         await unblockUser(id);
         setBlocked(false);
+        toast.show('Utente sbloccato');
       } else {
         await blockUser(id);
         setBlocked(true);
+        toast.show('Utente bloccato');
       }
     } catch {
       Alert.alert('Errore', 'Operazione non riuscita.');
