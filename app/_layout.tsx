@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/react-native';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as Updates from 'expo-updates';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
@@ -106,6 +107,24 @@ function RootNavigator() {
 
 function RootLayout() {
   const colorScheme = useColorScheme();
+
+  // Aggiornamenti OTA automatici: al lancio controlla, scarica e applica SUBITO
+  // (il default di expo-updates scarica al lancio ma applica solo al successivo).
+  // Best-effort: qualsiasi errore lascia partire la versione corrente.
+  useEffect(() => {
+    if (__DEV__ || !Updates.isEnabled) return;
+    (async () => {
+      try {
+        const result = await Updates.checkForUpdateAsync();
+        if (result.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch {
+        // rete assente o server updates irraggiungibile: si prosegue normalmente
+      }
+    })();
+  }, []);
 
   if (supabaseConfigError) {
     return (
