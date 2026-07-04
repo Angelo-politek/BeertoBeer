@@ -1,13 +1,14 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { supabase } from '@/lib/supabase';
 
@@ -48,43 +49,58 @@ export default function LoginScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-              <ThemedText type="title">Bentornato 🍺</ThemedText>
-              <ThemedText style={{ color: c.textSecondary }}>
-                Accedi per continuare a scambiare birre.
-              </ThemedText>
+              <Animated.View
+                entering={ZoomIn.springify().damping(14).stiffness(200)}
+                style={[styles.logoCircle, { backgroundColor: c.accentSoft }]}>
+                <ThemedText style={styles.logoEmoji}>🍺</ThemedText>
+              </Animated.View>
+              <Animated.View entering={FadeInDown.delay(100).springify().damping(20).stiffness(180)} style={styles.headerText}>
+                <ThemedText type="title" style={styles.centered}>
+                  Bentornato
+                </ThemedText>
+                <ThemedText style={[styles.centered, { color: c.textSecondary }]}>
+                  Accedi per continuare a scambiare birre.
+                </ThemedText>
+              </Animated.View>
             </View>
 
-            <TextField
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="tu@esempio.it"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextField
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            <Animated.View entering={FadeInDown.delay(180).springify().damping(20).stiffness(180)} style={styles.form}>
+              <TextField
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="tu@esempio.it"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TextField
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                secureTextEntry
+                autoCapitalize="none"
+              />
 
-            {error ? <ThemedText style={{ color: c.danger }}>{error}</ThemedText> : null}
+              {error ? (
+                <View style={[styles.errorBanner, { backgroundColor: c.dangerSoft }]}>
+                  <ThemedText style={{ color: c.danger, fontSize: 14 }}>{error}</ThemedText>
+                </View>
+              ) : null}
 
-            <Button label="Accedi" onPress={handleLogin} loading={loading} />
+              <Button label="Accedi" onPress={handleLogin} loading={loading} />
 
-            <Link href="/(auth)/forgot-password">
-              <ThemedText type="defaultSemiBold" style={{ color: c.accent, textAlign: 'center' }}>
-                Password dimenticata?
-              </ThemedText>
-            </Link>
+              <Link href="/(auth)/forgot-password" style={styles.centerLink}>
+                <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 14 }}>
+                  Password dimenticata?
+                </ThemedText>
+              </Link>
+            </Animated.View>
 
             <View style={styles.footer}>
               <ThemedText style={{ color: c.textSecondary }}>Non hai un account? </ThemedText>
               <Link href="/(auth)/register" replace>
-                <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>
+                <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong }}>
                   Registrati
                 </ThemedText>
               </Link>
@@ -103,17 +119,33 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: Spacing.md,
-    gap: Spacing.md,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
   },
   header: {
-    gap: Spacing.xs,
-    marginBottom: Spacing.sm,
+    alignItems: 'center',
+    gap: Spacing.md,
   },
+  headerText: { gap: Spacing.xs },
+  logoCircle: {
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoEmoji: { fontSize: 48, lineHeight: 62 },
+  centered: { textAlign: 'center' },
+  form: { gap: Spacing.md },
+  errorBanner: {
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  centerLink: { textAlign: 'center', marginTop: Spacing.xs },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Spacing.sm,
   },
 });

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,8 +7,14 @@ import {
   type KeyboardTypeOptions,
   type TextInputProps,
 } from 'react-native';
+import Animated, {
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
 type Props = {
@@ -20,8 +27,14 @@ type Props = {
   secureTextEntry?: boolean;
   autoCapitalize?: TextInputProps['autoCapitalize'];
   onBlur?: () => void;
+  /** messaggio di errore sotto il campo (bordo rosso quando presente) */
+  error?: string | null;
 };
 
+/**
+ * Campo di testo con focus animato: a riposo è una superficie tono-su-tono
+ * senza bordo visibile, al focus si accende l'anello ambrato.
+ */
 export function TextField({
   label,
   value,
@@ -32,51 +45,82 @@ export function TextField({
   secureTextEntry,
   autoCapitalize,
   onBlur,
+  error,
 }: Props) {
   const c = useColors();
+  const [focused, setFocused] = useState(false);
+  const focus = useSharedValue(0);
+
+  const restColor = error ? c.danger : c.border;
+  const focusColor = error ? c.danger : c.accent;
+  const ringStyle = useAnimatedStyle(() => ({
+    borderColor: interpolateColor(focus.value, [0, 1], [restColor, focusColor]),
+  }));
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.label, { color: c.textSecondary }]}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={c.textSecondary}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        secureTextEntry={secureTextEntry}
-        autoCapitalize={autoCapitalize}
-        autoCorrect={!secureTextEntry}
-        onBlur={onBlur}
+      <Text style={[styles.label, { color: focused ? c.accentStrong : c.textSecondary }]}>{label}</Text>
+      <Animated.View
         style={[
-          styles.input,
-          {
-            color: c.text,
-            borderColor: c.border,
-            backgroundColor: c.surface,
-            minHeight: multiline ? 88 : 48,
-            textAlignVertical: multiline ? 'top' : 'center',
-          },
-        ]}
-      />
+          styles.inputWrap,
+          { backgroundColor: c.surface },
+          ringStyle,
+        ]}>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={c.textSecondary + '99'}
+          keyboardType={keyboardType}
+          multiline={multiline}
+          secureTextEntry={secureTextEntry}
+          autoCapitalize={autoCapitalize}
+          autoCorrect={!secureTextEntry}
+          onFocus={() => {
+            setFocused(true);
+            focus.value = withTiming(1, { duration: 150 });
+          }}
+          onBlur={() => {
+            setFocused(false);
+            focus.value = withTiming(0, { duration: 150 });
+            onBlur?.();
+          }}
+          style={[
+            styles.input,
+            {
+              color: c.text,
+              minHeight: multiline ? 96 : 50,
+              textAlignVertical: multiline ? 'top' : 'center',
+            },
+          ]}
+        />
+      </Animated.View>
+      {error ? <Text style={[styles.error, { color: c.danger }]}>{error}</Text> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: Spacing.xs,
+    gap: 6,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    marginLeft: 4,
+  },
+  inputWrap: {
+    borderWidth: 1.5,
+    borderRadius: Radii.md,
   },
   input: {
-    borderWidth: 1,
-    borderRadius: 12,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: 12,
     fontSize: 16,
+  },
+  error: {
+    fontSize: 13,
+    marginLeft: 4,
   },
 });

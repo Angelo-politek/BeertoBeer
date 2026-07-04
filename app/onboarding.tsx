@@ -1,25 +1,53 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Dimensions, FlatList, StyleSheet, View, type ViewToken } from 'react-native';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Chip } from '@/components/ui/chip';
+import { PressableScale } from '@/components/ui/pressable-scale';
+import { ONBOARDING_SLIDES, PHILOSOPHY_TAGLINE, type OnboardingSlide } from '@/constants/branding';
+import { Radii, Spacing, Springs } from '@/constants/theme';
+import { completeOnboarding } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { CITIES, nearestCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { getCurrentCoords } from '@/lib/location';
+import { markOnboardingDone } from '@/lib/onboarding-signal';
 
+const { width } = Dimensions.get('window');
+
+type Page = { kind: 'slide'; slide: OnboardingSlide } | { kind: 'setup' };
+
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Page>);
+
+/**
+ * Onboarding: prima vende la FILOSOFIA (scambio tra pari + community), poi
+ * l'ultimo step raccoglie città + conferme (18+ / regole). Le slide hanno un
+ * parallax guidato dallo scroll: emoji e testi entrano a velocità diverse.
+ */
 export default function OnboardingScreen() {
-  const c = useColors();
   const router = useRouter();
   const { city, hasChosen, setCityKey } = useCity();
+  const listRef = useRef<FlatList<Page>>(null);
+  const [index, setIndex] = useState(0);
   const [over18, setOver18] = useState(false);
   const [acceptedRules, setAcceptedRules] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const scrollX = useSharedValue(0);
 
-  // Se l'utente non ha ancora una città, proponi la più vicina al GPS.
+  // Città più vicina dal GPS, se non ancora scelta.
   useEffect(() => {
     if (hasChosen) return;
     let active = true;
@@ -32,85 +60,213 @@ export default function OnboardingScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Gli slide della filosofia + un ultimo step "setup" (città/gate).
+  const pages: Page[] = [
+    ...ONBOARDING_SLIDES.map((s) => ({ kind: 'slide' as const, slide: s })),
+    { kind: 'setup' as const },
+  ];
+  const isLast = index === pages.length - 1;
   const canContinue = over18 && acceptedRules;
+
+  const onScroll = useAnimatedScrollHandler((event) => {
+    scrollX.value = event.contentOffset.x;
+  });
+
+  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems[0]?.index != null) setIndex(viewableItems[0].index);
+  }).current;
+
+  function goNext() {
+    if (isLast) return;
+    listRef.current?.scrollToIndex({ index: index + 1, animated: true });
+  }
+
+  async function finish() {
+    setFinishing(true);
+    // Segnala subito al guard che l'onboarding è concluso (evita che rispedisca
+    // l'utente qui prima che il flag lato server sia rileggibile).
+    markOnboardingDone();
+    try {
+      await completeOnboarding();
+    } catch {
+      // best-effort: anche se la scrittura fallisce, entra comunque nell'app.
+    } finally {
+      router.replace('/(tabs)');
+    }
+  }
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe}>
-        <View style={styles.content}>
-          <View style={styles.hero}>
-            <ThemedText style={styles.icon}>🍺</ThemedText>
-            <ThemedText type="title" style={styles.title}>
-              Benvenuto su Beer to Beer
-            </ThemedText>
-            <ThemedText style={[styles.copy, { color: c.textSecondary }]}>
-              Pubblica una richiesta, accetta una consegna nelle vicinanze e chiudi lo scambio con crediti e recensioni.
-            </ThemedText>
-          </View>
-          <View style={styles.steps}>
-            <Step n="1" title="Richiedi" text="Scegli birre, indirizzo e fascia oraria." />
-            <Step n="2" title="Consegna" text="Un altro utente accetta e vi coordinate in chat." />
-            <Step n="3" title="Conferma" text="Entrambi confermate e lasciate una recensione." />
-          </View>
-          <View style={styles.citySection}>
-            <ThemedText type="defaultSemiBold">La tua città</ThemedText>
-            <View style={styles.cityChips}>
-              {CITIES.map((item) => {
-                const selected = item.key === city.key;
-                return (
-                  <Pressable
-                    key={item.key}
-                    onPress={() => setCityKey(item.key)}
-                    style={[
-                      styles.cityChip,
-                      {
-                        backgroundColor: selected ? c.accent : c.surface,
-                        borderColor: selected ? c.accent : c.border,
-                      },
-                    ]}>
-                    <ThemedText
-                      type="defaultSemiBold"
-                      style={{ color: selected ? c.accentText : c.text }}>
-                      {item.label}
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-          <View style={styles.checklist}>
-            <ToggleRow
-              checked={over18}
-              onPress={() => setOver18((value) => !value)}
-              title="Dichiaro di avere almeno 18 anni"
-              subtitle="Beer to Beer è riservato a utenti maggiorenni."
+        <AnimatedFlatList
+          ref={listRef as never}
+          data={pages}
+          keyExtractor={(_, i) => String(i)}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          onViewableItemsChanged={onViewable}
+          viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
+          renderItem={({ item, index: i }) =>
+            item.kind === 'slide' ? (
+              <SlideView slide={item.slide} pageIndex={i} scrollX={scrollX} />
+            ) : (
+              <SetupView
+                over18={over18}
+                acceptedRules={acceptedRules}
+                onToggle18={() => setOver18((v) => !v)}
+                onToggleRules={() => setAcceptedRules((v) => !v)}
+                cityKey={city.key}
+                onPickCity={setCityKey}
+              />
+            )
+          }
+        />
+
+        {/* Indicatori di pagina */}
+        <View style={styles.dots}>
+          {pages.map((_, i) => (
+            <Dot key={i} active={i === index} />
+          ))}
+        </View>
+
+        <View style={styles.footer}>
+          {isLast ? (
+            <Button
+              label="Entra nella community 🍺"
+              onPress={finish}
+              disabled={!canContinue}
+              loading={finishing}
             />
-            <ToggleRow
-              checked={acceptedRules}
-              onPress={() => setAcceptedRules((value) => !value)}
-              title="Accetto le regole della community"
-              subtitle="Uso responsabile, niente vendita di alcol e rispetto della moderazione."
-            />
-          </View>
-          <Button label="Entra nell'app" onPress={() => router.replace('/(tabs)')} disabled={!canContinue} />
+          ) : (
+            <Button label="Avanti" onPress={goNext} />
+          )}
         </View>
       </SafeAreaView>
     </ThemedView>
   );
 }
 
-function Step({ n, title, text }: { n: string; title: string; text: string }) {
+function Dot({ active }: { active: boolean }) {
+  const c = useColors();
+  const progress = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withSpring(active ? 1 : 0, Springs.gentle);
+  }, [active, progress]);
+
+  const style = useAnimatedStyle(() => ({
+    width: interpolate(progress.value, [0, 1], [8, 26]),
+    opacity: interpolate(progress.value, [0, 1], [0.6, 1]),
+  }));
+
+  return <Animated.View style={[styles.dot, { backgroundColor: active ? c.accent : c.border }, style]} />;
+}
+
+/** Slide con parallax: l'emoji viaggia più lenta del testo mentre scorri. */
+function SlideView({
+  slide,
+  pageIndex,
+  scrollX,
+}: {
+  slide: OnboardingSlide;
+  pageIndex: number;
+  scrollX: SharedValue<number>;
+}) {
+  const c = useColors();
+
+  const emojiStyle = useAnimatedStyle(() => {
+    const position = scrollX.value / width - pageIndex;
+    return {
+      transform: [
+        { translateX: interpolate(position, [-1, 0, 1], [width * 0.35, 0, -width * 0.35], Extrapolation.CLAMP) },
+        { scale: interpolate(position, [-1, 0, 1], [0.6, 1, 0.6], Extrapolation.CLAMP) },
+      ],
+      opacity: interpolate(position, [-0.8, 0, 0.8], [0, 1, 0], Extrapolation.CLAMP),
+    };
+  });
+
+  const textStyle = useAnimatedStyle(() => {
+    const position = scrollX.value / width - pageIndex;
+    return {
+      transform: [
+        { translateX: interpolate(position, [-1, 0, 1], [width * 0.12, 0, -width * 0.12], Extrapolation.CLAMP) },
+      ],
+      opacity: interpolate(position, [-0.6, 0, 0.6], [0, 1, 0], Extrapolation.CLAMP),
+    };
+  });
+
+  return (
+    <View style={[styles.page, { width }]}>
+      <View style={styles.slideContent}>
+        <Animated.View style={[styles.emojiCircle, { backgroundColor: c.accentSoft }, emojiStyle]}>
+          <ThemedText style={styles.slideEmoji}>{slide.emoji}</ThemedText>
+        </Animated.View>
+        <Animated.View style={[styles.slideTextBlock, textStyle]}>
+          <ThemedText type="title" style={styles.slideTitle}>
+            {slide.titolo}
+          </ThemedText>
+          <ThemedText style={[styles.slideText, { color: c.textSecondary }]}>{slide.testo}</ThemedText>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+function SetupView({
+  over18,
+  acceptedRules,
+  onToggle18,
+  onToggleRules,
+  cityKey,
+  onPickCity,
+}: {
+  over18: boolean;
+  acceptedRules: boolean;
+  onToggle18: () => void;
+  onToggleRules: () => void;
+  cityKey: string;
+  onPickCity: (key: string) => void;
+}) {
   const c = useColors();
   return (
-    <View style={styles.step}>
-      <View style={[styles.stepNumber, { backgroundColor: c.accentSoft }]}>
-        <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>
-          {n}
+    <View style={[styles.page, { width }]}>
+      <View style={styles.setupContent}>
+        <ThemedText type="title" style={styles.slideTitle}>
+          Ci siamo quasi 🍻
         </ThemedText>
-      </View>
-      <View style={styles.stepText}>
-        <ThemedText type="defaultSemiBold">{title}</ThemedText>
-        <ThemedText style={{ color: c.textSecondary }}>{text}</ThemedText>
+        <ThemedText style={[styles.slideText, { color: c.textSecondary }]}>{PHILOSOPHY_TAGLINE}</ThemedText>
+
+        <View style={styles.citySection}>
+          <ThemedText type="label">La tua città</ThemedText>
+          <View style={styles.cityChips}>
+            {CITIES.map((item) => (
+              <Chip
+                key={item.key}
+                label={item.label}
+                active={item.key === cityKey}
+                onPress={() => onPickCity(item.key)}
+              />
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.checklist}>
+          <ToggleRow
+            checked={over18}
+            onPress={onToggle18}
+            title="Dichiaro di avere almeno 18 anni"
+            subtitle="Beer to Beer è riservato a utenti maggiorenni."
+          />
+          <ToggleRow
+            checked={acceptedRules}
+            onPress={onToggleRules}
+            title="Accetto le regole della community"
+            subtitle="Uso responsabile, niente vendita di alcol e rispetto della moderazione."
+          />
+        </View>
       </View>
     </View>
   );
@@ -128,70 +284,80 @@ function ToggleRow({
   subtitle: string;
 }) {
   const c = useColors();
+  const progress = useSharedValue(checked ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withSpring(checked ? 1 : 0, Springs.bouncy);
+  }, [checked, progress]);
+
+  const dotStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: progress.value }],
+  }));
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
-      style={({ pressed }) => [
+      pressedScale={0.98}
+      style={[
         styles.toggleRow,
-        {
-          borderColor: checked ? c.accent : c.border,
-          backgroundColor: checked ? c.accentSoft : c.surface,
-          opacity: pressed ? 0.85 : 1,
-        },
+        { backgroundColor: checked ? c.accentSoft : c.surfaceAlt },
       ]}>
-      <View style={[styles.checkbox, { borderColor: checked ? c.accent : c.border, backgroundColor: checked ? c.accent : 'transparent' }]}>
-        {checked ? <View style={[styles.checkboxDot, { backgroundColor: c.accentText }]} /> : null}
+      <View
+        style={[
+          styles.checkbox,
+          {
+            borderColor: checked ? c.accent : c.textSecondary,
+            backgroundColor: checked ? c.accent : 'transparent',
+          },
+        ]}>
+        <Animated.View style={[styles.checkboxDot, { backgroundColor: c.accentText }, dotStyle]} />
       </View>
       <View style={styles.toggleText}>
         <ThemedText type="defaultSemiBold">{title}</ThemedText>
-        <ThemedText style={{ color: c.textSecondary }}>{subtitle}</ThemedText>
+        <ThemedText type="caption">{subtitle}</ThemedText>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   safe: { flex: 1 },
-  content: { flex: 1, justifyContent: 'center', padding: Spacing.md, gap: Spacing.lg },
-  hero: { alignItems: 'center', gap: Spacing.sm },
-  icon: { fontSize: 64 },
-  title: { textAlign: 'center' },
-  copy: { textAlign: 'center', lineHeight: 22 },
-  steps: { gap: Spacing.md },
-  step: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' },
-  stepNumber: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  stepText: { flex: 1, gap: 2 },
-  citySection: { gap: Spacing.xs },
-  cityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  cityChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+  page: { flex: 1, justifyContent: 'center' },
+  slideContent: { alignItems: 'center', gap: Spacing.lg, padding: Spacing.xl },
+  emojiCircle: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  slideEmoji: { fontSize: 76, lineHeight: 96 },
+  slideTextBlock: { alignItems: 'center', gap: Spacing.md },
+  slideTitle: { textAlign: 'center' },
+  slideText: { textAlign: 'center', lineHeight: 24, fontSize: 16 },
+  setupContent: { gap: Spacing.lg, padding: Spacing.lg, justifyContent: 'center', flex: 1 },
+  citySection: { gap: Spacing.sm },
+  cityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   checklist: { gap: Spacing.sm },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: Radii.lg,
     padding: Spacing.md,
   },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
+  checkboxDot: { width: 11, height: 11, borderRadius: 5.5 },
   toggleText: { flex: 1, gap: 2 },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, paddingVertical: Spacing.md },
+  dot: { height: 8, borderRadius: 4 },
+  footer: { padding: Spacing.md, paddingBottom: Spacing.lg },
 });

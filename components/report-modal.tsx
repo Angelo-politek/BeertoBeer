@@ -1,10 +1,12 @@
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
+import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useColors } from '@/hooks/use-colors';
+import { Chip } from '@/components/ui/chip';
+import { Radii, Spacing } from '@/constants/theme';
+import { useColors, useShadows } from '@/hooks/use-colors';
 import type { ReportReason } from '@/types';
 
 const REASONS: { value: ReportReason; label: string }[] = [
@@ -41,30 +43,24 @@ export function ReportModal({
   onSubmit,
 }: Props) {
   const c = useColors();
+  const sh = useShadows();
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={[styles.sheet, { backgroundColor: c.background }]}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+      <Animated.View entering={FadeIn.duration(150)} style={[styles.backdrop, { backgroundColor: c.overlay }]}>
+        <Animated.View
+          entering={ZoomIn.springify().damping(18).stiffness(240)}
+          style={[styles.sheet, { backgroundColor: c.background }, sh.raised]}>
           <ThemedText type="subtitle">{title}</ThemedText>
           <View style={styles.reasons}>
-            {REASONS.map((item) => {
-              const active = item.value === reason;
-              return (
-                <Pressable
-                  key={item.value}
-                  onPress={() => onReasonChange(item.value)}
-                  style={[
-                    styles.reason,
-                    {
-                      borderColor: active ? c.accent : c.border,
-                      backgroundColor: active ? c.accentSoft : c.surface,
-                    },
-                  ]}>
-                  <ThemedText type={active ? 'defaultSemiBold' : 'default'}>{item.label}</ThemedText>
-                </Pressable>
-              );
-            })}
+            {REASONS.map((item) => (
+              <Chip
+                key={item.value}
+                label={item.label}
+                active={item.value === reason}
+                onPress={() => onReasonChange(item.value)}
+              />
+            ))}
           </View>
           <TextField
             label="Dettagli"
@@ -77,8 +73,8 @@ export function ReportModal({
             <Button label="Annulla" variant="secondary" onPress={onClose} disabled={loading} style={styles.action} />
             <Button label="Invia" variant="danger" onPress={onSubmit} loading={loading} style={styles.action} />
           </View>
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
     </Modal>
   );
 }
@@ -88,23 +84,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: Spacing.md,
-    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   sheet: {
-    borderRadius: 14,
-    padding: Spacing.md,
+    borderRadius: Radii.xl,
+    padding: Spacing.lg,
     gap: Spacing.md,
   },
   reasons: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.sm,
-  },
-  reason: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   actions: {
     flexDirection: 'row',

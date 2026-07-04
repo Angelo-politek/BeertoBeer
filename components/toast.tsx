@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
+import Animated, { FadeOutDown, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useColors } from '@/hooks/use-colors';
+import { Radii } from '@/constants/theme';
+import { useColors, useShadows } from '@/hooks/use-colors';
 
 type ToastType = 'success' | 'error';
 
@@ -53,17 +54,19 @@ export function useToast(): ToastContextValue {
 
 function ToastBanner({ message, type }: { message: string; type: ToastType }) {
   const c = useColors();
+  const sh = useShadows();
   const insets = useSafeAreaInsets();
+  const success = type === 'success';
 
   return (
-    <View pointerEvents="none" style={[styles.wrap, { bottom: insets.bottom + 72 }]}>
+    <View pointerEvents="none" style={[styles.wrap, { bottom: insets.bottom + 84 }]}>
       <Animated.View
-        entering={FadeInDown.duration(200)}
-        exiting={FadeOutDown.duration(150)}
-        style={[styles.pill, { backgroundColor: c.text }]}>
-        <Text style={[styles.icon, { color: type === 'success' ? c.positive : c.danger }]}>
-          {type === 'success' ? '✓' : '✕'}
-        </Text>
+        entering={SlideInDown.springify().damping(16).stiffness(220)}
+        exiting={FadeOutDown.duration(180)}
+        style={[styles.pill, { backgroundColor: c.text }, sh.raised]}>
+        <View style={[styles.iconCircle, { backgroundColor: success ? c.positive : c.danger }]}>
+          <Text style={styles.icon}>{success ? '✓' : '✕'}</Text>
+        </View>
         <Text numberOfLines={2} style={[styles.message, { color: c.background }]}>
           {message}
         </Text>
@@ -83,24 +86,28 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     maxWidth: '100%',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 6,
+    paddingLeft: 8,
+    paddingRight: 18,
+    paddingVertical: 8,
+    borderRadius: Radii.pill,
+  },
+  iconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   icon: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#fff',
   },
   message: {
     flexShrink: 1,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

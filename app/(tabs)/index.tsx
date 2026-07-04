@@ -1,9 +1,11 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddShopModal } from '@/components/add-shop-modal';
+import { Button } from '@/components/button';
 import { CityPicker } from '@/components/city-picker';
 import { EmptyState } from '@/components/empty-state';
 import { FeedMap } from '@/components/feed-map';
@@ -12,9 +14,11 @@ import { SkeletonCard } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
-import { Spacing } from '@/constants/theme';
+import { Chip } from '@/components/ui/chip';
+import { PressableScale } from '@/components/ui/pressable-scale';
+import { Radii, Spacing } from '@/constants/theme';
 import { addShop, deleteShop, getCurrentUser, getRequests, getShops, type Shop } from '@/data/api';
-import { useColors } from '@/hooks/use-colors';
+import { useColors, useShadows } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
 import { nearestCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
@@ -24,6 +28,7 @@ import type { BeerRequest } from '@/types';
 export default function FeedScreen() {
   const router = useRouter();
   const colors = useColors();
+  const sh = useShadows();
   const toast = useToast();
   const { session } = useSession();
   const { city, ready, hasChosen, setCityKey } = useCity();
@@ -135,46 +140,41 @@ export default function FeedScreen() {
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
+        {/* Header hero */}
+        <Animated.View entering={FadeInDown.duration(350)} style={styles.header}>
           <View style={styles.headerText}>
+            <ThemedText type="label">La tua zona 🍺</ThemedText>
             <ThemedText type="title">Richieste</ThemedText>
-            <ThemedText style={[styles.subtitle, { color: colors.textSecondary }]}>
-              Birre da consegnare a {city.label}
-            </ThemedText>
           </View>
-          <Pressable
+          <PressableScale
             onPress={() => router.push('/create-request')}
-            style={({ pressed }) => [
-              styles.newButton,
-              { backgroundColor: colors.accent, opacity: pressed ? 0.6 : 1 },
-            ]}>
+            pressedScale={0.92}
+            style={[styles.newButton, { backgroundColor: colors.accent }, sh.fab]}>
             <Text style={[styles.newButtonText, { color: colors.accentText }]}>+ Nuova</Text>
-          </Pressable>
-        </View>
+          </PressableScale>
+        </Animated.View>
 
-        <View style={styles.tools}>
+        {/* Filtri */}
+        <Animated.View entering={FadeInDown.delay(60).duration(350)} style={styles.tools}>
           <CityPicker selectedKey={city.key} onSelect={setCityKey} />
-          <Pressable onPress={() => router.push('/my-orders')} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
-            <ThemedText type="defaultSemiBold" style={{ color: colors.accent }}>
-              I miei ordini
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            onPress={() => setViewMode((mode) => (mode === 'list' ? 'map' : 'list'))}
-            style={[styles.filter, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-            <ThemedText type="defaultSemiBold">{viewMode === 'list' ? '🗺 Mappa' : '☰ Lista'}</ThemedText>
-          </Pressable>
-          <Pressable
-            onPress={() => setVibeOnly((value) => !value)}
-            style={[
-              styles.filter,
-              { borderColor: vibeOnly ? colors.accent : colors.border, backgroundColor: vibeOnly ? colors.accentSoft : colors.surface },
-            ]}>
-            <ThemedText type="defaultSemiBold" style={{ color: vibeOnly ? colors.accent : colors.text }}>
-              Vibe
-            </ThemedText>
-          </Pressable>
-        </View>
+          <View style={styles.toolsRight}>
+            <Chip
+              label={viewMode === 'list' ? '🗺 Mappa' : '☰ Lista'}
+              onPress={() => setViewMode((mode) => (mode === 'list' ? 'map' : 'list'))}
+            />
+            <Chip label="✨ Vibe" active={vibeOnly} onPress={() => setVibeOnly((value) => !value)} />
+          </View>
+        </Animated.View>
+
+        <PressableScale
+          onPress={() => router.push('/my-orders')}
+          haptic={false}
+          pressedScale={0.98}
+          style={styles.myOrders}>
+          <ThemedText type="defaultSemiBold" style={{ color: colors.accentStrong, fontSize: 14 }}>
+            I miei ordini →
+          </ThemedText>
+        </PressableScale>
 
         {loading ? (
           <View style={styles.skeletons}>
@@ -184,7 +184,8 @@ export default function FeedScreen() {
           </View>
         ) : error ? (
           <View style={styles.center}>
-            <ThemedText style={{ color: colors.danger }}>{error}</ThemedText>
+            <EmptyState emoji="😵" title="Ops, qualcosa è andato storto" message={error} />
+            <Button label="Riprova" size="md" variant="secondary" onPress={() => load()} />
           </View>
         ) : viewMode === 'map' ? (
           <FeedMap
@@ -201,17 +202,20 @@ export default function FeedScreen() {
             data={visibleRequests}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} />}
-            renderItem={({ item }) => (
+            renderItem={({ item, index }) => (
               <RequestCard
                 request={item}
+                index={index}
                 onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })}
               />
             )}
             ListEmptyComponent={
               <EmptyState
+                emoji="🌵"
                 title={`Nessuna richiesta a ${city.label}`}
-                message="Quando qualcuno pubblica una richiesta di birre in questa citta, comparira qui. Puoi cambiare citta dal selettore in alto."
+                message="Quando qualcuno pubblica una richiesta di birre in questa città, comparirà qui. Puoi cambiare città dal selettore in alto."
               />
             }
           />
@@ -234,32 +238,37 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.md + 4,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
     gap: Spacing.sm,
   },
   headerText: { flex: 1, gap: 2 },
-  subtitle: { fontSize: 15 },
   newButton: {
-    height: 38,
-    paddingHorizontal: 14,
-    borderRadius: 999,
+    height: 42,
+    paddingHorizontal: 18,
+    borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  newButtonText: { fontSize: 15, fontWeight: '600' },
+  newButtonText: { fontSize: 15, fontWeight: '800', letterSpacing: 0.2 },
   tools: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
+    paddingHorizontal: Spacing.md + 4,
+    paddingVertical: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  toolsRight: { flexDirection: 'row', gap: Spacing.sm },
+  myOrders: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: Spacing.md + 4,
     paddingBottom: Spacing.sm,
   },
-  filter: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md },
-  skeletons: { padding: Spacing.md, gap: Spacing.sm },
-  list: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xl, gap: Spacing.sm },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: Spacing.md, gap: Spacing.sm },
+  skeletons: { padding: Spacing.md, gap: Spacing.md },
+  list: { paddingHorizontal: Spacing.md, paddingTop: 4, paddingBottom: Spacing.xl, gap: Spacing.md },
 });

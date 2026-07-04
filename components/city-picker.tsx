@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet } from 'react-native';
+import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useColors } from '@/hooks/use-colors';
+import { PressableScale } from '@/components/ui/pressable-scale';
+import { Radii, Spacing } from '@/constants/theme';
+import { useColors, useShadows } from '@/hooks/use-colors';
 import { CITIES } from '@/lib/cities';
 
 type Props = {
@@ -17,54 +19,54 @@ type Props = {
  */
 export function CityPicker({ selectedKey, onSelect }: Props) {
   const c = useColors();
+  const sh = useShadows();
   const [open, setOpen] = useState(false);
   const selected = CITIES.find((city) => city.key === selectedKey);
 
   return (
     <>
-      <Pressable
+      <PressableScale
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel="Cambia città"
-        style={({ pressed }) => [
-          styles.chip,
-          { borderColor: c.border, backgroundColor: c.surface, opacity: pressed ? 0.7 : 1 },
-        ]}>
-        <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>
+        pressedScale={0.94}
+        style={[styles.chip, { backgroundColor: c.surfaceAlt }]}>
+        <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 14 }}>
           📍 {selected?.label ?? 'Città'}
         </ThemedText>
-        <ThemedText style={{ color: c.textSecondary }}>▾</ThemedText>
-      </Pressable>
+        <ThemedText style={{ color: c.textSecondary, fontSize: 12 }}>▾</ThemedText>
+      </PressableScale>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
-          <Pressable style={[styles.sheet, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <ThemedText type="subtitle" style={styles.title}>
-              Scegli la città
-            </ThemedText>
-            {CITIES.map((city) => {
-              const active = city.key === selectedKey;
-              return (
-                <Pressable
-                  key={city.key}
-                  onPress={() => {
-                    onSelect(city.key);
-                    setOpen(false);
-                  }}
-                  style={({ pressed }) => [
-                    styles.row,
-                    {
-                      backgroundColor: active ? c.accentSoft : 'transparent',
-                      opacity: pressed ? 0.7 : 1,
-                    },
-                  ]}>
-                  <ThemedText type={active ? 'defaultSemiBold' : 'default'}>{city.label}</ThemedText>
-                  {active ? <ThemedText style={{ color: c.accent }}>✓</ThemedText> : null}
-                </Pressable>
-              );
-            })}
+      <Modal visible={open} transparent animationType="none" onRequestClose={() => setOpen(false)}>
+        <Animated.View entering={FadeIn.duration(150)} style={[styles.backdrop, { backgroundColor: c.overlay }]}>
+          <Pressable style={styles.backdropPress} onPress={() => setOpen(false)}>
+            <Animated.View entering={ZoomIn.springify().damping(18).stiffness(240)}>
+              <Pressable style={[styles.sheet, { backgroundColor: c.surface }, sh.raised]}>
+                <ThemedText type="subtitle" style={styles.title}>
+                  Scegli la città
+                </ThemedText>
+                {CITIES.map((city) => {
+                  const active = city.key === selectedKey;
+                  return (
+                    <PressableScale
+                      key={city.key}
+                      onPress={() => {
+                        onSelect(city.key);
+                        setOpen(false);
+                      }}
+                      pressedScale={0.97}
+                      style={[styles.row, { backgroundColor: active ? c.accentSoft : 'transparent' }]}>
+                      <ThemedText type={active ? 'defaultSemiBold' : 'default'} style={active ? { color: c.accentStrong } : null}>
+                        {city.label}
+                      </ThemedText>
+                      {active ? <ThemedText style={{ color: c.accent }}>✓</ThemedText> : null}
+                    </PressableScale>
+                  );
+                })}
+              </Pressable>
+            </Animated.View>
           </Pressable>
-        </Pressable>
+        </Animated.View>
       </Modal>
     </>
   );
@@ -75,36 +77,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: Radii.pill,
     paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingVertical: 8,
     alignSelf: 'flex-start',
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  backdropPress: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.lg,
   },
   sheet: {
     width: '100%',
+    minWidth: 300,
     maxWidth: 360,
-    borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: Radii.xl,
     padding: Spacing.md,
     gap: Spacing.xs,
   },
   title: {
     marginBottom: Spacing.xs,
+    marginLeft: Spacing.sm,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 10,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 12,
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 13,
   },
 });

@@ -43,14 +43,14 @@ export function AddShopModal({ visible, city, loading, onClose, onSubmit }: Prop
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <ThemedText type="subtitle">Aggiungi un negozio</ThemedText>
+            <ThemedText type="subtitle">Aggiungi uno Spaccia Peroni</ThemedText>
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-              Segnala un bangladino a {city.label}: aiuti i driver a trovare quello più vicino.
+              Segnala uno spaccia peroni a {city.label}: aiuti i driver a trovare quello più vicino.
             </ThemedText>
           </View>
           <View style={styles.form}>
             <TextField
-              label="Nome del negozio"
+              label="Nome dello spaccia peroni"
               value={nome}
               onChangeText={setNome}
               placeholder="Es. Minimarket Via Po"

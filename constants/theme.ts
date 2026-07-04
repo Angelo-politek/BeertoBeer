@@ -1,59 +1,82 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * DESIGN SYSTEM — "Craft & Warm".
+ *
+ * Palette ispirata alla birra: carta calda e ambra in light, "stout" scuro
+ * caldo in dark. Le card sono superfici elevate (ombra morbida + raggio
+ * generoso) invece che riquadri bordati. Qui vivono anche i token di
+ * spaziatura, raggio, ombra, tipografia e le molle standard per le animazioni.
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
 export const Colors = {
   light: {
-    text: '#11181C',
-    textSecondary: '#60646C',
-    background: '#fff',
-    surface: '#fff',
-    border: '#E6E6EA',
-    accent: '#C77D0E',
-    accentText: '#ffffff',
-    accentSoft: '#FBF1E0',
-    danger: '#C0392B',
-    positive: '#2E7D32',
-    chatIncoming: '#F1F3F5',
-    chatOutgoing: '#DDF4E7',
-    skeletonBase: '#ECEFF3',
-    skeletonHighlight: '#F7F8FA',
+    text: '#1D1712',
+    textSecondary: '#77695A',
+    /** carta calda, non bianco freddo */
+    background: '#F8F4ED',
+    surface: '#FFFFFF',
+    /** superficie alternativa (chip, righe zebrate, input) */
+    surfaceAlt: '#F1EAE0',
+    border: '#EBE3D6',
+    /** ambra: il colore della birra al sole */
+    accent: '#D07C0C',
+    accentStrong: '#A85F05',
+    accentText: '#FFFFFF',
+    accentSoft: '#F9EDD8',
+    /** blu Nastro Azzurro Peroni: accento secondario per elementi "brand" */
+    peroniBlue: '#0A3D91',
+    danger: '#CE3B2C',
+    dangerSoft: '#FBEAE7',
+    positive: '#2E7D46',
+    positiveSoft: '#E7F4EB',
+    chatIncoming: '#F1EAE0',
+    chatOutgoing: '#E2F2E4',
+    skeletonBase: '#EDE6DA',
+    skeletonHighlight: '#F7F3EB',
     star: '#F5A623',
-    starMuted: '#D5D7DC',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    starMuted: '#DDD5C8',
+    overlay: 'rgba(24, 16, 6, 0.45)',
+    shadow: '#5C4013',
+    tint: '#D07C0C',
+    icon: '#77695A',
+    tabIconDefault: '#9A8D7D',
+    tabIconSelected: '#D07C0C',
   },
   dark: {
-    text: '#ECEDEE',
-    textSecondary: '#B0B4BA',
-    background: '#151718',
-    surface: '#1E2022',
-    border: '#2A2B2E',
-    accent: '#E0A33D',
-    accentText: '#000000',
-    accentSoft: '#2A2316',
-    danger: '#E06B5E',
-    positive: '#5BB36A',
-    chatIncoming: '#262A2E',
-    chatOutgoing: '#21392D',
-    skeletonBase: '#25282C',
-    skeletonHighlight: '#30343A',
+    text: '#F2EDE4',
+    textSecondary: '#A89B89',
+    /** stout: nero caldo, mai grigio freddo */
+    background: '#131009',
+    surface: '#1E1910',
+    surfaceAlt: '#292217',
+    border: '#332B1D',
+    accent: '#F0A63C',
+    accentStrong: '#F7BC63',
+    accentText: '#221503',
+    accentSoft: '#33270F',
+    /** blu Nastro Azzurro Peroni: accento secondario per elementi "brand" */
+    peroniBlue: '#6B9BF2',
+    danger: '#E9705F',
+    dangerSoft: '#3A1F19',
+    positive: '#6BBF7E',
+    positiveSoft: '#1C3322',
+    chatIncoming: '#292217',
+    chatOutgoing: '#243626',
+    skeletonBase: '#292217',
+    skeletonHighlight: '#3A3122',
     star: '#F0B84A',
-    starMuted: '#555B63',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    starMuted: '#57503F',
+    overlay: 'rgba(0, 0, 0, 0.6)',
+    shadow: '#000000',
+    tint: '#F0A63C',
+    icon: '#A89B89',
+    tabIconDefault: '#7E7361',
+    tabIconSelected: '#F0A63C',
   },
 };
+
+export type ThemeColors = typeof Colors.light;
 
 export const Spacing = {
   xs: 4,
@@ -61,6 +84,65 @@ export const Spacing = {
   md: 16,
   lg: 24,
   xl: 32,
+  xxl: 48,
+} as const;
+
+/** Raggi generosi: l'app deve sembrare morbida, mai spigolosa. */
+export const Radii = {
+  sm: 10,
+  md: 14,
+  lg: 20,
+  xl: 28,
+  pill: 999,
+} as const;
+
+/**
+ * Ombre morbide e calde per elevare le superfici. In dark l'elevazione arriva
+ * più dal colore della superficie che dall'ombra (che resta sottile).
+ */
+export function shadows(scheme: 'light' | 'dark') {
+  const color = Colors[scheme].shadow;
+  const soft = scheme === 'light' ? 0.1 : 0.4;
+  const strong = scheme === 'light' ? 0.16 : 0.55;
+  return {
+    /** card in lista */
+    card: {
+      shadowColor: color,
+      shadowOpacity: soft,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 3,
+    },
+    /** elementi hero, modali, tab bar */
+    raised: {
+      shadowColor: color,
+      shadowOpacity: strong,
+      shadowRadius: 24,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 8,
+    },
+    /** pulsanti primari e FAB */
+    fab: {
+      shadowColor: scheme === 'light' ? Colors.light.accentStrong : '#000',
+      shadowOpacity: scheme === 'light' ? 0.35 : 0.5,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 6,
+    },
+  } as const;
+}
+
+/**
+ * Molle standard per le micro-interazioni (reanimated). Un solo linguaggio di
+ * movimento in tutta l'app: reattivo sul press, morbido sugli ingressi.
+ */
+export const Springs = {
+  /** feedback immediato al tocco */
+  press: { damping: 18, stiffness: 320, mass: 0.7 },
+  /** ingressi di card e sezioni */
+  gentle: { damping: 20, stiffness: 180, mass: 0.9 },
+  /** elementi che "rimbalzano" con personalità (badge, indicatori) */
+  bouncy: { damping: 12, stiffness: 200, mass: 0.8 },
 } as const;
 
 export const Fonts = Platform.select({

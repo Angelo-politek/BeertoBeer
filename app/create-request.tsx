@@ -20,7 +20,8 @@ import { LocationPickerMap } from '@/components/location-picker-map';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Chip } from '@/components/ui/chip';
+import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { createOrder, getCurrentUser } from '@/data/api';
 import { isWithinCity } from '@/lib/cities';
@@ -190,7 +191,7 @@ export default function CreateRequestScreen() {
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {/* Banner moderazione: account sospeso */}
           {suspended ? (
-            <View style={[styles.suspendedBanner, { borderColor: c.danger, backgroundColor: c.surface }]}>
+            <View style={[styles.suspendedBanner, { backgroundColor: c.dangerSoft }]}>
               <ThemedText type="defaultSemiBold" style={{ color: c.danger }}>
                 Account temporaneamente sospeso
               </ThemedText>
@@ -244,25 +245,14 @@ export default function CreateRequestScreen() {
                 </View>
                 {/* Formato (incide sul peso → sui crediti) */}
                 <View style={styles.formatRow}>
-                  {FORMATS.map((f) => {
-                    const selected = b.formato === f.key;
-                    return (
-                      <Pressable
-                        key={f.key}
-                        onPress={() => updateBeer(i, 'formato', f.key)}
-                        style={[
-                          styles.formatChip,
-                          {
-                            backgroundColor: selected ? c.accent : c.surface,
-                            borderColor: selected ? c.accent : c.border,
-                          },
-                        ]}>
-                        <Text style={{ color: selected ? c.accentText : c.text, fontSize: 13, fontWeight: '600' }}>
-                          {f.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                  {FORMATS.map((f) => (
+                    <Chip
+                      key={f.key}
+                      label={f.label}
+                      active={b.formato === f.key}
+                      onPress={() => updateBeer(i, 'formato', f.key)}
+                    />
+                  ))}
                 </View>
               </View>
             ))}
@@ -305,28 +295,14 @@ export default function CreateRequestScreen() {
           <View style={styles.field}>
             <Text style={[styles.label, { color: c.textSecondary }]}>Quando</Text>
             <View style={styles.chips}>
-              {FASCE.map((f) => {
-                const selected = f === fascia;
-                return (
-                  <Pressable
-                    key={f}
-                    onPress={() => setFascia(f)}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor: selected ? c.accent : c.surface,
-                        borderColor: selected ? c.accent : c.border,
-                      },
-                    ]}>
-                    <Text style={{ color: selected ? c.accentText : c.text, fontWeight: '600' }}>{f}</Text>
-                  </Pressable>
-                );
-              })}
+              {FASCE.map((f) => (
+                <Chip key={f} label={f} active={f === fascia} onPress={() => setFascia(f)} />
+              ))}
             </View>
           </View>
 
           {/* Vibe mode */}
-          <View style={[styles.vibeRow, { borderColor: c.border, backgroundColor: c.surface }]}>
+          <View style={[styles.vibeRow, { backgroundColor: c.surfaceAlt }]}>
             <View style={styles.vibeText}>
               <ThemedText type="defaultSemiBold">✨ Vibe mode</ThemedText>
               <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
@@ -337,9 +313,11 @@ export default function CreateRequestScreen() {
           </View>
 
           {/* Stima crediti: parte peso subito, bonus distanza quando un driver accetta */}
-          <View style={[styles.creditsCard, { backgroundColor: c.accentSoft, borderColor: c.accent }]}>
-            <ThemedText style={{ color: c.textSecondary }}>Crediti offerti</ThemedText>
-            <ThemedText type="title" style={{ color: c.accent }}>
+          <View style={[styles.creditsCard, { backgroundColor: c.accentSoft }]}>
+            <ThemedText type="label" style={{ color: c.accentStrong }}>
+              Crediti offerti
+            </ThemedText>
+            <ThemedText type="title" style={{ color: c.accentStrong }}>
               {stima} crediti
             </ThemedText>
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
@@ -394,12 +372,12 @@ const styles = StyleSheet.create({
   field: { gap: Spacing.xs },
   label: { fontSize: 14, fontWeight: '600' },
   input: {
-    borderWidth: 1,
-    borderRadius: 12,
+    borderWidth: 1.5,
+    borderRadius: Radii.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     fontSize: 16,
-    height: 48,
+    height: 50,
   },
   beerBlock: { gap: Spacing.xs },
   beerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
@@ -408,37 +386,23 @@ const styles = StyleSheet.create({
   remove: { padding: Spacing.xs },
   removeText: { fontSize: 18, fontWeight: '700' },
   formatRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, paddingBottom: Spacing.xs },
-  formatChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  addBeer: { fontSize: 15, fontWeight: '600', paddingVertical: Spacing.xs },
+  addBeer: { fontSize: 15, fontWeight: '700', paddingVertical: Spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
-  chip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
   vibeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radii.lg,
     padding: Spacing.md,
     gap: Spacing.md,
   },
   vibeText: { flex: 1, gap: 2 },
   creditsCard: {
-    borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radii.lg,
     padding: Spacing.md,
     gap: Spacing.xs,
   },
-  suspendedBanner: { borderWidth: 1, borderRadius: 12, padding: Spacing.md, gap: Spacing.xs },
+  suspendedBanner: { borderRadius: Radii.md, padding: Spacing.md, gap: Spacing.xs },
   addressButtons: { flexDirection: 'row', gap: Spacing.sm },
   addressButton: { flex: 1 },
   mapHeader: { padding: Spacing.md, gap: 2 },

@@ -4,12 +4,14 @@ import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Updates from 'expo-updates';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { ToastProvider } from '@/components/toast';
-import { updateUserCity } from '@/data/api';
+import { Colors } from '@/constants/theme';
+import { getOnboardingCompleted, updateUserCity } from '@/data/api';
+import { getOnboardingSignal, resetOnboardingSignal, subscribeOnboardingSignal } from '@/lib/onboarding-signal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useColors } from '@/hooks/use-colors';
 import { SessionProvider, useSession } from '@/lib/auth-context';
@@ -29,6 +31,35 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
+// Temi di navigazione allineati alla palette "Craft & Warm": così anche le
+// superfici gestite da React Navigation (header, sfondi di transizione)
+// restano calde invece dei grigi di default.
+const WarmLightTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: Colors.light.accent,
+    background: Colors.light.background,
+    card: Colors.light.surface,
+    text: Colors.light.text,
+    border: Colors.light.border,
+    notification: Colors.light.accent,
+  },
+};
+
+const WarmDarkTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: Colors.dark.accent,
+    background: Colors.dark.background,
+    card: Colors.dark.surface,
+    text: Colors.dark.text,
+    border: Colors.dark.border,
+    notification: Colors.dark.accent,
+  },
+};
+
 /**
  * Decide cosa mostrare in base alla sessione:
  * - mentre carica la sessione → loader;
@@ -41,17 +72,62 @@ function RootNavigator() {
   const router = useRouter();
   const c = useColors();
 
+  // Stato onboarding: null = ancora da controllare. Serve a forzare il nuovo
+  // onboarding a chi non l'ha ancora completato (nuovi utenti E beta esistenti,
+  // che partono da onboarding_completed = false dopo la migration).
+  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!session) {
+      setOnboardingDone(null);
+      resetOnboardingSignal();
+      return;
+    }
+    let active = true;
+    getOnboardingCompleted()
+      .then((done) => {
+        // Il segnale locale (onboarding appena completato in questa sessione)
+        // ha priorità: evita che il guard rispedisca l'utente all'onboarding.
+        if (active) setOnboardingDone(done || getOnboardingSignal());
+      })
+      .catch(() => {
+        // In caso di errore non blocchiamo l'utente fuori dall'app.
+        if (active) setOnboardingDone(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [session]);
+
+  // Quando l'onboarding viene completato, aggiorna subito lo stato del guard.
+  useEffect(() => subscribeOnboardingSignal((v) => setOnboardingDone(v)), []);
+
   useEffect(() => {
     if (loading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inOnboarding = segments[0] === 'onboarding';
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
+      return;
+    }
+    if (!session) return;
+
+    // Sessione presente: aspetta di sapere lo stato onboarding prima di decidere.
+    if (onboardingDone === null) return;
+
+    if (!onboardingDone && !inOnboarding) {
+      // Non ha (ancora) completato l'onboarding: forzalo. Copre i beta esistenti
+      // al primo avvio dopo l'update e i nuovi device.
+      router.replace('/onboarding');
+    } else if (onboardingDone && (inAuthGroup || inOnboarding)) {
+      // Completato ma fermo su auth/onboarding: entra nell'app.
+      router.replace('/(tabs)');
+    } else if (inAuthGroup) {
       router.replace('/(tabs)');
     }
-  }, [session, loading, segments, router]);
+  }, [session, loading, segments, router, onboardingDone]);
 
   useEffect(() => {
     if (!session) return;
@@ -98,9 +174,21 @@ function RootNavigator() {
   }
 
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        // Header uniforme per tutte le schermate secondarie: fondo caldo,
+        // nessuna riga d'ombra, titolo bold e back ambrato.
+        headerStyle: { backgroundColor: c.background },
+        headerShadowVisible: false,
+        headerTintColor: c.accent,
+        headerTitleStyle: { fontWeight: '800', fontSize: 18, color: c.text },
+        headerBackButtonDisplayMode: 'minimal',
+        contentStyle: { backgroundColor: c.background },
+        animation: 'slide_from_right',
+      }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -139,7 +227,7 @@ function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={colorScheme === 'dark' ? WarmDarkTheme : WarmLightTheme}>
       <SessionProvider>
         <CityProvider>
           <ToastProvider>

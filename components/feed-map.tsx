@@ -1,12 +1,13 @@
 import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
 import { useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
-import { useColors } from '@/hooks/use-colors';
+import { Radii, Spacing } from '@/constants/theme';
+import { useColors, useShadows } from '@/hooks/use-colors';
 import type { City } from '@/lib/cities';
 import type { Shop } from '@/data/api';
 import type { BeerRequest } from '@/types';
@@ -35,6 +36,7 @@ type Props = {
  */
 export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, onDeleteShop, onAddShop }: Props) {
   const c = useColors();
+  const sh = useShadows();
   const [selection, setSelection] = useState<Selection>(null);
   // Il tap su un marker si propaga ANCHE alla mappa sotto: senza questa guardia
   // l'onPress della mappa chiuderebbe subito l'anteprima appena aperta.
@@ -103,19 +105,23 @@ export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, o
             onPress={onAddShop}
             style={({ pressed }) => [
               styles.addShop,
-              { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.7 : 1 },
+              { backgroundColor: c.surface, opacity: pressed ? 0.7 : 1 },
+              sh.card,
             ]}>
-            <ThemedText type="defaultSemiBold">+ 🏪 Negozio</ThemedText>
+            <ThemedText type="defaultSemiBold">+ 🏪 Spaccia Peroni</ThemedText>
           </Pressable>
-          <View style={[styles.legend, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <ThemedText style={{ fontSize: 12 }}>🍺 richieste (zona ~1 km) · 🏪 negozi</ThemedText>
+          <View style={[styles.legend, { backgroundColor: c.surface }, sh.card]}>
+            <ThemedText style={{ fontSize: 12 }}>🍺 richieste (zona ~1 km) · 🏪 spaccia peroni</ThemedText>
           </View>
         </>
       ) : null}
 
       {/* Anteprima richiesta */}
       {selection?.kind === 'request' ? (
-        <View style={[styles.preview, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <Animated.View
+          entering={FadeInDown.springify().damping(18).stiffness(220)}
+          exiting={FadeOutDown.duration(150)}
+          style={[styles.preview, { backgroundColor: c.surface }, sh.raised]}>
           <View style={styles.previewHeader}>
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>
               {selection.request.host.nome} · ⭐ {selection.request.host.ratingMedio.toFixed(1)}
@@ -134,12 +140,15 @@ export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, o
             {selection.request.fascia ? ` · ${selection.request.fascia}` : ''}
           </ThemedText>
           <Button label="Apri richiesta" onPress={() => onOpenRequest(selection.request.id)} />
-        </View>
+        </Animated.View>
       ) : null}
 
       {/* Anteprima negozio */}
       {selection?.kind === 'shop' ? (
-        <View style={[styles.preview, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <Animated.View
+          entering={FadeInDown.springify().damping(18).stiffness(220)}
+          exiting={FadeOutDown.duration(150)}
+          style={[styles.preview, { backgroundColor: c.surface }, sh.raised]}>
           <View style={styles.previewHeader}>
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>
               🏪 {selection.shop.nome}
@@ -166,7 +175,7 @@ export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, o
               }}
             />
           ) : null}
-        </View>
+        </Animated.View>
       ) : null}
     </View>
   );
@@ -189,8 +198,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 12,
     bottom: 12,
-    borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: Radii.pill,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -198,8 +206,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 12,
     bottom: 12,
-    borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: Radii.sm,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -208,8 +215,7 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     bottom: 12,
-    borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: Radii.lg,
     padding: Spacing.md,
     gap: Spacing.sm,
   },

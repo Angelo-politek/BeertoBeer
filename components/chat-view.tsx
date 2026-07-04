@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { PressableScale } from '@/components/ui/pressable-scale';
+import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { Message } from '@/types';
 
@@ -80,7 +81,12 @@ export function ChatView({ messages, myId, loading, emptyMessage, onSend }: Prop
               ) : null}
               <View style={[styles.messageRow, mine ? styles.mineRow : styles.theirRow]}>
                 {!mine ? <Avatar name={item.sender?.nome ?? 'Utente'} uri={item.sender?.fotoUrl} size={30} /> : null}
-                <View style={[styles.bubble, { backgroundColor: mine ? c.chatOutgoing : c.chatIncoming }]}>
+                <View
+                  style={[
+                    styles.bubble,
+                    mine ? styles.mineBubble : styles.theirBubble,
+                    { backgroundColor: mine ? c.chatOutgoing : c.chatIncoming },
+                  ]}>
                   {!mine && item.sender?.nome ? (
                     <ThemedText type="defaultSemiBold" style={styles.sender}>
                       {item.sender.nome}
@@ -101,19 +107,17 @@ export function ChatView({ messages, myId, loading, emptyMessage, onSend }: Prop
           placeholder="Messaggio"
           placeholderTextColor={c.textSecondary}
           multiline
-          style={[styles.input, { color: c.text, backgroundColor: c.surface, borderColor: c.border }]}
+          style={[styles.input, { color: c.text, backgroundColor: c.surfaceAlt }]}
         />
-        <Pressable
+        <PressableScale
           onPress={handleSend}
           disabled={!canSend}
-          style={({ pressed }) => [
-            styles.send,
-            { backgroundColor: c.accent, opacity: !canSend ? 0.45 : pressed ? 0.6 : 1 },
-          ]}>
-          <ThemedText type="defaultSemiBold" style={{ color: c.accentText }}>
-            Invia
+          pressedScale={0.9}
+          style={[styles.send, { backgroundColor: c.accent, opacity: !canSend ? 0.45 : 1 }]}>
+          <ThemedText type="defaultSemiBold" style={{ color: c.accentText, fontSize: 18, lineHeight: 22 }}>
+            ➤
           </ThemedText>
-        </Pressable>
+        </PressableScale>
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
@@ -125,11 +129,20 @@ const styles = StyleSheet.create({
   messageRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-end' },
   mineRow: { justifyContent: 'flex-end' },
   theirRow: { justifyContent: 'flex-start' },
-  bubble: { maxWidth: '78%', borderRadius: 12, padding: Spacing.sm, gap: 2 },
+  bubble: { maxWidth: '78%', borderRadius: Radii.lg, paddingHorizontal: 14, paddingVertical: 9, gap: 2 },
+  mineBubble: { borderBottomRightRadius: 6 },
+  theirBubble: { borderBottomLeftRadius: 6 },
   sender: { fontSize: 12 },
   timeLabel: { alignSelf: 'center', fontSize: 12, marginVertical: Spacing.xs },
-  composer: { flexDirection: 'row', gap: Spacing.sm, padding: Spacing.md, borderTopWidth: 1 },
-  input: { flex: 1, maxHeight: 110, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
-  send: { alignSelf: 'flex-end', height: 42, borderRadius: 12, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  composer: { flexDirection: 'row', gap: Spacing.sm, padding: Spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
+  input: { flex: 1, maxHeight: 110, borderRadius: Radii.lg, paddingHorizontal: 16, paddingVertical: 10, fontSize: 16 },
+  send: {
+    alignSelf: 'flex-end',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   error: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xs },
 });

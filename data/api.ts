@@ -14,18 +14,25 @@
 import type { Coords } from '@/lib/location';
 import { supabase } from '@/lib/supabase';
 import type {
+    BeerEvent,
     BeerItem,
     BeerRequest,
     BlockedUser,
+    CommunityFeedItem,
+    ComplimentCount,
     CreditTransaction,
+    LeaderboardEntry,
     Message,
     OrderStatus,
     ReportReason,
     Review,
     User,
+    UserBadge,
+    ZoneHolder,
 } from '@/types';
 
-const PROFILE_COLUMNS = 'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati';
+const PROFILE_COLUMNS =
+  'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati, livello, karma, interessi, cerco_compagnia, citta';
 const ORDER_COLUMNS =
   'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, citta, stato_moderazione';
 const REVIEW_COLUMNS = 'id, order_id, from_user_id, to_user_id, voto, commento, created_at';
@@ -57,6 +64,11 @@ type PublicProfileRow = {
   rating_medio: number;
   eta: number;
   scambi_completati: number;
+  livello: number | null;
+  karma: number | null;
+  interessi: string[] | null;
+  cerco_compagnia: boolean | null;
+  citta: string | null;
 };
 
 /** Profilo pubblico (vista) → tipo di dominio User. Il saldo crediti non è pubblico. */
@@ -71,6 +83,11 @@ function mapPublicProfile(row: PublicProfileRow): User {
     creditiSaldo: 0,
     preferenzeBirra: row.preferenze_birra ?? undefined,
     fotoUrl: row.foto_url ?? undefined,
+    livello: row.livello ?? 0,
+    karma: row.karma ?? 0,
+    interessi: row.interessi ?? [],
+    cercoCompagnia: row.cerco_compagnia ?? false,
+    citta: row.citta ?? undefined,
   };
 }
 
@@ -132,19 +149,21 @@ export type ProfileUpdate = {
   nome: string;
   bio: string;
   preferenzeBirra: string;
+  interessi?: string[];
+  cercoCompagnia?: boolean;
 };
 
 /** Aggiorna la propria riga in `users` (consentito dalla policy RLS users_update_own). */
 export async function updateCurrentUserProfile(input: ProfileUpdate): Promise<void> {
   const id = await requireUserId();
-  const { error } = await supabase
-    .from('users')
-    .update({
-      nome: input.nome.trim(),
-      bio: input.bio.trim() || null,
-      preferenze_birra: input.preferenzeBirra.trim() || null,
-    })
-    .eq('id', id);
+  const patch: Record<string, unknown> = {
+    nome: input.nome.trim(),
+    bio: input.bio.trim() || null,
+    preferenze_birra: input.preferenzeBirra.trim() || null,
+  };
+  if (input.interessi !== undefined) patch.interessi = input.interessi;
+  if (input.cercoCompagnia !== undefined) patch.cerco_compagnia = input.cercoCompagnia;
+  const { error } = await supabase.from('users').update(patch).eq('id', id);
   if (error) throw error;
 }
 
@@ -403,12 +422,38 @@ export async function getTransactions(): Promise<CreditTransaction[]> {
     const otherName = (otherId && profiles.get(otherId)?.nome) || 'un altro utente';
     return {
       id: t.id,
-      descrizione: incoming ? `Consegna a ${otherName}` : `Consegna da ${otherName}`,
+      descrizione: describeTransaction(t.tipo, incoming, otherName),
       importo: t.importo,
       tipo: incoming ? 'entrata' : 'uscita',
+      kind: t.tipo as CreditTransaction['kind'],
       data: t.created_at,
     };
   });
+}
+
+/** Etichetta leggibile per un movimento in base al `tipo` del ledger. */
+function describeTransaction(tipo: string, incoming: boolean, otherName: string): string {
+  switch (tipo) {
+    case 'welcome':
+      return 'Benvenuto in Beer to Beer 🎁';
+    case 'badge':
+      return 'Badge sbloccato 🏅';
+    case 'livello':
+      return 'Nuovo livello ⬆️';
+    case 'missione':
+      return 'Missione completata 🎯';
+    case 'notturno':
+      return 'Bonus giro notturno 🦉';
+    case 'referral':
+      return 'Invito amico 🤝';
+    case 'zona':
+      return 'Conquista quartiere 👑';
+    case 'admin':
+      return 'Rettifica staff';
+    case 'consegna':
+    default:
+      return incoming ? `Giro consegnato a ${otherName}` : `Giro ricevuto da ${otherName}`;
+  }
 }
 
 // ---------- Reviews / report / blocchi ----------
@@ -818,6 +863,313 @@ export function subscribeToDirectMessages(myId: string, otherUserId: string, onM
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+// ============================================================
+// GAMIFICATION & COMMUNITY
+// ============================================================
+
+// ---------- Onboarding ----------
+
+/** true se l'utente ha già completato l'onboarding (colonna users.onboarding_completed). */
+export async function getOnboardingCompleted(): Promise<boolean> {
+  const id = await requireUserId();
+  const { data, error } = await supabase
+    .from('users')
+    .select('onboarding_completed')
+    .eq('id', id)
+    .single();
+  if (error) throw error;
+  return !!(data as { onboarding_completed: boolean }).onboarding_completed;
+}
+
+/** Segna l'onboarding come completato (RPC SECURITY DEFINER). */
+export async function completeOnboarding(): Promise<void> {
+  const { error } = await supabase.rpc('complete_onboarding');
+  if (error) throw error;
+}
+
+// ---------- Badge ----------
+
+/** Badge sbloccati da un utente (chiave + data), via RPC badges_for_user. */
+export async function getUserBadges(userId: string): Promise<UserBadge[]> {
+  const { data, error } = await supabase.rpc('badges_for_user', { p_user: userId });
+  if (error) throw error;
+  return ((data ?? []) as { badge_key: string; unlocked_at: string }[]).map((r) => ({
+    key: r.badge_key,
+    unlockedAt: r.unlocked_at,
+  }));
+}
+
+// ---------- Referral ----------
+
+/** Applica un referral: dichiara chi mi ha invitato (premia entrambi una volta). */
+export async function applyReferral(inviterId: string): Promise<void> {
+  const { error } = await supabase.rpc('apply_referral', { p_inviter: inviterId });
+  if (error) throw error;
+}
+
+// ---------- Leaderboard ----------
+
+/** Classifica dei più attivi in una città (per consegne). Vista leaderboard_citta. */
+export async function getLeaderboard(citta: string, limit = 20): Promise<LeaderboardEntry[]> {
+  const { data, error } = await supabase
+    .from('leaderboard_citta')
+    .select('id, nome, foto_url, consegne, livello')
+    .eq('citta', citta)
+    .order('consegne', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as {
+    id: string;
+    nome: string;
+    foto_url: string | null;
+    consegne: number;
+    livello: number;
+  }[]).map((r) => ({
+    id: r.id,
+    nome: r.nome,
+    fotoUrl: r.foto_url ?? undefined,
+    consegne: r.consegne,
+    livello: r.livello,
+  }));
+}
+
+// ---------- Zone (conquista quartieri) ----------
+
+/** Zone conquistate in una città, con il rispettivo holder. */
+export async function getZoneHolders(citta: string): Promise<ZoneHolder[]> {
+  const { data, error } = await supabase
+    .from('zone_holders')
+    .select('citta, zona, holder_user_id, punteggio')
+    .eq('citta', citta)
+    .order('punteggio', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as {
+    citta: string;
+    zona: string;
+    holder_user_id: string | null;
+    punteggio: number;
+  }[]).map((r) => ({
+    citta: r.citta,
+    zona: r.zona,
+    holderUserId: r.holder_user_id,
+    punteggio: r.punteggio,
+  }));
+}
+
+// ---------- Complimenti ----------
+
+/** I complimenti ricevuti da un utente, aggregati per tipo (RPC compliments_for_user). */
+export async function getCompliments(userId: string): Promise<ComplimentCount[]> {
+  const { data, error } = await supabase.rpc('compliments_for_user', { p_user: userId });
+  if (error) throw error;
+  return ((data ?? []) as { tipo: string; n: number }[]).map((r) => ({ tipo: r.tipo, n: r.n }));
+}
+
+/** Lascia un complimento alla controparte di un ordine confermato. */
+export async function sendCompliment(orderId: string, toUserId: string, tipo: string): Promise<void> {
+  const myId = await requireUserId();
+  const { error } = await supabase
+    .from('compliments')
+    .insert({ order_id: orderId, from_user_id: myId, to_user_id: toUserId, tipo });
+  if (error) throw error;
+}
+
+// ---------- Eventi (giri di birra di gruppo) ----------
+
+type EventRow = {
+  id: string;
+  host_id: string;
+  citta: string | null;
+  titolo: string;
+  descrizione: string | null;
+  quando: string;
+  luogo: string | null;
+  lat: number | null;
+  lng: number | null;
+  posti: number;
+  stato: 'aperto' | 'chiuso' | 'annullato';
+  created_at: string;
+};
+
+function mapEvent(row: EventRow, host?: User): BeerEvent {
+  return {
+    id: row.id,
+    hostId: row.host_id,
+    host,
+    citta: row.citta,
+    titolo: row.titolo,
+    descrizione: row.descrizione,
+    quando: row.quando,
+    luogo: row.luogo,
+    lat: row.lat,
+    lng: row.lng,
+    posti: row.posti,
+    stato: row.stato,
+    createdAt: row.created_at,
+  };
+}
+
+/** Eventi aperti (futuri) in una città, con host e conteggio partecipanti. */
+export async function getEvents(citta: string): Promise<BeerEvent[]> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, host_id, citta, titolo, descrizione, quando, luogo, lat, lng, posti, stato, created_at')
+    .eq('citta', citta)
+    .eq('stato', 'aperto')
+    .gte('quando', new Date(Date.now() - 6 * 3600 * 1000).toISOString())
+    .order('quando', { ascending: true });
+  if (error) throw error;
+
+  const rows = (data ?? []) as EventRow[];
+  const hosts = await fetchProfiles(rows.map((r) => r.host_id));
+
+  // Partecipanti (conteggio) + se partecipo io.
+  const ids = rows.map((r) => r.id);
+  const counts = new Map<string, number>();
+  const mine = new Set<string>();
+  if (ids.length > 0) {
+    const { data: parts } = await supabase
+      .from('event_participants')
+      .select('event_id, user_id')
+      .in('event_id', ids);
+    for (const p of (parts ?? []) as { event_id: string; user_id: string }[]) {
+      counts.set(p.event_id, (counts.get(p.event_id) ?? 0) + 1);
+      if (p.user_id === myId) mine.add(p.event_id);
+    }
+  }
+
+  return rows.map((r) => ({
+    ...mapEvent(r, hosts.get(r.host_id)),
+    partecipanti: counts.get(r.id) ?? 0,
+    partecipo: mine.has(r.id),
+  }));
+}
+
+/** Dettaglio di un singolo evento. */
+export async function getEventById(id: string): Promise<BeerEvent | null> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase
+    .from('events')
+    .select('id, host_id, citta, titolo, descrizione, quando, luogo, lat, lng, posti, stato, created_at')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const row = data as EventRow;
+  const hosts = await fetchProfiles([row.host_id]);
+  const { data: parts } = await supabase
+    .from('event_participants')
+    .select('user_id')
+    .eq('event_id', id);
+  const partList = (parts ?? []) as { user_id: string }[];
+  return {
+    ...mapEvent(row, hosts.get(row.host_id)),
+    partecipanti: partList.length,
+    partecipo: partList.some((p) => p.user_id === myId),
+  };
+}
+
+export type CreateEventInput = {
+  titolo: string;
+  descrizione?: string;
+  quando: string;
+  luogo?: string;
+  citta: string;
+  lat?: number | null;
+  lng?: number | null;
+  posti?: number;
+};
+
+/** Crea un nuovo evento (l'utente corrente è l'host). Ritorna l'id creato. */
+export async function createEvent(input: CreateEventInput): Promise<string> {
+  const id = await requireUserId();
+  const { data, error } = await supabase
+    .from('events')
+    .insert({
+      host_id: id,
+      titolo: input.titolo.trim(),
+      descrizione: input.descrizione?.trim() || null,
+      quando: input.quando,
+      luogo: input.luogo?.trim() || null,
+      citta: input.citta,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
+      posti: input.posti ?? 6,
+    })
+    .select('id')
+    .single();
+  if (error) throw error;
+  return (data as { id: string }).id;
+}
+
+/** Partecipa a un evento. */
+export async function joinEvent(eventId: string): Promise<void> {
+  const id = await requireUserId();
+  const { error } = await supabase
+    .from('event_participants')
+    .insert({ event_id: eventId, user_id: id });
+  if (error) throw error;
+}
+
+/** Abbandona un evento. */
+export async function leaveEvent(eventId: string): Promise<void> {
+  const id = await requireUserId();
+  const { error } = await supabase
+    .from('event_participants')
+    .delete()
+    .eq('event_id', eventId)
+    .eq('user_id', id);
+  if (error) throw error;
+}
+
+// ---------- Bacheca community ----------
+
+/** Attività recente della community di una città (vista community_feed). */
+export async function getCommunityFeed(citta: string, limit = 40): Promise<CommunityFeedItem[]> {
+  const { data, error } = await supabase
+    .from('community_feed')
+    .select('data, tipo, user_id, user_nome, citta, titolo, emoji')
+    .eq('citta', citta)
+    .order('data', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as {
+    data: string;
+    tipo: CommunityFeedItem['tipo'];
+    user_id: string;
+    user_nome: string;
+    citta: string | null;
+    titolo: string;
+    emoji: string;
+  }[]).map((r) => ({
+    data: r.data,
+    tipo: r.tipo,
+    userId: r.user_id,
+    userNome: r.user_nome,
+    citta: r.citta,
+    titolo: r.titolo,
+    emoji: r.emoji,
+  }));
+}
+
+// ---------- Discovery persone (per affinità/prossimità) ----------
+
+/** Profili pubblici di una città (per la scoperta di gente nuova nella tab Community). */
+export async function getPeopleInCity(citta: string, limit = 30): Promise<User[]> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase
+    .from('public_profiles')
+    .select(PROFILE_COLUMNS)
+    .eq('citta', citta)
+    .limit(limit);
+  if (error) throw error;
+  return ((data ?? []) as PublicProfileRow[])
+    .map(mapPublicProfile)
+    .filter((u) => u.id !== myId);
 }
 
 // ---------- Amministrazione (RPC SECURITY DEFINER, gate is_admin lato server) ----------

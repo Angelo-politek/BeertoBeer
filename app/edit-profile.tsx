@@ -32,6 +32,8 @@ export default function EditProfileScreen() {
   const [nome, setNome] = useState('');
   const [bio, setBio] = useState('');
   const [preferenze, setPreferenze] = useState('');
+  const [interessi, setInteressi] = useState('');
+  const [cercoCompagnia, setCercoCompagnia] = useState(false);
   const [fotoUrl, setFotoUrl] = useState<string | undefined>(undefined);
 
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -49,6 +51,8 @@ export default function EditProfileScreen() {
         setNome(u.nome);
         setBio(u.bio);
         setPreferenze(u.preferenzeBirra ?? '');
+        setInteressi((u.interessi ?? []).join(', '));
+        setCercoCompagnia(u.cercoCompagnia ?? false);
         setFotoUrl(u.fotoUrl);
       })
       .catch(() => {
@@ -84,7 +88,18 @@ export default function EditProfileScreen() {
     }
     setSaving(true);
     try {
-      await updateCurrentUserProfile({ nome, bio, preferenzeBirra: preferenze });
+      const tags = interessi
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .slice(0, 8);
+      await updateCurrentUserProfile({
+        nome,
+        bio,
+        preferenzeBirra: preferenze,
+        interessi: tags,
+        cercoCompagnia,
+      });
       router.back();
     } catch {
       setSaveError('Salvataggio non riuscito. Riprova.');
@@ -145,6 +160,40 @@ export default function EditProfileScreen() {
               onChangeText={setPreferenze}
               placeholder="Es. IPA, birre artigianali"
             />
+            <TextField
+              label="Interessi (separati da virgola)"
+              value={interessi}
+              onChangeText={setInteressi}
+              placeholder="Es. calcio, vinili, montagna"
+            />
+
+            <Pressable
+              onPress={() => setCercoCompagnia((v) => !v)}
+              style={({ pressed }) => [
+                styles.toggleRow,
+                {
+                  backgroundColor: cercoCompagnia ? c.accentSoft : c.surfaceAlt,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}>
+              <View
+                style={[
+                  styles.checkbox,
+                  {
+                    borderColor: cercoCompagnia ? c.accent : c.textSecondary,
+                    backgroundColor: cercoCompagnia ? c.accent : 'transparent',
+                  },
+                ]}>
+                {cercoCompagnia ? <View style={[styles.checkboxDot, { backgroundColor: c.accentText }]} /> : null}
+              </View>
+              <View style={{ flex: 1 }}>
+                <ThemedText type="defaultSemiBold">🍺 Cerco compagnia</ThemedText>
+                <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+                  Fatti trovare da chi vuole bere una birra in compagnia nella tua zona.
+                </ThemedText>
+              </View>
+            </Pressable>
+
             {saveError ? <ThemedText style={{ color: c.danger }}>{saveError}</ThemedText> : null}
             <Button label="Salva modifiche" onPress={handleSave} loading={saving} />
           </ScrollView>
@@ -175,4 +224,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    borderRadius: 20,
+    padding: Spacing.md,
+  },
+  checkbox: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxDot: { width: 10, height: 10, borderRadius: 5 },
 });

@@ -9,8 +9,10 @@ import { useToast } from '@/components/toast';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Chip } from '@/components/ui/chip';
+import { COMPLIMENTS } from '@/constants/compliments';
 import { Spacing } from '@/constants/theme';
-import { getReviewContext, submitReview, type ReviewContext } from '@/data/api';
+import { getReviewContext, sendCompliment, submitReview, type ReviewContext } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 
 export default function ReviewScreen() {
@@ -21,6 +23,7 @@ export default function ReviewScreen() {
   const [context, setContext] = useState<ReviewContext | null>(null);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const [compliment, setCompliment] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +55,10 @@ export default function ReviewScreen() {
     setError(null);
     try {
       await submitReview(orderId, rating, comment);
+      // Complimento (best-effort: non deve bloccare il salvataggio recensione).
+      if (compliment && context) {
+        await sendCompliment(orderId, context.target.id, compliment).catch(() => null);
+      }
       toast.show('Recensione salvata');
       router.back();
     } catch (e) {
@@ -97,6 +104,24 @@ export default function ReviewScreen() {
           <View style={styles.ratingWrap}>
             <StarRating value={rating} onChange={setRating} size={42} />
           </View>
+
+          <View style={styles.field}>
+            <ThemedText type="defaultSemiBold">Un complimento? (facoltativo)</ThemedText>
+            <View style={styles.chips}>
+              {COMPLIMENTS.map((comp) => {
+                const active = compliment === comp.key;
+                return (
+                  <Chip
+                    key={comp.key}
+                    label={`${comp.emoji} ${comp.label}`}
+                    active={active}
+                    onPress={() => setCompliment(active ? null : comp.key)}
+                  />
+                );
+              })}
+            </View>
+          </View>
+
           <TextField
             label="Commento"
             value={comment}
@@ -118,4 +143,7 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
   header: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.lg },
   ratingWrap: { alignItems: 'center' },
+  field: { gap: Spacing.xs },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
 });
+

@@ -1,9 +1,11 @@
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
+import { SkeletonCard } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
@@ -44,12 +46,14 @@ export default function ConnectionsScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Le mie connessioni' }} />
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={c.accent} size="large" />
+        <View style={styles.skeletons}>
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <ThemedText style={{ color: c.danger }}>{error}</ThemedText>
+          <EmptyState emoji="😵" title="Ops" message={error} />
         </View>
       ) : (
         <FlatList
@@ -57,25 +61,25 @@ export default function ConnectionsScreen() {
           keyExtractor={(item) => item.user.id}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}
-          renderItem={({ item }) => (
-            <Pressable
+          renderItem={({ item, index }) => (
+            <Card
+              index={index}
               onPress={() =>
                 router.push({ pathname: '/chat/direct/[userId]', params: { userId: item.user.id } } as never)
               }
-              style={({ pressed }) => [
-                styles.card,
-                { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.6 : 1 },
-              ]}>
+              style={styles.card}>
               <Avatar name={item.user.nome} uri={item.user.fotoUrl} size={48} />
               <View style={styles.info}>
                 <ThemedText type="defaultSemiBold">{item.user.nome}</ThemedText>
-                <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+                <ThemedText type="caption">
                   {item.scambi} {item.scambi === 1 ? 'scambio' : 'scambi'} · ultimo{' '}
                   {formatShortDate(item.ultimoScambio)}
                 </ThemedText>
               </View>
-              <ThemedText style={{ color: c.accent }}>💬</ThemedText>
-            </Pressable>
+              <View style={[styles.chatBubble, { backgroundColor: c.accentSoft }]}>
+                <ThemedText style={{ fontSize: 15 }}>💬</ThemedText>
+              </View>
+            </Card>
           )}
           ListEmptyComponent={
             <EmptyState
@@ -92,14 +96,19 @@ export default function ConnectionsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md },
-  list: { padding: Spacing.md, gap: Spacing.sm },
+  skeletons: { padding: Spacing.md, gap: Spacing.md },
+  list: { padding: Spacing.md, gap: Spacing.md },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: Spacing.md,
   },
   info: { flex: 1, gap: 2 },
+  chatBubble: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

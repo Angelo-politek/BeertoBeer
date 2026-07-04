@@ -1,4 +1,4 @@
-import { Colors } from '@/constants/theme';
+import { Colors, shadows } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 /**
@@ -8,4 +8,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 export function useColors() {
   const scheme = useColorScheme() ?? 'light';
   return Colors[scheme];
+}
+
+/** Ombre del tema corrente (card / raised / fab). */
+export function useShadows() {
+  const scheme = useColorScheme() ?? 'light';
+  return shadows(scheme);
 }

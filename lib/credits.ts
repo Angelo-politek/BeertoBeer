@@ -62,3 +62,16 @@ export function maxDistanceBonus(birre: BeerItem[]): number {
 export function estimateBonus(distKm: number): number {
   return Math.round(distKm * CREDIT_PER_KM);
 }
+
+/**
+ * Reward PeroniToken non legati al peso/distanza. Mirror della migration
+ * gamification (award_tokens / handle_new_user / gamify_on_confirm). Servono
+ * SOLO alla UI ("come guadagnare"): l'accredito reale è lato SQL.
+ */
+export const REWARDS = {
+  welcome: 10,
+  notturno: 2,
+  referral: 5,
+  /** bonus una tantum per livello raggiunto (indice = livello) */
+  livello: [0, 2, 5, 10, 20],
+} as const;

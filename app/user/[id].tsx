@@ -1,19 +1,25 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
+import { BadgeGrid } from '@/components/badge-grid';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
+import { LevelBadge } from '@/components/level-badge';
 import { ReportModal } from '@/components/report-modal';
 import { StarRating } from '@/components/star-rating';
 import { useToast } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { COMPLIMENT_LABELS } from '@/constants/compliments';
+import { Radii, Spacing } from '@/constants/theme';
 import {
   blockUser,
+  getCompliments,
   getReviewsForUser,
+  getUserBadges,
   getUserById,
   isUserBlocked,
   reportUser,
@@ -22,7 +28,7 @@ import {
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
 import { formatShortDate } from '@/lib/format';
-import type { ReportReason, Review, User } from '@/types';
+import type { ComplimentCount, ReportReason, Review, User, UserBadge } from '@/types';
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,8 +37,11 @@ export default function UserProfileScreen() {
   const toast = useToast();
   const isMe = session?.user.id === id;
 
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [badges, setBadges] = useState<UserBadge[]>([]);
+  const [compliments, setCompliments] = useState<ComplimentCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [blocked, setBlocked] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -43,12 +52,20 @@ export default function UserProfileScreen() {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    Promise.all([getUserById(id), getReviewsForUser(id), isMe ? Promise.resolve(false) : isUserBlocked(id)])
-      .then(([profile, profileReviews, isBlocked]) => {
+    Promise.all([
+      getUserById(id),
+      getReviewsForUser(id),
+      isMe ? Promise.resolve(false) : isUserBlocked(id),
+      getUserBadges(id).catch(() => []),
+      getCompliments(id).catch(() => []),
+    ])
+      .then(([profile, profileReviews, isBlocked, userBadges, userCompliments]) => {
         if (!active) return;
         setUser(profile);
         setReviews(profileReviews);
         setBlocked(isBlocked);
+        setBadges(userBadges);
+        setCompliments(userCompliments);
       })
       .catch(() => {
         if (active) setUser(null);
@@ -121,45 +138,88 @@ export default function UserProfileScreen() {
       <Stack.Screen options={{ title: user.nome }} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Avatar name={user.nome} size={88} uri={user.fotoUrl} />
+          <Avatar name={user.nome} size={88} uri={user.fotoUrl} ring />
           <ThemedText type="title" style={styles.name}>
             {user.nome}
           </ThemedText>
-          <ThemedText style={{ color: c.textSecondary }}>{user.eta} anni</ThemedText>
+          <View style={styles.headerMeta}>
+            <LevelBadge level={user.livello ?? 0} size="md" />
+            <ThemedText style={{ color: c.textSecondary }}>· {user.eta} anni</ThemedText>
+          </View>
         </View>
 
-        <View style={[styles.statsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+        {!isMe ? (
+          <Button label="💬 Scrivi" variant="secondary" onPress={() => router.push({ pathname: '/chat/direct/[userId]', params: { userId: id } } as never)} />
+        ) : null}
+
+        <Card style={styles.statsCard}>
           <View style={styles.stat}>
-            <ThemedText type="title" style={styles.statValue}>
-              {user.ratingMedio.toFixed(1)}
-            </ThemedText>
-            <ThemedText style={{ color: c.textSecondary }}>Rating</ThemedText>
+            <ThemedText style={styles.statValue}>⭐ {user.ratingMedio.toFixed(1)}</ThemedText>
+            <ThemedText type="caption">Rating</ThemedText>
           </View>
           <View style={[styles.statDivider, { backgroundColor: c.border }]} />
           <View style={styles.stat}>
-            <ThemedText type="title" style={styles.statValue}>
-              {user.scambiCompletati}
-            </ThemedText>
-            <ThemedText style={{ color: c.textSecondary }}>Scambi</ThemedText>
+            <ThemedText style={[styles.statValue, { color: c.accentStrong }]}>{user.scambiCompletati}</ThemedText>
+            <ThemedText type="caption">Giri</ThemedText>
           </View>
-        </View>
+          <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+          <View style={styles.stat}>
+            <ThemedText style={[styles.statValue, { color: (user.karma ?? 0) >= 0 ? c.positive : c.danger }]}>
+              {(user.karma ?? 0) > 0 ? '+' : ''}{user.karma ?? 0}
+            </ThemedText>
+            <ThemedText type="caption">Karma</ThemedText>
+          </View>
+        </Card>
 
         {user.bio ? (
-          <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <ThemedText type="defaultSemiBold">Bio</ThemedText>
+          <Card style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>Bio</ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>{user.bio}</ThemedText>
-          </View>
+          </Card>
         ) : null}
 
         {user.preferenzeBirra ? (
-          <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <ThemedText type="defaultSemiBold">Preferenze birra</ThemedText>
+          <Card style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>Preferenze birra</ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>{user.preferenzeBirra}</ThemedText>
-          </View>
+          </Card>
         ) : null}
 
-        <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <ThemedText type="defaultSemiBold">Recensioni</ThemedText>
+        {user.interessi && user.interessi.length > 0 ? (
+          <Card style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>Interessi</ThemedText>
+            <View style={styles.tags}>
+              {user.interessi.map((tag) => (
+                <View key={tag} style={[styles.tag, { backgroundColor: c.accentSoft }]}>
+                  <ThemedText style={{ fontSize: 13, color: c.accentStrong, fontWeight: '600' }}>{tag}</ThemedText>
+                </View>
+              ))}
+            </View>
+          </Card>
+        ) : null}
+
+        <Card style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>Badge</ThemedText>
+          <BadgeGrid unlocked={badges} showLocked={false} />
+        </Card>
+
+        {compliments.length > 0 ? (
+          <Card style={styles.section}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>Complimenti ricevuti</ThemedText>
+            <View style={styles.tags}>
+              {compliments.map((comp) => (
+                <View key={comp.tipo} style={[styles.tag, { backgroundColor: c.accentSoft }]}>
+                  <ThemedText style={{ fontSize: 13, color: c.accentStrong, fontWeight: '600' }}>
+                    {COMPLIMENT_LABELS[comp.tipo] ?? comp.tipo} · {comp.n}
+                  </ThemedText>
+                </View>
+              ))}
+            </View>
+          </Card>
+        ) : null}
+
+        <Card style={styles.section}>
+          <ThemedText type="subtitle" style={styles.sectionTitle}>Recensioni</ThemedText>
           {reviews.length === 0 ? (
             <EmptyState title="Nessuna recensione" message="Le recensioni degli scambi completati appariranno qui." />
           ) : (
@@ -174,7 +234,7 @@ export default function UserProfileScreen() {
               </View>
             ))
           )}
-        </View>
+        </Card>
 
         {!isMe ? (
           <View style={styles.actions}>
@@ -207,22 +267,21 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: Spacing.md, gap: Spacing.md },
   header: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md },
-  name: { marginTop: Spacing.xs },
+  name: { marginTop: Spacing.sm },
+  headerMeta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 2 },
   statsCard: {
     flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: 16,
     paddingVertical: Spacing.lg,
   },
   stat: { flex: 1, alignItems: 'center', gap: 2 },
-  statValue: { fontSize: 28, lineHeight: 34 },
+  statValue: { fontSize: 23, lineHeight: 29, fontWeight: '800', letterSpacing: -0.3 },
   statDivider: { width: 1 },
   section: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: Spacing.md,
     gap: Spacing.xs,
   },
+  sectionTitle: { marginBottom: Spacing.xs },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  tag: { borderRadius: Radii.pill, paddingHorizontal: 10, paddingVertical: 5 },
   review: {
     borderTopWidth: 1,
     paddingTop: Spacing.sm,

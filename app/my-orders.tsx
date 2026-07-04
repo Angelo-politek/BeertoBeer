@@ -1,11 +1,14 @@
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
+import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
+import { SkeletonCard } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Chip } from '@/components/ui/chip';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { getMyOrders } from '@/data/api';
@@ -54,12 +57,14 @@ export default function MyOrdersScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'I miei ordini' }} />
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={c.accent} size="large" />
+        <View style={styles.skeletons}>
+          <SkeletonCard />
+          <SkeletonCard />
+          <SkeletonCard />
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <ThemedText style={{ color: c.danger }}>{error}</ThemedText>
+          <EmptyState emoji="😵" title="Ops" message={error} />
         </View>
       ) : (
         <FlatList
@@ -69,20 +74,8 @@ export default function MyOrdersScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}
           ListHeaderComponent={
             <View style={styles.filters}>
-              <Pressable
-                onPress={() => setShowCompleted(false)}
-                style={[styles.filter, { borderColor: !showCompleted ? c.accent : c.border, backgroundColor: !showCompleted ? c.accentSoft : c.surface }]}>
-                <ThemedText type="defaultSemiBold" style={{ color: !showCompleted ? c.accent : c.text }}>
-                  Attivi
-                </ThemedText>
-              </Pressable>
-              <Pressable
-                onPress={() => setShowCompleted(true)}
-                style={[styles.filter, { borderColor: showCompleted ? c.accent : c.border, backgroundColor: showCompleted ? c.accentSoft : c.surface }]}>
-                <ThemedText type="defaultSemiBold" style={{ color: showCompleted ? c.accent : c.text }}>
-                  Completati
-                </ThemedText>
-              </Pressable>
+              <Chip label="Attivi" active={!showCompleted} onPress={() => setShowCompleted(false)} />
+              <Chip label="Completati" active={showCompleted} onPress={() => setShowCompleted(true)} />
             </View>
           }
           renderItem={({ item }) => {
@@ -98,12 +91,7 @@ export default function MyOrdersScreen() {
                     ? { label: 'Scaduta', tone: 'neutral' as const }
                     : { label: STATO_LABEL[item.stato], tone: 'accent' as const };
             return (
-              <Pressable
-                onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })}
-                style={({ pressed }) => [
-                  styles.card,
-                  { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.6 : 1 },
-                ]}>
+              <Card onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <ThemedText type="defaultSemiBold">
                     {isHost ? 'La tua richiesta' : `Consegna per ${item.host.nome}`}
@@ -111,10 +99,10 @@ export default function MyOrdersScreen() {
                   <Badge label={badge.label} tone={badge.tone} />
                 </View>
                 <ThemedText style={{ color: c.textSecondary }}>{birreLabel}</ThemedText>
-                <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>
-                  {item.creditiOfferti} crediti
+                <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong }}>
+                  +{item.creditiOfferti} crediti
                 </ThemedText>
-              </Pressable>
+              </Card>
             );
           }}
           ListEmptyComponent={
@@ -129,13 +117,10 @@ export default function MyOrdersScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md },
-  list: { padding: Spacing.md, gap: Spacing.sm },
+  skeletons: { padding: Spacing.md, gap: Spacing.md },
+  list: { padding: Spacing.md, gap: Spacing.md },
   filters: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
-  filter: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   card: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: Spacing.md,
     gap: Spacing.sm,
   },
   cardHeader: {

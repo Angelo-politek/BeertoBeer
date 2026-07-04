@@ -1,27 +1,40 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Updates from 'expo-updates';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
+import { BadgeGrid } from '@/components/badge-grid';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
+import { LevelBadge } from '@/components/level-badge';
+import { Skeleton } from '@/components/skeleton';
 import { StarRating } from '@/components/star-rating';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
-import { getCurrentUser, getReviewsForUser } from '@/data/api';
+import { LEVELS, nextLevel, TOKEN_NAME } from '@/constants/branding';
+import { Radii, Spacing, Springs } from '@/constants/theme';
+import { getCurrentUser, getReviewsForUser, getUserBadges } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { formatShortDate } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
-import type { Review, User } from '@/types';
+import type { Review, User, UserBadge } from '@/types';
 
 export default function ProfileScreen() {
   const c = useColors();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [badges, setBadges] = useState<UserBadge[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
@@ -33,9 +46,13 @@ export default function ProfileScreen() {
     else setLoading(true);
     try {
       const u = await getCurrentUser();
-      const latestReviews = await getReviewsForUser(u.id);
+      const [latestReviews, userBadges] = await Promise.all([
+        getReviewsForUser(u.id),
+        getUserBadges(u.id).catch(() => []),
+      ]);
       setUser(u);
       setReviews(latestReviews.slice(0, 3));
+      setBadges(userBadges);
       setError(null);
     } catch {
       setError('Impossibile caricare il profilo. Riprova.');
@@ -83,9 +100,17 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.container}>
-        <View style={styles.center}>
-          <ActivityIndicator color={c.accent} size="large" />
-        </View>
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <View style={styles.loadingArea}>
+            <View style={styles.loadingHero}>
+              <Skeleton width={96} height={96} radius={48} />
+              <Skeleton width="50%" height={26} />
+              <Skeleton width="30%" height={18} />
+            </View>
+            <Skeleton height={110} radius={Radii.lg} />
+            <Skeleton height={220} radius={Radii.lg} />
+          </View>
+        </SafeAreaView>
       </ThemedView>
     );
   }
@@ -95,9 +120,7 @@ export default function ProfileScreen() {
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.safe} edges={['top']}>
           <View style={styles.center}>
-            <ThemedText style={{ color: c.danger }}>
-              {error ?? 'Profilo non disponibile.'}
-            </ThemedText>
+            <EmptyState emoji="😵" title="Ops" message={error ?? 'Profilo non disponibile.'} />
             <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
           </View>
         </SafeAreaView>
@@ -110,74 +133,104 @@ export default function ProfileScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView
           contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}>
           {/* Intestazione profilo */}
-          <View style={styles.header}>
-            <Avatar name={user.nome} size={88} uri={user.fotoUrl} />
+          <Animated.View entering={FadeInDown.springify().damping(20).stiffness(180)} style={styles.header}>
+            <Avatar name={user.nome} size={92} uri={user.fotoUrl} ring />
             <ThemedText type="title" style={styles.name}>
               {user.nome}
             </ThemedText>
-            <ThemedText style={{ color: c.textSecondary }}>{user.eta} anni</ThemedText>
-          </View>
+            <View style={styles.headerMeta}>
+              <LevelBadge level={user.livello ?? 0} size="md" />
+              <ThemedText style={{ color: c.textSecondary }}>· {user.eta} anni</ThemedText>
+            </View>
+          </Animated.View>
+
+          {/* Progresso al livello successivo */}
+          <LevelProgress scambi={user.scambiCompletati} />
 
           {/* Statistiche */}
-          <View style={[styles.statsCard, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <Card index={1} style={styles.statsCard}>
             <View style={styles.stat}>
-              <ThemedText type="title" style={styles.statValue}>
-                ⭐ {user.ratingMedio.toFixed(1)}
-              </ThemedText>
-              <ThemedText style={{ color: c.textSecondary }}>Rating</ThemedText>
+              <ThemedText style={styles.statValue}>⭐ {user.ratingMedio.toFixed(1)}</ThemedText>
+              <ThemedText type="caption">Rating</ThemedText>
             </View>
             <View style={[styles.statDivider, { backgroundColor: c.border }]} />
             <View style={styles.stat}>
-              <ThemedText type="title" style={styles.statValue}>
-                {user.scambiCompletati}
-              </ThemedText>
-              <ThemedText style={{ color: c.textSecondary }}>Consegne</ThemedText>
+              <ThemedText style={[styles.statValue, { color: c.accentStrong }]}>{user.scambiCompletati}</ThemedText>
+              <ThemedText type="caption">Giri</ThemedText>
             </View>
-          </View>
+            <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+            <View style={styles.stat}>
+              <ThemedText
+                style={[styles.statValue, { color: (user.karma ?? 0) >= 0 ? c.positive : c.danger }]}>
+                {(user.karma ?? 0) > 0 ? '+' : ''}
+                {user.karma ?? 0}
+              </ThemedText>
+              <ThemedText type="caption">Karma</ThemedText>
+            </View>
+          </Card>
+
+          {/* Nudge karma: chi ordina e basta è invitato a consegnare */}
+          {(user.karma ?? 0) < 0 ? (
+            <View style={[styles.nudge, { backgroundColor: c.accentSoft }]}>
+              <ThemedText style={{ color: c.accentStrong, fontSize: 15, lineHeight: 21 }}>
+                🍺 Ordini più di quanto consegni. Fai un giro per riequilibrare il karma e guadagnare {TOKEN_NAME}!
+              </ThemedText>
+            </View>
+          ) : null}
+
+          {/* Badge */}
+          <Card index={2}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              I tuoi badge {badges.length > 0 ? `(${badges.length}/${LEVELS.length + 7})` : ''}
+            </ThemedText>
+            <BadgeGrid unlocked={badges} />
+          </Card>
 
           {/* Bio */}
           {user.bio ? (
-            <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <ThemedText type="defaultSemiBold">Bio</ThemedText>
+            <Card index={3}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Bio
+              </ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>{user.bio}</ThemedText>
-            </View>
+            </Card>
           ) : null}
 
           {/* Preferenze birra */}
           {user.preferenzeBirra ? (
-            <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <ThemedText type="defaultSemiBold">Preferenze birra</ThemedText>
+            <Card index={4}>
+              <ThemedText type="subtitle" style={styles.sectionTitle}>
+                Preferenze birra
+              </ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>{user.preferenzeBirra}</ThemedText>
-            </View>
+            </Card>
           ) : null}
 
-          <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <ThemedText type="defaultSemiBold">Ultime recensioni</ThemedText>
+          <Card index={5}>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Ultime recensioni
+            </ThemedText>
             {reviews.length === 0 ? (
-              <EmptyState title="Nessuna recensione" message="Le recensioni ricevute appariranno qui." />
+              <EmptyState emoji="💬" title="Nessuna recensione" message="Le recensioni ricevute appariranno qui." />
             ) : (
               reviews.map((review) => (
                 <View key={review.id} style={[styles.review, { borderTopColor: c.border }]}>
                   <View style={styles.reviewHeader}>
                     <ThemedText type="defaultSemiBold">{review.author?.nome ?? 'Utente'}</ThemedText>
-                    <ThemedText style={{ color: c.textSecondary }}>{formatShortDate(review.createdAt)}</ThemedText>
+                    <ThemedText type="caption">{formatShortDate(review.createdAt)}</ThemedText>
                   </View>
                   <StarRating value={review.voto} readonly size={20} />
                   {review.commento ? <ThemedText style={{ color: c.textSecondary }}>{review.commento}</ThemedText> : null}
                 </View>
               ))
             )}
-          </View>
+          </Card>
 
-          {/* Modifica profilo + connessioni */}
+          {/* Modifica profilo */}
           <Button label="Modifica profilo" variant="secondary" onPress={() => router.push('/edit-profile')} />
-          <Button
-            label="💬 Le mie connessioni"
-            variant="secondary"
-            onPress={() => router.push('/connections' as never)}
-          />
 
           {/* Amministrazione — visibile solo agli admin (flag privato is_admin) */}
           {user.isAdmin ? (
@@ -188,27 +241,72 @@ export default function ProfileScreen() {
             />
           ) : null}
 
-          <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <ThemedText type="defaultSemiBold">Aggiornamenti beta</ThemedText>
-            <ThemedText style={{ color: c.textSecondary }}>
+          <Card>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>
+              Aggiornamenti beta
+            </ThemedText>
+            <ThemedText type="caption" style={{ marginBottom: Spacing.sm }}>
               Le build preview e production scaricano gli update JS senza rifare l’APK.
             </ThemedText>
-            {updateMessage ? <ThemedText style={{ color: c.textSecondary }}>{updateMessage}</ThemedText> : null}
+            {updateMessage ? (
+              <ThemedText type="caption" style={{ marginBottom: Spacing.sm }}>
+                {updateMessage}
+              </ThemedText>
+            ) : null}
             <Button
               label="Controlla aggiornamenti"
               variant="secondary"
+              size="md"
               onPress={handleCheckForUpdates}
               loading={checkingUpdate}
               disabled={checkingUpdate}
             />
-          </View>
+          </Card>
 
-          {/* Esci — temporaneo, per testare il logout in questo step. Il redirect
-              alle schermate di accesso avviene dal guard nel root layout. */}
+          {/* Esci — il redirect alle schermate di accesso avviene dal guard nel root layout. */}
           <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
+  );
+}
+
+/** Barra di progresso animata verso il livello Peroni successivo. */
+function LevelProgress({ scambi }: { scambi: number }) {
+  const c = useColors();
+  const next = nextLevel(scambi);
+  const progressValue = useSharedValue(0);
+
+  const prevThreshold = LEVELS.filter((l) => l.scambiRichiesti <= scambi).pop()?.scambiRichiesti ?? 0;
+  const span = next ? next.scambiRichiesti - prevThreshold || 1 : 1;
+  const progress = next ? Math.max(0.03, Math.min(1, (scambi - prevThreshold) / span)) : 1;
+
+  useEffect(() => {
+    progressValue.value = withDelay(300, withSpring(progress, Springs.gentle));
+  }, [progress, progressValue]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${progressValue.value * 100}%`,
+  }));
+
+  if (!next) {
+    return (
+      <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>
+        🏆 Hai raggiunto il livello massimo. Sei una leggenda.
+      </ThemedText>
+    );
+  }
+  const mancano = next.scambiRichiesti - scambi;
+
+  return (
+    <View style={styles.levelProgress}>
+      <View style={[styles.progressTrack, { backgroundColor: c.surfaceAlt }]}>
+        <Animated.View style={[styles.progressFill, { backgroundColor: c.accent }, fillStyle]} />
+      </View>
+      <ThemedText type="caption" style={{ textAlign: 'center' }}>
+        Ancora {mancano} {mancano === 1 ? 'giro' : 'giri'} per diventare {next.emoji} {next.titolo}
+      </ThemedText>
+    </View>
   );
 }
 
@@ -222,6 +320,8 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.md,
   },
+  loadingArea: { padding: Spacing.md, gap: Spacing.md },
+  loadingHero: { alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.md },
   content: {
     padding: Spacing.md,
     gap: Spacing.md,
@@ -232,12 +332,16 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
   },
   name: {
-    marginTop: Spacing.xs,
+    marginTop: Spacing.sm,
+  },
+  headerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginTop: 2,
   },
   statsCard: {
     flexDirection: 'row',
-    borderWidth: 1,
-    borderRadius: 16,
     paddingVertical: Spacing.lg,
   },
   stat: {
@@ -246,21 +350,38 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statValue: {
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 23,
+    lineHeight: 29,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   statDivider: {
     width: 1,
   },
-  section: {
-    borderWidth: 1,
-    borderRadius: 12,
+  nudge: {
+    borderRadius: Radii.md,
     padding: Spacing.md,
+  },
+  levelProgress: {
     gap: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: 10,
+    borderRadius: 5,
+  },
+  sectionTitle: {
+    marginBottom: Spacing.sm,
   },
   review: {
     borderTopWidth: 1,
     paddingTop: Spacing.sm,
+    marginTop: Spacing.sm,
     gap: Spacing.xs,
   },
   reviewHeader: {

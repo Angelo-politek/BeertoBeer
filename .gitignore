@@ -45,3 +45,6 @@ app-example
 
 # Chiavi private (service account Firebase, ecc.)
 *firebase-adminsdk*.json
+
+# Build binarie distribuite a mano
+*.apk

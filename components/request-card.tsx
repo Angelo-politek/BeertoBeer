@@ -1,77 +1,95 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
+import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
+import { Card } from '@/components/card';
+import { LevelBadge } from '@/components/level-badge';
 import { ThemedText } from '@/components/themed-text';
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { BeerRequest } from '@/types';
 
 type Props = {
   request: BeerRequest;
   onPress: () => void;
+  /** posizione in lista per l'ingresso a cascata */
+  index?: number;
 };
 
-export function RequestCard({ request, onPress }: Props) {
+/**
+ * Card di una richiesta nel feed: chi chiede (avatar + livello), cosa chiede,
+ * quanto dista e quanto offre. Il compenso è il protagonista in basso a destra.
+ */
+export function RequestCard({ request, onPress, index }: Props) {
   const c = useColors();
-  const birreLabel = request.birre
-    .map((b) => `${b.quantita}× ${b.nome}`)
-    .join(' · ');
+  const birreLabel = request.birre.map((b) => `${b.quantita}× ${b.nome}`).join(' · ');
   const rightHint =
-    request.distanzaKm != null ? `${request.distanzaKm.toFixed(1)} km` : (request.fascia ?? '');
+    request.distanzaKm != null ? `📍 ${request.distanzaKm.toFixed(1)} km` : request.fascia ? `🕗 ${request.fascia}` : null;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.6 : 1 },
-      ]}>
+    <Card onPress={onPress} index={index}>
       <View style={styles.headerRow}>
-        <ThemedText type="defaultSemiBold">{request.host.nome}</ThemedText>
+        <Avatar name={request.host.nome} uri={request.host.fotoUrl} size={44} />
+        <View style={styles.headerText}>
+          <ThemedText type="defaultSemiBold" numberOfLines={1}>
+            {request.host.nome}
+          </ThemedText>
+          <LevelBadge level={request.host.livello ?? 0} />
+        </View>
         {rightHint ? (
-          <ThemedText style={[styles.distance, { color: c.textSecondary }]}>{rightHint}</ThemedText>
+          <ThemedText type="caption" style={{ color: c.textSecondary }}>
+            {rightHint}
+          </ThemedText>
         ) : null}
       </View>
 
-      <ThemedText style={[styles.beers, { color: c.textSecondary }]}>{birreLabel}</ThemedText>
+      <ThemedText style={[styles.beers, { color: c.textSecondary }]} numberOfLines={2}>
+        🍺 {birreLabel}
+      </ThemedText>
 
       <View style={styles.footerRow}>
         <View style={styles.badges}>
           {request.vibeMode && <Badge label="✨ vibe mode" tone="accent" />}
         </View>
-        <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>
-          {request.creditiOfferti} crediti
-        </ThemedText>
+        <View style={[styles.reward, { backgroundColor: c.accentSoft }]}>
+          <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 15 }}>
+            +{request.creditiOfferti} PT
+          </ThemedText>
+        </View>
       </View>
-    </Pressable>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
   headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: Spacing.sm + 2,
   },
-  distance: {
-    fontSize: 14,
+  headerText: {
+    flex: 1,
+    gap: 3,
+    alignItems: 'flex-start',
   },
   beers: {
     fontSize: 15,
+    lineHeight: 21,
+    marginTop: Spacing.sm + 2,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: Spacing.sm + 4,
   },
   badges: {
     flexDirection: 'row',
     gap: Spacing.xs,
+  },
+  reward: {
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: Radii.pill,
   },
 });

@@ -1,13 +1,14 @@
 import { Link, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { computeAge, parseBirthdate, toISODate } from '@/lib/age';
 import { supabase } from '@/lib/supabase';
@@ -90,53 +91,60 @@ export default function RegisterScreen() {
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <View style={styles.header}>
+            <Animated.View entering={FadeInDown.springify().damping(20).stiffness(180)} style={styles.header}>
+              <ThemedText type="label">Bastano 30 secondi 🍺</ThemedText>
               <ThemedText type="title">Crea il tuo account</ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>
                 Devi avere almeno 18 anni per partecipare.
               </ThemedText>
-            </View>
+            </Animated.View>
 
-            <TextField
-              label="Nome"
-              value={nome}
-              onChangeText={setNome}
-              placeholder="Come ti chiami?"
-              autoCapitalize="words"
-            />
-            <TextField
-              label="Data di nascita"
-              value={birthdate}
-              onChangeText={setBirthdate}
-              placeholder="GG/MM/AAAA"
-              keyboardType="numbers-and-punctuation"
-              autoCapitalize="none"
-            />
-            <TextField
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              placeholder="tu@esempio.it"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-            <TextField
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Almeno 6 caratteri"
-              secureTextEntry
-              autoCapitalize="none"
-            />
+            <Animated.View entering={FadeInDown.delay(100).springify().damping(20).stiffness(180)} style={styles.form}>
+              <TextField
+                label="Nome"
+                value={nome}
+                onChangeText={setNome}
+                placeholder="Come ti chiami?"
+                autoCapitalize="words"
+              />
+              <TextField
+                label="Data di nascita"
+                value={birthdate}
+                onChangeText={setBirthdate}
+                placeholder="GG/MM/AAAA"
+                keyboardType="numbers-and-punctuation"
+                autoCapitalize="none"
+              />
+              <TextField
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="tu@esempio.it"
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <TextField
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Almeno 6 caratteri"
+                secureTextEntry
+                autoCapitalize="none"
+              />
 
-            {error ? <ThemedText style={{ color: c.danger }}>{error}</ThemedText> : null}
+              {error ? (
+                <View style={[styles.errorBanner, { backgroundColor: c.dangerSoft }]}>
+                  <ThemedText style={{ color: c.danger, fontSize: 14 }}>{error}</ThemedText>
+                </View>
+              ) : null}
 
-            <Button label="Registrati" onPress={handleRegister} loading={loading} />
+              <Button label="Registrati" onPress={handleRegister} loading={loading} />
+            </Animated.View>
 
             <View style={styles.footer}>
               <ThemedText style={{ color: c.textSecondary }}>Hai già un account? </ThemedText>
               <Link href="/(auth)/login" replace>
-                <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>
+                <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong }}>
                   Accedi
                 </ThemedText>
               </Link>
@@ -155,17 +163,21 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: Spacing.md,
-    gap: Spacing.md,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
   },
   header: {
     gap: Spacing.xs,
-    marginBottom: Spacing.sm,
+  },
+  form: { gap: Spacing.md },
+  errorBanner: {
+    borderRadius: Radii.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: Spacing.sm,
   },
 });

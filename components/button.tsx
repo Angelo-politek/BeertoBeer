@@ -1,66 +1,76 @@
-import * as Haptics from 'expo-haptics';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 
-import { useColors } from '@/hooks/use-colors';
+import { PressableScale } from '@/components/ui/pressable-scale';
+import { Radii } from '@/constants/theme';
+import { useColors, useShadows } from '@/hooks/use-colors';
 
-type Variant = 'primary' | 'secondary' | 'danger';
+type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+type Size = 'md' | 'lg';
 
 type Props = {
   label: string;
   onPress: () => void;
   variant?: Variant;
-  style?: ViewStyle;
+  size?: Size;
+  style?: StyleProp<ViewStyle>;
   loading?: boolean;
   disabled?: boolean;
 };
 
-export function Button({ label, onPress, variant = 'primary', style, loading, disabled }: Props) {
+/**
+ * Bottone standard: il primario è pieno con ombra ambrata, il secondario è
+ * una superficie tono-su-tono, il danger è soft (niente rossi urlati finché
+ * non serve). Tutti si schiacciano con una molla al tocco.
+ */
+export function Button({ label, onPress, variant = 'primary', size = 'lg', style, loading, disabled }: Props) {
   const c = useColors();
-
-  const palette: Record<Variant, { bg: string; fg: string; border: string }> = {
-    primary: { bg: c.accent, fg: c.accentText, border: c.accent },
-    secondary: { bg: 'transparent', fg: c.text, border: c.border },
-    danger: { bg: 'transparent', fg: c.danger, border: c.danger },
-  };
-  const { bg, fg, border } = palette[variant];
+  const sh = useShadows();
   const isDisabled = disabled || loading;
 
-  function handlePress() {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => null);
-    }
-    onPress();
-  }
+  const palette: Record<Variant, { bg: string; fg: string; shadow?: object }> = {
+    primary: { bg: c.accent, fg: c.accentText, shadow: sh.fab },
+    secondary: { bg: c.surfaceAlt, fg: c.text },
+    danger: { bg: c.dangerSoft, fg: c.danger },
+    ghost: { bg: 'transparent', fg: c.accent },
+  };
+  const { bg, fg, shadow } = palette[variant];
 
   return (
-    <Pressable
-      onPress={handlePress}
+    <PressableScale
+      onPress={onPress}
       disabled={isDisabled}
-      style={({ pressed }) => [
+      pressedScale={0.96}
+      style={[
         styles.button,
-        { backgroundColor: bg, borderColor: border, opacity: isDisabled ? 0.5 : pressed ? 0.6 : 1 },
+        size === 'md' ? styles.md : styles.lg,
+        { backgroundColor: bg },
+        !isDisabled && shadow ? shadow : null,
+        isDisabled ? styles.disabled : null,
         style,
       ]}>
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
-        <Text style={[styles.label, { color: fg }]}>{label}</Text>
+        <Text style={[styles.label, size === 'md' ? styles.labelMd : null, { color: fg }]}>{label}</Text>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
   button: {
-    height: 50,
-    borderRadius: 12,
-    borderWidth: 1,
+    borderRadius: Radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
+  lg: { height: 54 },
+  md: { height: 42, paddingHorizontal: 16 },
+  disabled: { opacity: 0.45 },
   label: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
+  labelMd: { fontSize: 15 },
 });

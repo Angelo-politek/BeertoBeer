@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
 import { DeliveryMap } from '@/components/delivery-map';
 import { ReportModal } from '@/components/report-modal';
 import { ThemedText } from '@/components/themed-text';
@@ -263,8 +264,8 @@ export default function RequestDetailScreen() {
 
         {/* Banner vibe mode */}
         {request.vibeMode ? (
-          <View style={[styles.vibeBanner, { backgroundColor: c.accentSoft, borderColor: c.accent }]}>
-            <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>
+          <View style={[styles.vibeBanner, { backgroundColor: c.accentSoft }]}>
+            <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong }}>
               ✨ Vibe mode attiva
             </ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>
@@ -373,14 +374,13 @@ function StatusNote({ text }: { text: string }) {
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
-  const c = useColors();
   return (
-    <View style={[styles.section, { backgroundColor: c.surface, borderColor: c.border }]}>
-      <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
+    <Card style={styles.section}>
+      <ThemedText type="subtitle" style={styles.sectionTitle}>
         {title}
       </ThemedText>
       {children}
-    </View>
+    </Card>
   );
 }
 
@@ -410,15 +410,11 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   vibeBanner: {
-    borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 14,
     padding: Spacing.md,
     gap: Spacing.xs,
   },
   section: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: Spacing.md,
     gap: Spacing.xs,
   },
   sectionTitle: {
