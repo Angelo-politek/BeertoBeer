@@ -20,9 +20,10 @@ type Props = {
 };
 
 /**
- * La superficie standard dell'app: card elevata con ombra morbida e raggio
- * generoso, niente bordi duri. Con `onPress` reagisce al tocco con una molla;
- * con `index` entra in scena a cascata dentro le liste.
+ * La superficie standard dell'app: card semplice #171717, senza bordi e
+ * senza ombra (brand: "Cards. Border: nessuno. Shadow: quasi assente").
+ * Con `onPress` reagisce al tocco con una molla; con `index` entra in scena
+ * a cascata dentro le liste.
  */
 export function Card({ children, style, onPress, onLongPress, index, raised, unpadded }: Props) {
   const c = useColors();
@@ -32,8 +33,6 @@ export function Card({ children, style, onPress, onLongPress, index, raised, unp
     {
       backgroundColor: c.surface,
       borderRadius: Radii.lg,
-      borderWidth: 1,
-      borderColor: c.border,
       padding: unpadded ? 0 : Spacing.md,
       overflow: 'visible',
     },

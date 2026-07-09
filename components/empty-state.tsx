@@ -12,13 +12,13 @@ type Props = {
   emoji?: string;
 };
 
-/** Stato vuoto caldo e incoraggiante: cerchio tono-su-tono con emoji + copy. */
+/** Stato vuoto stile sticker: quadrato storto tono-su-tono con emoji + copy diretto. */
 export function EmptyState({ title, message, emoji = '🍺' }: Props) {
   const c = useColors();
 
   return (
     <Animated.View entering={FadeInUp.springify().damping(20).stiffness(160)} style={styles.wrap}>
-      <View style={[styles.circle, { backgroundColor: c.accentSoft }]}>
+      <View style={[styles.circle, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
         <ThemedText style={styles.emoji}>{emoji}</ThemedText>
       </View>
       <ThemedText type="subtitle" style={styles.title}>
@@ -37,14 +37,16 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xl,
   },
   circle: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 84,
+    height: 84,
+    borderRadius: 14,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: Spacing.xs,
+    transform: [{ rotate: '-4deg' }],
   },
-  emoji: { fontSize: 40, lineHeight: 52 },
+  emoji: { fontSize: 36, lineHeight: 48 },
   title: {
     textAlign: 'center',
   },

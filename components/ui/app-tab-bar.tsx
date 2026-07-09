@@ -12,8 +12,8 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Radii, Springs } from '@/constants/theme';
-import { useColors, useShadows } from '@/hooks/use-colors';
+import { Fonts, Radii, Springs } from '@/constants/theme';
+import { useColors } from '@/hooks/use-colors';
 
 /** Icona per ogni route delle tab (nomi SF Symbols, mappati su Material in Android). */
 const TAB_ICONS: Record<string, React.ComponentProps<typeof IconSymbol>['name']> = {
@@ -24,12 +24,11 @@ const TAB_ICONS: Record<string, React.ComponentProps<typeof IconSymbol>['name']>
 };
 
 /**
- * Tab bar custom: superficie elevata con angoli superiori arrotondati, pillola
- * ambrata che sboccia dietro l'icona attiva e micro-rimbalzo dell'icona.
+ * Tab bar custom: barra piatta sul nero con riga di separazione sottile,
+ * pillola gialla che sboccia dietro l'icona attiva e micro-rimbalzo.
  */
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const c = useColors();
-  const sh = useShadows();
   const insets = useSafeAreaInsets();
 
   return (
@@ -37,11 +36,10 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
       style={[
         styles.bar,
         {
-          backgroundColor: c.surface,
+          backgroundColor: c.background,
           paddingBottom: Math.max(insets.bottom, 10),
           borderTopColor: c.border,
         },
-        sh.raised,
       ]}>
       {state.routes.map((route, i) => {
         const { options } = descriptors[route.key];
@@ -101,7 +99,7 @@ function TabItem({
   }));
 
   const labelStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(active.value, [0, 1], [c.tabIconDefault, c.accentStrong]),
+    color: interpolateColor(active.value, [0, 1], [c.tabIconDefault, c.accent]),
   }));
 
   return (
@@ -120,9 +118,7 @@ function TabItem({
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
-    borderTopLeftRadius: Radii.xl,
-    borderTopRightRadius: Radii.xl,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     paddingTop: 10,
     paddingHorizontal: 8,
   },
@@ -142,8 +138,9 @@ const styles = StyleSheet.create({
     borderRadius: Radii.pill,
   },
   label: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontFamily: Fonts.sansBold,
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
 });

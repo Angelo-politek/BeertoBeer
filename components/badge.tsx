@@ -1,19 +1,19 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Radii } from '@/constants/theme';
+import { Fonts, Radii } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
 type Props = {
   label: string;
-  /** 'accent' = pillola ambrata (es. vibe mode); 'neutral' = tono su tono; 'danger' | 'positive' */
+  /** 'accent' = sticker giallo pieno (es. vibe mode); 'neutral' = tono su tono; 'danger' | 'positive' */
   tone?: 'accent' | 'neutral' | 'danger' | 'positive';
 };
 
-/** Pillola informativa soft: colore di sfondo tenue, testo pieno. */
+/** Etichetta stile sticker: maiuscola, angoli asciutti, giallo pieno quando accent. */
 export function Badge({ label, tone = 'neutral' }: Props) {
   const c = useColors();
   const palette = {
-    accent: { bg: c.accentSoft, fg: c.accentStrong },
+    accent: { bg: c.accent, fg: c.accentText },
     neutral: { bg: c.surfaceAlt, fg: c.textSecondary },
     danger: { bg: c.dangerSoft, fg: c.danger },
     positive: { bg: c.positiveSoft, fg: c.positive },
@@ -29,13 +29,14 @@ export function Badge({ label, tone = 'neutral' }: Props) {
 const styles = StyleSheet.create({
   badge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: Radii.pill,
+    borderRadius: Radii.sm,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontFamily: Fonts.sansBold,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
 });

@@ -51,7 +51,7 @@ export function SkeletonCard() {
     <View
       style={[
         styles.card,
-        { backgroundColor: c.surface, borderColor: c.border },
+        { backgroundColor: c.surface },
         sh.card,
       ]}>
       <View style={styles.row}>
@@ -72,7 +72,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   card: {
-    borderWidth: 1,
     borderRadius: Radii.lg,
     padding: Spacing.md,
     gap: 12,

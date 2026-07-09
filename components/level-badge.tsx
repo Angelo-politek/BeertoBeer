@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import { LEVELS } from '@/constants/branding';
+import { Fonts } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
 type Props = {
@@ -42,7 +43,7 @@ const styles = StyleSheet.create({
   chipMd: { paddingHorizontal: 12, paddingVertical: 5 },
   emojiSm: { fontSize: 12 },
   emojiMd: { fontSize: 16 },
-  label: { fontWeight: '700' },
+  label: { fontFamily: Fonts.sansBold },
   labelSm: { fontSize: 12 },
   labelMd: { fontSize: 14 },
 });

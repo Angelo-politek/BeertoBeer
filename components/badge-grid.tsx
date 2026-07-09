@@ -3,7 +3,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
 import { BADGES, TOKEN_SHORT } from '@/constants/branding';
-import { Radii, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { UserBadge } from '@/types';
 
@@ -82,5 +82,5 @@ const styles = StyleSheet.create({
   },
   emoji: { fontSize: 32, lineHeight: 40 },
   name: { textAlign: 'center', fontSize: 13, lineHeight: 17 },
-  reward: { fontSize: 12, fontWeight: '700' },
+  reward: { fontFamily: Fonts.sansBold, fontSize: 12 },
 });

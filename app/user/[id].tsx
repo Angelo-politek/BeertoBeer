@@ -14,7 +14,7 @@ import { useToast } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { COMPLIMENT_LABELS } from '@/constants/compliments';
-import { Radii, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import {
   blockUser,
   getCompliments,
@@ -191,7 +191,7 @@ export default function UserProfileScreen() {
             <View style={styles.tags}>
               {user.interessi.map((tag) => (
                 <View key={tag} style={[styles.tag, { backgroundColor: c.accentSoft }]}>
-                  <ThemedText style={{ fontSize: 13, color: c.accentStrong, fontWeight: '600' }}>{tag}</ThemedText>
+                  <ThemedText type="defaultSemiBold" style={{ fontSize: 13, color: c.accentStrong }}>{tag}</ThemedText>
                 </View>
               ))}
             </View>
@@ -209,7 +209,7 @@ export default function UserProfileScreen() {
             <View style={styles.tags}>
               {compliments.map((comp) => (
                 <View key={comp.tipo} style={[styles.tag, { backgroundColor: c.accentSoft }]}>
-                  <ThemedText style={{ fontSize: 13, color: c.accentStrong, fontWeight: '600' }}>
+                  <ThemedText type="defaultSemiBold" style={{ fontSize: 13, color: c.accentStrong }}>
                     {COMPLIMENT_LABELS[comp.tipo] ?? comp.tipo} · {comp.n}
                   </ThemedText>
                 </View>
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.lg,
   },
   stat: { flex: 1, alignItems: 'center', gap: 2 },
-  statValue: { fontSize: 23, lineHeight: 29, fontWeight: '800', letterSpacing: -0.3 },
+  statValue: { fontFamily: Fonts.display, fontSize: 28, lineHeight: 30, letterSpacing: 0.5 },
   statDivider: { width: 1 },
   section: {
     gap: Spacing.xs,

@@ -1,8 +1,8 @@
 import { ActivityIndicator, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
 
 import { PressableScale } from '@/components/ui/pressable-scale';
-import { Radii } from '@/constants/theme';
-import { useColors, useShadows } from '@/hooks/use-colors';
+import { Fonts, Radii } from '@/constants/theme';
+import { useColors } from '@/hooks/use-colors';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 type Size = 'md' | 'lg';
@@ -18,22 +18,21 @@ type Props = {
 };
 
 /**
- * Bottone standard: il primario è pieno con ombra ambrata, il secondario è
- * una superficie tono-su-tono, il danger è soft (niente rossi urlati finché
- * non serve). Tutti si schiacciano con una molla al tocco.
+ * Bottone stile poster: primario giallo pieno con testo nero, secondario
+ * outline bianco sporco, danger Brick Red pieno. Etichetta in Bebas Neue
+ * maiuscola, molto evidente. Niente ombre né glow.
  */
 export function Button({ label, onPress, variant = 'primary', size = 'lg', style, loading, disabled }: Props) {
   const c = useColors();
-  const sh = useShadows();
   const isDisabled = disabled || loading;
 
-  const palette: Record<Variant, { bg: string; fg: string; shadow?: object }> = {
-    primary: { bg: c.accent, fg: c.accentText, shadow: sh.fab },
-    secondary: { bg: c.surfaceAlt, fg: c.text },
-    danger: { bg: c.dangerSoft, fg: c.danger },
+  const palette: Record<Variant, { bg: string; fg: string; borderColor?: string }> = {
+    primary: { bg: c.accent, fg: c.accentText },
+    secondary: { bg: 'transparent', fg: c.text, borderColor: c.text },
+    danger: { bg: c.dangerStrong, fg: c.text },
     ghost: { bg: 'transparent', fg: c.accent },
   };
-  const { bg, fg, shadow } = palette[variant];
+  const { bg, fg, borderColor } = palette[variant];
 
   return (
     <PressableScale
@@ -44,7 +43,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', style
         styles.button,
         size === 'md' ? styles.md : styles.lg,
         { backgroundColor: bg },
-        !isDisabled && shadow ? shadow : null,
+        borderColor ? { borderWidth: 1.5, borderColor } : null,
         isDisabled ? styles.disabled : null,
         style,
       ]}>
@@ -59,7 +58,7 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', style
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: Radii.pill,
+    borderRadius: Radii.md,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,
@@ -68,9 +67,10 @@ const styles = StyleSheet.create({
   md: { height: 42, paddingHorizontal: 16 },
   disabled: { opacity: 0.45 },
   label: {
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontFamily: Fonts.display,
+    fontSize: 21,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
   },
-  labelMd: { fontSize: 15 },
+  labelMd: { fontSize: 18 },
 });

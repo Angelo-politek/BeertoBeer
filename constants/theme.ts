@@ -1,79 +1,52 @@
 /**
- * DESIGN SYSTEM — "Craft & Warm".
+ * DESIGN SYSTEM — Brand Identity v1.0 "Beer to Beer".
  *
- * Palette ispirata alla birra: carta calda e ambra in light, "stout" scuro
- * caldo in dark. Le card sono superfici elevate (ombra morbida + raggio
- * generoso) invece che riquadri bordati. Qui vivono anche i token di
- * spaziatura, raggio, ombra, tipografia e le molle standard per le animazioni.
+ * Underground, urbano, DIY: sfondo quasi nero (#0F0F0F), un solo accento
+ * (Beer Yellow #F6B21A), testi in Dirty White. Card semplici (#171717) senza
+ * bordi né ombre, tipografia enorme in Bebas Neue, corpo in Inter.
+ * L'app è SOLO dark: entrambe le chiavi della palette puntano agli stessi
+ * valori, così ogni superficie resta nera qualunque sia il tema di sistema.
  */
 
-import { Platform } from 'react-native';
+const Palette = {
+  text: '#F4F1EA',
+  textSecondary: '#9B9B93',
+  /** nero fotocopia, mai grigio chiaro */
+  background: '#0F0F0F',
+  surface: '#171717',
+  /** superficie alternativa (chip, righe zebrate, input) */
+  surfaceAlt: '#1F1F1F',
+  border: '#262626',
+  /** Beer Yellow: l'unico vero colore dell'app */
+  accent: '#F6B21A',
+  accentStrong: '#FFC53D',
+  accentText: '#0F0F0F',
+  accentSoft: '#2B220C',
+  /** Brick Red: warning/danger (variante leggibile su nero) */
+  danger: '#E0604F',
+  /** Brick Red pieno, per bottoni/superfici danger */
+  dangerStrong: '#B53A2D',
+  dangerSoft: '#2E1512',
+  /** Bottle Green: success (variante leggibile su nero) */
+  positive: '#7CC98B',
+  positiveSoft: '#18281C',
+  chatIncoming: '#1F1F1F',
+  chatOutgoing: '#2B220C',
+  skeletonBase: '#1C1C1C',
+  skeletonHighlight: '#292929',
+  star: '#F6B21A',
+  starMuted: '#3A3A3A',
+  overlay: 'rgba(0, 0, 0, 0.72)',
+  shadow: '#000000',
+  tint: '#F6B21A',
+  icon: '#9B9B93',
+  tabIconDefault: '#7A7A7A',
+  tabIconSelected: '#F6B21A',
+} as const;
 
 export const Colors = {
-  light: {
-    text: '#1D1712',
-    textSecondary: '#77695A',
-    /** carta calda, non bianco freddo */
-    background: '#F8F4ED',
-    surface: '#FFFFFF',
-    /** superficie alternativa (chip, righe zebrate, input) */
-    surfaceAlt: '#F1EAE0',
-    border: '#EBE3D6',
-    /** ambra: il colore della birra al sole */
-    accent: '#D07C0C',
-    accentStrong: '#A85F05',
-    accentText: '#FFFFFF',
-    accentSoft: '#F9EDD8',
-    /** blu Nastro Azzurro Peroni: accento secondario per elementi "brand" */
-    peroniBlue: '#0A3D91',
-    danger: '#CE3B2C',
-    dangerSoft: '#FBEAE7',
-    positive: '#2E7D46',
-    positiveSoft: '#E7F4EB',
-    chatIncoming: '#F1EAE0',
-    chatOutgoing: '#E2F2E4',
-    skeletonBase: '#EDE6DA',
-    skeletonHighlight: '#F7F3EB',
-    star: '#F5A623',
-    starMuted: '#DDD5C8',
-    overlay: 'rgba(24, 16, 6, 0.45)',
-    shadow: '#5C4013',
-    tint: '#D07C0C',
-    icon: '#77695A',
-    tabIconDefault: '#9A8D7D',
-    tabIconSelected: '#D07C0C',
-  },
-  dark: {
-    text: '#F2EDE4',
-    textSecondary: '#A89B89',
-    /** stout: nero caldo, mai grigio freddo */
-    background: '#131009',
-    surface: '#1E1910',
-    surfaceAlt: '#292217',
-    border: '#332B1D',
-    accent: '#F0A63C',
-    accentStrong: '#F7BC63',
-    accentText: '#221503',
-    accentSoft: '#33270F',
-    /** blu Nastro Azzurro Peroni: accento secondario per elementi "brand" */
-    peroniBlue: '#6B9BF2',
-    danger: '#E9705F',
-    dangerSoft: '#3A1F19',
-    positive: '#6BBF7E',
-    positiveSoft: '#1C3322',
-    chatIncoming: '#292217',
-    chatOutgoing: '#243626',
-    skeletonBase: '#292217',
-    skeletonHighlight: '#3A3122',
-    star: '#F0B84A',
-    starMuted: '#57503F',
-    overlay: 'rgba(0, 0, 0, 0.6)',
-    shadow: '#000000',
-    tint: '#F0A63C',
-    icon: '#A89B89',
-    tabIconDefault: '#7E7361',
-    tabIconSelected: '#F0A63C',
-  },
+  light: Palette,
+  dark: Palette,
 };
 
 export type ThemeColors = typeof Colors.light;
@@ -87,47 +60,38 @@ export const Spacing = {
   xxl: 48,
 } as const;
 
-/** Raggi generosi: l'app deve sembrare morbida, mai spigolosa. */
+/** Angoli asciutti: arrotondati solo dove serve, mai "bubble" da startup. */
 export const Radii = {
-  sm: 10,
-  md: 14,
-  lg: 20,
-  xl: 28,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
   pill: 999,
 } as const;
 
 /**
- * Ombre morbide e calde per elevare le superfici. In dark l'elevazione arriva
- * più dal colore della superficie che dall'ombra (che resta sottile).
+ * Ombre quasi assenti: sul nero l'elevazione la fa il colore della superficie.
+ * `raised` resta appena percettibile per modali e fogli sopra il contenuto.
  */
-export function shadows(scheme: 'light' | 'dark') {
-  const color = Colors[scheme].shadow;
-  const soft = scheme === 'light' ? 0.1 : 0.4;
-  const strong = scheme === 'light' ? 0.16 : 0.55;
+export function shadows(_scheme: 'light' | 'dark') {
   return {
-    /** card in lista */
+    /** card in lista: nessuna ombra, solo superficie #171717 */
     card: {
-      shadowColor: color,
-      shadowOpacity: soft,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 4 },
-      elevation: 3,
+      shadowOpacity: 0,
+      elevation: 0,
     },
-    /** elementi hero, modali, tab bar */
+    /** modali, sheet, tab bar */
     raised: {
-      shadowColor: color,
-      shadowOpacity: strong,
-      shadowRadius: 24,
-      shadowOffset: { width: 0, height: 10 },
-      elevation: 8,
-    },
-    /** pulsanti primari e FAB */
-    fab: {
-      shadowColor: scheme === 'light' ? Colors.light.accentStrong : '#000',
-      shadowOpacity: scheme === 'light' ? 0.35 : 0.5,
-      shadowRadius: 14,
+      shadowColor: Palette.shadow,
+      shadowOpacity: 0.5,
+      shadowRadius: 16,
       shadowOffset: { width: 0, height: 6 },
       elevation: 6,
+    },
+    /** pulsanti primari e FAB: niente glow, il giallo pieno basta */
+    fab: {
+      shadowOpacity: 0,
+      elevation: 0,
     },
   } as const;
 }
@@ -145,27 +109,17 @@ export const Springs = {
   bouncy: { damping: 12, stiffness: 200, mass: 0.8 },
 } as const;
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+/**
+ * Famiglie tipografiche del brand (caricate in app/_layout.tsx con expo-font).
+ * `display` = Bebas Neue, SEMPRE maiuscolo, per titoli e numeri enormi.
+ * Le varianti Inter sono file statici: usare la famiglia giusta, MAI
+ * `fontWeight` insieme a queste (su Android produce faux-bold).
+ */
+export const Fonts = {
+  display: 'BebasNeue',
+  sans: 'Inter',
+  sansMedium: 'Inter-Medium',
+  sansSemiBold: 'Inter-SemiBold',
+  sansBold: 'Inter-Bold',
+  sansBlack: 'Inter-Black',
+} as const;

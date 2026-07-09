@@ -201,7 +201,7 @@ function SlideView({
   return (
     <View style={[styles.page, { width }]}>
       <View style={styles.slideContent}>
-        <Animated.View style={[styles.emojiCircle, { backgroundColor: c.accentSoft }, emojiStyle]}>
+        <Animated.View style={[styles.emojiCircle, { backgroundColor: c.surfaceAlt, borderColor: c.border }, emojiStyle]}>
           <ThemedText style={styles.slideEmoji}>{slide.emoji}</ThemedText>
         </Animated.View>
         <Animated.View style={[styles.slideTextBlock, textStyle]}>
@@ -326,11 +326,13 @@ const styles = StyleSheet.create({
   page: { flex: 1, justifyContent: 'center' },
   slideContent: { alignItems: 'center', gap: Spacing.lg, padding: Spacing.xl },
   emojiCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    width: 150,
+    height: 150,
+    borderRadius: 22,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    transform: [{ rotate: '-4deg' }],
   },
   slideEmoji: { fontSize: 76, lineHeight: 96 },
   slideTextBlock: { alignItems: 'center', gap: Spacing.md },

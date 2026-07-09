@@ -14,7 +14,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { GLOSSARY } from '@/constants/branding';
-import { Radii, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import {
   getCommunityFeed,
   getConnections,
@@ -296,7 +296,7 @@ function EventsTab({ cityKey }: { cityKey: string }) {
             </ThemedText>
             {item.partecipo ? (
               <View style={[styles.attendPill, { backgroundColor: c.positiveSoft }]}>
-                <ThemedText style={{ color: c.positive, fontSize: 13, fontWeight: '700' }}>✓ Ci sei!</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: c.positive, fontSize: 13 }}>✓ Ci sei!</ThemedText>
               </View>
             ) : null}
           </Card>
@@ -314,7 +314,7 @@ function EventsTab({ cityKey }: { cityKey: string }) {
           onPress={() => router.push('/event/new' as never)}
           pressedScale={0.93}
           style={[styles.fab, { backgroundColor: c.accent }, sh.fab]}>
-          <ThemedText style={{ color: c.accentText, fontWeight: '800' }}>
+          <ThemedText style={{ color: c.accentText, fontFamily: Fonts.display, fontSize: 18, letterSpacing: 1, textTransform: 'uppercase' }}>
             + Organizza un {GLOSSARY.delivery}
           </ThemedText>
         </PressableScale>

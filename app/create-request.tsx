@@ -21,7 +21,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
-import { Radii, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { createOrder, getCurrentUser } from '@/data/api';
 import { isWithinCity } from '@/lib/cities';
@@ -370,8 +370,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.md, gap: Spacing.md },
   field: { gap: Spacing.xs },
-  label: { fontSize: 14, fontWeight: '600' },
+  label: { fontFamily: Fonts.sansSemiBold, fontSize: 14 },
   input: {
+    fontFamily: Fonts.sans,
     borderWidth: 1.5,
     borderRadius: Radii.md,
     paddingHorizontal: Spacing.md,
@@ -384,9 +385,9 @@ const styles = StyleSheet.create({
   beerName: { flex: 1 },
   beerQty: { width: 72, textAlign: 'center' },
   remove: { padding: Spacing.xs },
-  removeText: { fontSize: 18, fontWeight: '700' },
+  removeText: { fontFamily: Fonts.sansBold, fontSize: 18 },
   formatRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, paddingBottom: Spacing.xs },
-  addBeer: { fontSize: 15, fontWeight: '700', paddingVertical: Spacing.xs },
+  addBeer: { fontFamily: Fonts.sansBold, fontSize: 15, paddingVertical: Spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   vibeRow: {
     flexDirection: 'row',

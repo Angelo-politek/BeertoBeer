@@ -14,7 +14,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Radii, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
 type Props = {
@@ -105,9 +105,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
     marginLeft: 4,
   },
   inputWrap: {
@@ -115,11 +116,13 @@ const styles = StyleSheet.create({
     borderRadius: Radii.md,
   },
   input: {
+    fontFamily: Fonts.sans,
     paddingHorizontal: Spacing.md,
     paddingVertical: 12,
     fontSize: 16,
   },
   error: {
+    fontFamily: Fonts.sans,
     fontSize: 13,
     marginLeft: 4,
   },

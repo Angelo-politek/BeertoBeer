@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeOutDown, SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Radii } from '@/constants/theme';
+import { Fonts, Radii } from '@/constants/theme';
 import { useColors, useShadows } from '@/hooks/use-colors';
 
 type ToastType = 'success' | 'error';
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   },
   message: {
     flexShrink: 1,
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 15,
-    fontWeight: '600',
   },
 });

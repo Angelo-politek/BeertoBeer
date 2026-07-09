@@ -22,7 +22,7 @@ import { StarRating } from '@/components/star-rating';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { LEVELS, nextLevel, TOKEN_NAME } from '@/constants/branding';
-import { Radii, Spacing, Springs } from '@/constants/theme';
+import { Fonts, Radii, Spacing, Springs } from '@/constants/theme';
 import { getCurrentUser, getReviewsForUser, getUserBadges } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { formatShortDate } from '@/lib/format';
@@ -350,10 +350,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statValue: {
-    fontSize: 23,
-    lineHeight: 29,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontFamily: Fonts.display,
+    fontSize: 28,
+    lineHeight: 30,
+    letterSpacing: 0.5,
   },
   statDivider: {
     width: 1,

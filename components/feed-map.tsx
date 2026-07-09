@@ -6,7 +6,7 @@ import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
-import { Radii, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors, useShadows } from '@/hooks/use-colors';
 import type { City } from '@/lib/cities';
 import type { Shop } from '@/data/api';
@@ -87,7 +87,7 @@ export function FeedMap({ city, requests, shops, onOpenRequest, canDeleteShop, o
                 hitSlop={6}
                 style={[
                   styles.requestMarker,
-                  { backgroundColor: c.accent, borderColor: '#fff' },
+                  { backgroundColor: c.accent, borderColor: c.text },
                   active && styles.markerActive,
                 ]}>
                 <Text style={[styles.requestLabel, { color: c.accentText }]}>
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
-  requestLabel: { fontSize: 13, fontWeight: '700' },
+  requestLabel: { fontFamily: Fonts.sansBold, fontSize: 13 },
   markerActive: { transform: [{ scale: 1.25 }] },
   shopMarker: { alignItems: 'center', justifyContent: 'center' },
   shopIcon: { fontSize: 22 },

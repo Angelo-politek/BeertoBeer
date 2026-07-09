@@ -1,5 +1,6 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import * as Sentry from '@sentry/react-native';
+import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -9,10 +10,9 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { ToastProvider } from '@/components/toast';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts } from '@/constants/theme';
 import { getOnboardingCompleted, updateUserCity } from '@/data/api';
 import { getOnboardingSignal, resetOnboardingSignal, subscribeOnboardingSignal } from '@/lib/onboarding-signal';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useColors } from '@/hooks/use-colors';
 import { SessionProvider, useSession } from '@/lib/auth-context';
 import { CityProvider, useCity } from '@/lib/city-context';
@@ -31,29 +31,15 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-// Temi di navigazione allineati alla palette "Craft & Warm": così anche le
-// superfici gestite da React Navigation (header, sfondi di transizione)
-// restano calde invece dei grigi di default.
-const WarmLightTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: Colors.light.accent,
-    background: Colors.light.background,
-    card: Colors.light.surface,
-    text: Colors.light.text,
-    border: Colors.light.border,
-    notification: Colors.light.accent,
-  },
-};
-
-const WarmDarkTheme = {
+// Tema di navigazione unico (brand: SOLO dark): anche le superfici gestite da
+// React Navigation (header, sfondi di transizione) restano sul nero fotocopia.
+const BrandTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
     primary: Colors.dark.accent,
     background: Colors.dark.background,
-    card: Colors.dark.surface,
+    card: Colors.dark.background,
     text: Colors.dark.text,
     border: Colors.dark.border,
     notification: Colors.dark.accent,
@@ -181,7 +167,7 @@ function RootNavigator() {
         headerStyle: { backgroundColor: c.background },
         headerShadowVisible: false,
         headerTintColor: c.accent,
-        headerTitleStyle: { fontWeight: '800', fontSize: 18, color: c.text },
+        headerTitleStyle: { fontFamily: Fonts.display, fontSize: 22, color: c.text },
         headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: c.background },
         animation: 'slide_from_right',
@@ -194,7 +180,17 @@ function RootNavigator() {
 }
 
 function RootLayout() {
-  const colorScheme = useColorScheme();
+  // Font del brand: Bebas Neue per i titoli, Inter (statici per peso) per il
+  // corpo. Finché non sono pronti si mostra solo il nero di fondo (evita il
+  // flash di font di sistema).
+  const [fontsLoaded, fontsError] = useFonts({
+    BebasNeue: require('../assets/fonts/BebasNeue-Regular.ttf'),
+    Inter: require('../assets/fonts/Inter-Regular.ttf'),
+    'Inter-Medium': require('../assets/fonts/Inter-Medium.ttf'),
+    'Inter-SemiBold': require('../assets/fonts/Inter-SemiBold.ttf'),
+    'Inter-Bold': require('../assets/fonts/Inter-Bold.ttf'),
+    'Inter-Black': require('../assets/fonts/Inter-Black.ttf'),
+  });
 
   // Aggiornamenti OTA automatici: al lancio controlla, scarica e applica SUBITO
   // (il default di expo-updates scarica al lancio ma applica solo al successivo).
@@ -214,6 +210,10 @@ function RootLayout() {
     })();
   }, []);
 
+  if (!fontsLoaded && !fontsError) {
+    return <View style={styles.loader} />;
+  }
+
   if (supabaseConfigError) {
     return (
       <View style={styles.configError}>
@@ -227,12 +227,12 @@ function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? WarmDarkTheme : WarmLightTheme}>
+    <ThemeProvider value={BrandTheme}>
       <SessionProvider>
         <CityProvider>
           <ToastProvider>
             <RootNavigator />
-            <StatusBar style="auto" />
+            <StatusBar style="light" />
           </ToastProvider>
         </CityProvider>
       </SessionProvider>
@@ -247,6 +247,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.dark.background,
   },
   configError: {
     flex: 1,
@@ -254,15 +255,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 24,
     gap: 12,
-    backgroundColor: '#1a1a1a',
+    backgroundColor: Colors.dark.background,
   },
   configErrorTitle: {
-    color: '#ffffff',
+    color: Colors.dark.text,
     fontSize: 20,
     fontWeight: '600',
   },
   configErrorText: {
-    color: '#cccccc',
+    color: Colors.dark.textSecondary,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,

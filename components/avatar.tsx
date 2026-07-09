@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { Fonts } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
 function getInitials(name: string): string {
@@ -12,8 +13,8 @@ function getInitials(name: string): string {
     .join('');
 }
 
-/** Tonalità calde per il fallback a iniziali: stabile per nome. */
-const FALLBACK_HUES = ['#D07C0C', '#B0693A', '#8A6D2F', '#0A3D91', '#7A4A8C', '#2E7D46'];
+/** Tonalità brand (mattone, bottiglia, senape, cemento) per il fallback a iniziali: stabile per nome. */
+const FALLBACK_HUES = ['#B53A2D', '#234229', '#8A6D2F', '#4A4A44', '#6B4A2E', '#37503C'];
 
 function hueForName(name: string): string {
   let h = 0;
@@ -43,7 +44,7 @@ export function Avatar({ name, size = 48, uri, ring }: Props) {
     />
   ) : (
     <View style={[styles.circle, dimensions, { backgroundColor: hueForName(name) }]}>
-      <Text style={[styles.initials, { color: '#FFF7EA', fontSize: size * 0.38 }]}>
+      <Text style={[styles.initials, { color: '#F4F1EA', fontSize: size * 0.38 }]}>
         {getInitials(name)}
       </Text>
     </View>
@@ -72,6 +73,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   initials: {
-    fontWeight: '800',
+    fontFamily: Fonts.sansBlack,
   },
 });

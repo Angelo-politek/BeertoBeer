@@ -16,7 +16,7 @@ import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
 import { Chip } from '@/components/ui/chip';
 import { PressableScale } from '@/components/ui/pressable-scale';
-import { Radii, Spacing } from '@/constants/theme';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { addShop, deleteShop, getCurrentUser, getRequests, getShops, type Shop } from '@/data/api';
 import { useColors, useShadows } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
@@ -249,11 +249,11 @@ const styles = StyleSheet.create({
   newButton: {
     height: 42,
     paddingHorizontal: 18,
-    borderRadius: Radii.pill,
+    borderRadius: Radii.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  newButtonText: { fontSize: 15, fontWeight: '800', letterSpacing: 0.2 },
+  newButtonText: { fontFamily: Fonts.display, fontSize: 18, letterSpacing: 1, textTransform: 'uppercase' },
   tools: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 5,
   },
-  navBadgeText: { color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 16 },
+  navBadgeText: { color: '#F4F1EA', fontSize: 12, fontWeight: '700', lineHeight: 16 },
   section: { borderWidth: 1, borderRadius: 12, padding: Spacing.md, gap: Spacing.sm },
   statRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
 });

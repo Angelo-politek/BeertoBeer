@@ -1,5 +1,6 @@
 import { StyleSheet, Text, type TextProps } from 'react-native';
 
+import { Fonts } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -18,8 +19,9 @@ export type ThemedTextProps = TextProps & {
 };
 
 /**
- * Scala tipografica dell'app. `display` per i numeri/hero, `title` per i
- * titoli di schermata, `label` per le etichette maiuscolette di sezione.
+ * Scala tipografica del brand: `display` e `title` in Bebas Neue (sempre
+ * maiuscolo, molto grande), il resto in Inter. `label` per le etichette
+ * di sezione, `link` per i rimandi in giallo.
  */
 export function ThemedText({
   style,
@@ -52,46 +54,50 @@ export function ThemedText({
 
 const styles = StyleSheet.create({
   default: {
+    fontFamily: Fonts.sans,
     fontSize: 16,
     lineHeight: 23,
   },
   defaultSemiBold: {
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 16,
     lineHeight: 23,
-    fontWeight: '600',
   },
   display: {
-    fontSize: 42,
-    lineHeight: 48,
-    fontWeight: '800',
-    letterSpacing: -1,
+    fontFamily: Fonts.display,
+    fontSize: 56,
+    lineHeight: 58,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   title: {
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    fontFamily: Fonts.display,
+    fontSize: 36,
+    lineHeight: 38,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   subtitle: {
-    fontSize: 19,
-    lineHeight: 25,
-    fontWeight: '700',
+    fontFamily: Fonts.sansBold,
+    fontSize: 18,
+    lineHeight: 24,
     letterSpacing: -0.2,
   },
   caption: {
+    fontFamily: Fonts.sans,
     fontSize: 13,
     lineHeight: 18,
   },
   label: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: 1.4,
     textTransform: 'uppercase',
   },
   link: {
+    fontFamily: Fonts.sansSemiBold,
     lineHeight: 23,
     fontSize: 16,
-    fontWeight: '600',
   },
 });

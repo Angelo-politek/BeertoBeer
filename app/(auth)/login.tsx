@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -49,17 +50,16 @@ export default function LoginScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-              <Animated.View
-                entering={ZoomIn.springify().damping(14).stiffness(200)}
-                style={[styles.logoCircle, { backgroundColor: c.accentSoft }]}>
-                <ThemedText style={styles.logoEmoji}>🍺</ThemedText>
+              <Animated.View entering={ZoomIn.springify().damping(14).stiffness(200)}>
+                <Image
+                  source={require('../../assets/brand/wordmark.png')}
+                  style={styles.wordmark}
+                  contentFit="contain"
+                />
               </Animated.View>
               <Animated.View entering={FadeInDown.delay(100).springify().damping(20).stiffness(180)} style={styles.headerText}>
-                <ThemedText type="title" style={styles.centered}>
-                  Bentornato
-                </ThemedText>
                 <ThemedText style={[styles.centered, { color: c.textSecondary }]}>
-                  Accedi per continuare a scambiare birre.
+                  Ti manca una birra? Accedi.
                 </ThemedText>
               </Animated.View>
             </View>
@@ -127,14 +127,10 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   headerText: { gap: Spacing.xs },
-  logoCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
+  wordmark: {
+    width: 240,
+    height: 150,
   },
-  logoEmoji: { fontSize: 48, lineHeight: 62 },
   centered: { textAlign: 'center' },
   form: { gap: Spacing.md },
   errorBanner: {
