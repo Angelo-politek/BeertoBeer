@@ -21,13 +21,24 @@ import type {
     CommunityFeedItem,
     ComplimentCount,
     CreditTransaction,
+    CityGoal,
     LeaderboardEntry,
     Message,
     OrderStatus,
+    OrderSafetyEvent,
+    DeliveryCodeState,
+    NotificationItem,
+    OrderIssueType,
+    ProductFeedback,
+    ReciprocitySummary,
+    UrbanMission,
     ReportReason,
     Review,
     User,
     UserBadge,
+    ProfileCustomization,
+    ProfilePhotoVisibility,
+    ProfileSticker,
     ZoneHolder,
 } from '@/types';
 
@@ -368,6 +379,201 @@ export async function advanceOrder(orderId: string, newStato: OrderStatus): Prom
   if (error) throw error;
 }
 
+type ProfileCustomizationPayload = {
+  user_id?: string;
+  status_phrase?: string | null;
+  beer_tastes?: string[] | null;
+  availability?: string[] | null;
+  photo_visibility?: ProfilePhotoVisibility | null;
+  photos?: { id: string; url: string; storage_path: string; position: number }[] | null;
+  stickers?: { key: string; title: string; asset_key: string; description?: string; unlocked?: boolean; unlock_hint?: string; slot?: number; scale?: number; rotation?: number }[] | null;
+};
+
+export async function getProfileCustomization(userId?: string): Promise<ProfileCustomization> {
+  const id = userId ?? await requireUserId();
+  const { data, error } = await supabase.rpc('get_profile_customization', { p_user_id: id });
+  if (error) throw error;
+  const row = (data ?? {}) as ProfileCustomizationPayload;
+  return {
+    userId: row.user_id ?? id,
+    statusPhrase: row.status_phrase ?? '',
+    beerTastes: row.beer_tastes ?? [],
+    availability: row.availability ?? [],
+    photoVisibility: row.photo_visibility ?? 'tutti',
+    photos: (row.photos ?? []).map((p) => ({ id: p.id, url: p.url, storagePath: p.storage_path, position: p.position })),
+    stickers: (row.stickers ?? []).map((s) => ({ key: s.key, title: s.title, assetKey: s.asset_key, description: s.description ?? '', unlocked: Boolean(s.unlocked), unlockHint: s.unlock_hint, slot: s.slot, scale: s.scale, rotation: s.rotation })),
+  };
+}
+
+export async function saveProfileCustomization(input: Pick<ProfileCustomization, 'statusPhrase' | 'beerTastes' | 'availability' | 'photoVisibility'>, stickers: ProfileSticker[]): Promise<void> {
+  const { error } = await supabase.rpc('set_profile_customization', {
+    p_status_phrase: input.statusPhrase.trim(), p_beer_tastes: input.beerTastes,
+    p_availability: input.availability, p_photo_visibility: input.photoVisibility,
+    p_stickers: stickers.filter((s) => s.unlocked && s.slot !== undefined).map((s) => ({ key: s.key, slot: s.slot, scale: s.scale ?? 1, rotation: s.rotation ?? 0 })),
+  });
+  if (error) throw error;
+}
+
+export async function deleteProfilePhoto(photoId: string, storagePath: string): Promise<void> {
+  const id = await requireUserId();
+  const { error } = await supabase.from('profile_photos').delete().eq('id', photoId).eq('user_id', id);
+  if (error) throw error;
+  await supabase.storage.from('avatars').remove([storagePath]);
+}
+
+export async function arriveOrder(orderId: string): Promise<void> {
+  const { error } = await supabase.rpc('arrive_order', { p_order_id: orderId });
+  if (error) throw error;
+}
+
+export async function verifyDeliveryCode(orderId: string, code: string): Promise<void> {
+  const { error } = await supabase.rpc('verify_delivery_code', { p_order_id: orderId, p_code: code.trim() });
+  if (error) throw error;
+}
+
+export type NearbyConfirmationResult = { status: 'waiting' | 'completed' | 'code_required' | 'too_far'; distanceM?: number };
+export async function updateOrderPresence(orderId: string, coords: Coords): Promise<void> {
+  const { error } = await supabase.rpc('update_order_presence', { p_order_id: orderId, p_lat: coords.lat, p_lng: coords.lng, p_accuracy_m: coords.accuracy ?? null });
+  if (error) throw error;
+}
+export async function confirmExchangeNearby(orderId: string, coords: Coords): Promise<NearbyConfirmationResult> {
+  const { data, error } = await supabase.rpc('confirm_exchange_nearby', { p_order_id: orderId, p_lat: coords.lat, p_lng: coords.lng, p_accuracy_m: coords.accuracy ?? null });
+  if (error) throw error;
+  const value = data as { status: NearbyConfirmationResult['status']; distance_m?: number };
+  return { status: value.status, distanceM: value.distance_m };
+}
+export async function releaseAcceptedOrder(orderId: string): Promise<void> { const { error } = await supabase.rpc('release_accepted_order', { p_order_id: orderId }); if (error) throw error; }
+export async function cancelActiveOrder(orderId: string, reason: string, details = ''): Promise<void> { const { error } = await supabase.rpc('cancel_active_order', { p_order_id: orderId, p_reason: reason, p_details: details }); if (error) throw error; }
+
+export async function getDeliveryCode(orderId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('order_delivery_codes')
+    .select('code')
+    .eq('order_id', orderId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as { code: string } | null)?.code ?? null;
+}
+
+export async function getDeliveryCodeState(orderId: string): Promise<DeliveryCodeState | null> {
+  const { data, error } = await supabase.from('order_delivery_codes')
+    .select('code,failed_attempts,verified_at,expires_at').eq('order_id', orderId).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return { code: data.code, failedAttempts: data.failed_attempts, attemptsRemaining: Math.max(0, 5 - data.failed_attempts), verifiedAt: data.verified_at ?? undefined, expiresAt: data.expires_at ?? undefined };
+}
+
+export async function setOrderEta(orderId: string, minutes: number): Promise<void> {
+  const { error } = await supabase.rpc('set_order_eta', { p_order_id: orderId, p_minutes: minutes });
+  if (error) throw error;
+}
+
+export async function getOrderEta(orderId: string): Promise<number | null> {
+  const { data, error } = await supabase.from('orders').select('eta_minutes').eq('id', orderId).maybeSingle();
+  if (error) throw error;
+  return data?.eta_minutes ?? null;
+}
+
+export async function reportOrderIssue(orderId: string, type: OrderIssueType, details = ''): Promise<void> {
+  const { error } = await supabase.rpc('report_order_issue', { p_order_id: orderId, p_type: type, p_details: details });
+  if (error) throw error;
+}
+
+export async function regenerateDeliveryCode(orderId: string): Promise<void> {
+  const { error } = await supabase.rpc('regenerate_delivery_code', { p_order_id: orderId });
+  if (error) throw error;
+}
+
+export async function getNotifications(): Promise<NotificationItem[]> {
+  const { data, error } = await supabase.from('notification_inbox').select('id,category,title,body,url,read_at,created_at').order('created_at', { ascending: false }).limit(80);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({ id: row.id, category: row.category, title: row.title, body: row.body, url: row.url ?? undefined, readAt: row.read_at ?? undefined, createdAt: row.created_at }));
+}
+
+export async function markNotificationRead(id: string): Promise<void> {
+  const { error } = await supabase.from('notification_inbox').update({ read_at: new Date().toISOString() }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function getOrderSafetyEvents(orderId: string): Promise<OrderSafetyEvent[]> {
+  const { data, error } = await supabase
+    .from('order_safety_events')
+    .select('id, order_id, actor_id, event_type, created_at')
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    orderId: row.order_id,
+    actorId: row.actor_id ?? undefined,
+    eventType: row.event_type,
+    createdAt: row.created_at,
+  })) as OrderSafetyEvent[];
+}
+
+export async function saveTrustedContact(orderId: string, name: string, contact: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase.from('order_trusted_contacts').upsert({
+    order_id: orderId,
+    user_id: userId,
+    name: name.trim(),
+    contact: contact.trim(),
+  });
+  if (error) throw error;
+}
+
+export async function getReciprocitySummary(): Promise<ReciprocitySummary> {
+  const { data, error } = await supabase.rpc('get_reciprocity_summary');
+  if (error) throw error;
+  const row = (data as { given_count: number; received_count: number }[] | null)?.[0];
+  return { given: Number(row?.given_count ?? 0), received: Number(row?.received_count ?? 0) };
+}
+
+function currentWeekStart(): string {
+  const now = new Date();
+  const day = (now.getUTCDay() + 6) % 7;
+  now.setUTCDate(now.getUTCDate() - day);
+  return now.toISOString().slice(0, 10);
+}
+
+export async function getUrbanMissions(): Promise<UrbanMission[]> {
+  const id = await requireUserId();
+  const week = currentWeekStart();
+  const [catalog, progress] = await Promise.all([
+    supabase.from('urban_missions').select('key,title,description,target,reward_beercoin').eq('active', true).limit(3),
+    supabase.from('user_urban_missions').select('mission_key,progress,claimed_at').eq('user_id', id).eq('week_start', week),
+  ]);
+  if (catalog.error) throw catalog.error;
+  if (progress.error) throw progress.error;
+  const byKey = new Map((progress.data ?? []).map((row) => [row.mission_key, row]));
+  return (catalog.data ?? []).map((row) => {
+    const state = byKey.get(row.key);
+    const value = Number(state?.progress ?? 0);
+    return {
+      key: row.key,
+      title: row.title,
+      description: row.description,
+      target: row.target,
+      rewardBeerCoin: row.reward_beercoin,
+      progress: value,
+      completed: value >= row.target,
+      claimed: Boolean(state?.claimed_at),
+    };
+  });
+}
+
+export async function claimUrbanMission(key: string): Promise<void> {
+  const { error } = await supabase.rpc('claim_urban_mission', { p_mission_key: key });
+  if (error) throw error;
+}
+
+export async function getCityGoal(city: string): Promise<CityGoal> {
+  const week = currentWeekStart();
+  const { data, error } = await supabase.from('city_weekly_goals').select('citta,week_start,target,progress').eq('citta', city).eq('week_start', week).maybeSingle();
+  if (error) throw error;
+  return { city, weekStart: week, target: Number(data?.target ?? 20), progress: Number(data?.progress ?? 0) };
+}
+
 /** Host o driver conferma lo scambio; a entrambe le conferme i crediti si spostano. */
 export async function confirmOrder(orderId: string): Promise<void> {
   const { error } = await supabase.rpc('confirm_order', { p_order_id: orderId });
@@ -435,19 +641,19 @@ export async function getTransactions(): Promise<CreditTransaction[]> {
 function describeTransaction(tipo: string, incoming: boolean, otherName: string): string {
   switch (tipo) {
     case 'welcome':
-      return 'Benvenuto in Beer to Beer 🎁';
+      return 'Benvenuto in BeerToBeer';
     case 'badge':
-      return 'Badge sbloccato 🏅';
+      return 'Traguardo V1';
     case 'livello':
       return 'Nuovo livello ⬆️';
     case 'missione':
-      return 'Missione completata 🎯';
+      return 'Missione completata';
     case 'notturno':
-      return 'Bonus giro notturno 🦉';
+      return 'Bonus giro notturno';
     case 'referral':
-      return 'Invito amico 🤝';
+      return 'Invito amico';
     case 'zona':
-      return 'Conquista quartiere 👑';
+      return 'Contributo al quartiere';
     case 'admin':
       return 'Rettifica staff';
     case 'consegna':
@@ -493,11 +699,12 @@ export async function getReviewContext(orderId: string): Promise<ReviewContext |
   };
 }
 
-export async function submitReview(orderId: string, voto: number, commento: string): Promise<void> {
-  const { error } = await supabase.rpc('submit_review', {
+export async function submitReview(orderId: string, voto: number, commento: string, dimensions?: { puntualita: number; comunicazione: number; rispetto: number }): Promise<void> {
+  const { error } = await supabase.rpc(dimensions ? 'submit_review_v21' : 'submit_review', {
     p_order_id: orderId,
     p_voto: voto,
     p_commento: commento.trim() || null,
+    ...(dimensions ? { p_puntualita: dimensions.puntualita, p_comunicazione: dimensions.comunicazione, p_rispetto: dimensions.rispetto } : {}),
   });
   if (error) throw error;
 }
@@ -1107,22 +1314,40 @@ export async function createEvent(input: CreateEventInput): Promise<string> {
 }
 
 /** Partecipa a un evento. */
-export async function joinEvent(eventId: string): Promise<void> {
-  const id = await requireUserId();
-  const { error } = await supabase
-    .from('event_participants')
-    .insert({ event_id: eventId, user_id: id });
+export async function joinEvent(eventId: string): Promise<'host' | 'joined' | 'waitlisted'> {
+  const { data, error } = await supabase.rpc('join_event_v21', { p_event_id: eventId });
+  if (error) throw error;
+  return data as 'host' | 'joined' | 'waitlisted';
+}
+
+export async function cancelStaleOrder(orderId: string): Promise<void> {
+  const { error } = await supabase.rpc('cancel_stale_order', { p_order_id: orderId });
   if (error) throw error;
 }
 
+export async function submitProductFeedback(kind: 'bug' | 'idea', message: string): Promise<void> {
+  const userId = await requireUserId();
+  const { error } = await supabase.from('product_feedback').insert({ user_id: userId, kind, message: message.trim(), app_version: 'V2.1' });
+  if (error) throw error;
+}
+
+export async function adminGetProductFeedback(): Promise<ProductFeedback[]> {
+  const { data, error } = await supabase.rpc('admin_product_feedback');
+  if (error) throw error;
+  return (data ?? []).map((row: Record<string, unknown>) => ({ id: row.id as string, userId: row.user_id as string, kind: row.kind as 'bug'|'idea', message: row.message as string, appVersion: row.app_version as string|undefined, createdAt: row.created_at as string, userName: row.user_name as string|undefined }));
+}
+
+export async function adminCancelOrder(orderId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_cancel_order', { p_order_id: orderId, p_reason: reason });
+  if (error) throw error;
+}
+
+export type AdminActiveOrder = { id:string; hostId:string; hostName:string; driverId?:string; driverName?:string; driverPhoto?:string; lat:number; lng:number; driverLat?:number; driverLng?:number; lastSeen?:string; state:string; updatedAt:string };
+export async function adminGetActiveOrders(): Promise<AdminActiveOrder[]> { const {data,error}=await supabase.rpc('admin_active_orders');if(error)throw error;return (data??[]).map((r:Record<string,unknown>)=>({id:r.id as string,hostId:r.host_id as string,hostName:r.host_name as string,driverId:r.driver_id as string|undefined,driverName:r.driver_name as string|undefined,driverPhoto:r.driver_photo as string|undefined,lat:Number(r.lat),lng:Number(r.lng),driverLat:r.driver_lat==null?undefined:Number(r.driver_lat),driverLng:r.driver_lng==null?undefined:Number(r.driver_lng),lastSeen:r.last_seen as string|undefined,state:r.stato as string,updatedAt:r.updated_at as string})) }
+
 /** Abbandona un evento. */
 export async function leaveEvent(eventId: string): Promise<void> {
-  const id = await requireUserId();
-  const { error } = await supabase
-    .from('event_participants')
-    .delete()
-    .eq('event_id', eventId)
-    .eq('user_id', id);
+  const { error } = await supabase.rpc('leave_event_v21', { p_event_id: eventId });
   if (error) throw error;
 }
 

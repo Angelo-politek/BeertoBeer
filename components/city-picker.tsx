@@ -32,7 +32,7 @@ export function CityPicker({ selectedKey, onSelect }: Props) {
         pressedScale={0.94}
         style={[styles.chip, { backgroundColor: c.surfaceAlt }]}>
         <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 14 }}>
-          📍 {selected?.label ?? 'Città'}
+          {selected?.label ?? 'Città'}
         </ThemedText>
         <ThemedText style={{ color: c.textSecondary, fontSize: 12 }}>▾</ThemedText>
       </PressableScale>

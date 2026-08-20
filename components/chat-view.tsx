@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
 import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { PressableScale } from '@/components/ui/pressable-scale';
+import { BrandIcon } from '@/components/ui/brand-icon';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { Message } from '@/types';
@@ -27,13 +28,15 @@ type Props = {
   emptyMessage: string;
   /** Invia il testo; lancia in caso di errore (l'input non viene svuotato). */
   onSend: (testo: string) => Promise<void>;
+  quickReplies?: string[];
+  header?: React.ReactNode;
 };
 
 /**
  * UI condivisa delle chat (per-ordine e diretta): bolle, autoscroll,
  * separatori temporali e composer. La sorgente dati la fornisce il chiamante.
  */
-export function ChatView({ messages, myId, loading, emptyMessage, onSend }: Props) {
+export function ChatView({ messages, myId, loading, emptyMessage, onSend, quickReplies, header }: Props) {
   const c = useColors();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -66,6 +69,7 @@ export function ChatView({ messages, myId, loading, emptyMessage, onSend }: Prop
         onContentSizeChange={() => {
           if (messages.length > 0) listRef.current?.scrollToEnd({ animated: true });
         }}
+        ListHeaderComponent={header ? <View style={styles.header}>{header}</View> : null}
         ListEmptyComponent={loading ? null : <EmptyState title="Nessun messaggio" message={emptyMessage} />}
         renderItem={({ item, index }) => {
           const mine = item.senderId === myId;
@@ -100,6 +104,7 @@ export function ChatView({ messages, myId, loading, emptyMessage, onSend }: Prop
         }}
       />
       {error ? <ThemedText style={[styles.error, { color: c.danger }]}>{error}</ThemedText> : null}
+      {quickReplies?.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickReplies}>{quickReplies.map((reply) => <PressableScale key={reply} onPress={() => setText(reply)} style={[styles.quickReply, { backgroundColor: c.surfaceAlt }]}><ThemedText type="caption">{reply}</ThemedText></PressableScale>)}</ScrollView> : null}
       <SafeAreaView edges={['bottom']} style={[styles.composer, { borderTopColor: c.border }]}>
         <TextInput
           value={text}
@@ -114,9 +119,7 @@ export function ChatView({ messages, myId, loading, emptyMessage, onSend }: Prop
           disabled={!canSend}
           pressedScale={0.9}
           style={[styles.send, { backgroundColor: c.accent, opacity: !canSend ? 0.45 : 1 }]}>
-          <ThemedText type="defaultSemiBold" style={{ color: c.accentText, fontSize: 18, lineHeight: 22 }}>
-            ➤
-          </ThemedText>
+          <BrandIcon name="send-arrow" size={20} color={c.accentText} />
         </PressableScale>
       </SafeAreaView>
     </KeyboardAvoidingView>
@@ -145,4 +148,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   error: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.xs },
+  header: { marginBottom: Spacing.sm },
+  quickReplies: { gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  quickReply: { minHeight: 36, borderRadius: 8, paddingHorizontal: Spacing.sm, alignItems: 'center', justifyContent: 'center' },
 });

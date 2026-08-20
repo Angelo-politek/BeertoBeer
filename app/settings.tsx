@@ -1,0 +1,35 @@
+import { Stack, useRouter } from 'expo-router';
+import { StyleSheet, View } from 'react-native';
+
+import { Button } from '@/components/button';
+import { Card } from '@/components/card';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Spacing } from '@/constants/theme';
+import { useColors } from '@/hooks/use-colors';
+import { supabase } from '@/lib/supabase';
+
+export default function SettingsScreen() {
+  const c = useColors();
+  const router = useRouter();
+  return (
+    <ThemedView style={styles.container}>
+      <Stack.Screen options={{ title: 'Impostazioni' }} />
+      <View style={styles.content}>
+        <Card>
+          <ThemedText type="subtitle">Profilo e privacy</ThemedText>
+          <ThemedText style={{ color: c.textSecondary }}>Gestisci foto, bio, preferenze e disponibilità sociale.</ThemedText>
+          <Button label="Modifica profilo" variant="secondary" onPress={() => router.push('/edit-profile')} />
+        </Card>
+        <Card>
+          <ThemedText type="subtitle">Sicurezza</ThemedText>
+          <ThemedText style={{ color: c.textSecondary }}>Contatti fidati, connessioni e preferenze notifiche saranno raccolti qui.</ThemedText>
+          <Button label="Le mie connessioni" variant="secondary" onPress={() => router.push('/connections' as never)} />
+        </Card>
+        <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
+      </View>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: Spacing.md, gap: Spacing.md } });

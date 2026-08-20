@@ -1,392 +1,131 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import * as Updates from 'expo-updates';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, {
-  FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSpring,
-} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
-import { BadgeGrid } from '@/components/badge-grid';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
-import { LevelBadge } from '@/components/level-badge';
 import { Skeleton } from '@/components/skeleton';
-import { StarRating } from '@/components/star-rating';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { LEVELS, nextLevel, TOKEN_NAME } from '@/constants/branding';
-import { Fonts, Radii, Spacing, Springs } from '@/constants/theme';
-import { getCurrentUser, getReviewsForUser, getUserBadges } from '@/data/api';
+import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
+import { PressableScale } from '@/components/ui/pressable-scale';
+import { ProfileShowcase } from '@/components/profile-showcase';
+import { Fonts, Radii, Spacing } from '@/constants/theme';
+import { getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
+import { useCity } from '@/lib/city-context';
 import { formatShortDate } from '@/lib/format';
-import { supabase } from '@/lib/supabase';
-import type { Review, User, UserBadge } from '@/types';
+import type { CityGoal, CreditTransaction, ProfileCustomization, ReciprocitySummary, Review, UrbanMission, User } from '@/types';
 
 export default function ProfileScreen() {
-  const c = useColors();
   const router = useRouter();
+  const c = useColors();
+  const { city } = useCity();
   const [user, setUser] = useState<User | null>(null);
+  const [reciprocity, setReciprocity] = useState<ReciprocitySummary>({ given: 0, received: 0 });
+  const [missions, setMissions] = useState<UrbanMission[]>([]);
+  const [goal, setGoal] = useState<CityGoal | null>(null);
+  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [badges, setBadges] = useState<UserBadge[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [checkingUpdate, setCheckingUpdate] = useState(false);
-  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [customization, setCustomization] = useState<ProfileCustomization | null>(null);
 
-  const load = useCallback(async (asRefresh = false) => {
-    if (asRefresh) setRefreshing(true);
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const u = await getCurrentUser();
-      const [latestReviews, userBadges] = await Promise.all([
-        getReviewsForUser(u.id),
-        getUserBadges(u.id).catch(() => []),
+      const current = await getCurrentUser();
+      const [ratio, nextMissions, cityGoal, txs, latestReviews, custom] = await Promise.all([
+        getReciprocitySummary().catch(() => ({ given: 0, received: 0 })),
+        getUrbanMissions().catch(() => []),
+        getCityGoal(city.key).catch(() => null),
+        getTransactions().catch(() => []),
+        getReviewsForUser(current.id).catch(() => []),
+        getProfileCustomization(current.id).catch(() => null),
       ]);
-      setUser(u);
-      setReviews(latestReviews.slice(0, 3));
-      setBadges(userBadges);
-      setError(null);
-    } catch {
-      setError('Impossibile caricare il profilo. Riprova.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+      setUser(current); setReciprocity(ratio); setMissions(nextMissions); setGoal(cityGoal); setTransactions(txs.slice(0, 5)); setReviews(latestReviews.slice(0, 3)); setCustomization(custom);
+    } finally { setLoading(false); setRefreshing(false); }
+  }, [city.key]);
 
-  const handleCheckForUpdates = useCallback(async () => {
-    if (__DEV__ || !Updates.isEnabled) {
-      setUpdateMessage('Gli update OTA si testano su una build preview o production.');
-      return;
-    }
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-    setCheckingUpdate(true);
-    setUpdateMessage(null);
+  if (loading) return <ThemedView style={styles.container}><SafeAreaView><View style={styles.loading}><Skeleton width={88} height={88} radius={44} /><Skeleton width="65%" height={40} /><Skeleton height={150} radius={Radii.lg} /></View></SafeAreaView></ThemedView>;
+  if (!user) return <ThemedView style={styles.container}><View style={styles.center}><EmptyState icon="x-mark" title="Profilo fermo" message="Non riesco a caricare i tuoi dati." /></View></ThemedView>;
 
-    try {
-      const result = await Updates.checkForUpdateAsync();
-
-      if (!result.isAvailable) {
-        setUpdateMessage('Sei gia all\'ultima versione disponibile.');
-        return;
-      }
-
-      setUpdateMessage('Aggiornamento trovato, scarico e riavvio...');
-      await Updates.fetchUpdateAsync();
-      await Updates.reloadAsync();
-    } catch {
-      setUpdateMessage('Controllo aggiornamenti non riuscito.');
-    } finally {
-      setCheckingUpdate(false);
-    }
-  }, []);
-
-  // Ricarica il profilo ogni volta che la schermata torna in primo piano,
-  // così le modifiche fatte in "Modifica profilo" si vedono subito al ritorno.
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
-
-  if (loading) {
-    return (
-      <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safe} edges={['top']}>
-          <View style={styles.loadingArea}>
-            <View style={styles.loadingHero}>
-              <Skeleton width={96} height={96} radius={48} />
-              <Skeleton width="50%" height={26} />
-              <Skeleton width="30%" height={18} />
-            </View>
-            <Skeleton height={110} radius={Radii.lg} />
-            <Skeleton height={220} radius={Radii.lg} />
-          </View>
-        </SafeAreaView>
-      </ThemedView>
-    );
-  }
-
-  if (error || !user) {
-    return (
-      <ThemedView style={styles.container}>
-        <SafeAreaView style={styles.safe} edges={['top']}>
-          <View style={styles.center}>
-            <EmptyState emoji="😵" title="Ops" message={error ?? 'Profilo non disponibile.'} />
-            <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
-          </View>
-        </SafeAreaView>
-      </ThemedView>
-    );
-  }
+  const total = reciprocity.given + reciprocity.received;
+  const givenRatio = total === 0 ? 0.5 : reciprocity.given / total;
+  const goalRatio = goal ? Math.min(1, goal.progress / goal.target) : 0;
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}>
-          {/* Intestazione profilo */}
-          <Animated.View entering={FadeInDown.springify().damping(20).stiffness(180)} style={styles.header}>
-            <Avatar name={user.nome} size={92} uri={user.fotoUrl} ring />
-            <ThemedText type="title" style={styles.name}>
-              {user.nome}
-            </ThemedText>
-            <View style={styles.headerMeta}>
-              <LevelBadge level={user.livello ?? 0} size="md" />
-              <ThemedText style={{ color: c.textSecondary }}>· {user.eta} anni</ThemedText>
-            </View>
-          </Animated.View>
+        <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}>
+          <View style={styles.hero}>
+            <Avatar name={user.nome} uri={user.fotoUrl} size={82} />
+            <View style={styles.heroText}><ThemedText type="label">{(user.citta ?? city.label).toUpperCase()}</ThemedText><ThemedText type="title" style={styles.name}>{user.nome}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{user.ratingMedio.toFixed(1)} su 5 · {user.scambiCompletati} giri</ThemedText></View>
+            <Button label="Modifica" size="md" variant="secondary" onPress={() => router.push('/edit-profile')} />
+          </View>
 
-          {/* Progresso al livello successivo */}
-          <LevelProgress scambi={user.scambiCompletati} />
+          {customization ? <ProfileShowcase value={customization} /> : null}
+          <Button label="Personalizza la vetrina" variant="secondary" onPress={() => router.push('/profile-customize' as never)} />
 
-          {/* Statistiche */}
-          <Card index={1} style={styles.statsCard}>
-            <View style={styles.stat}>
-              <ThemedText style={styles.statValue}>⭐ {user.ratingMedio.toFixed(1)}</ThemedText>
-              <ThemedText type="caption">Rating</ThemedText>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: c.border }]} />
-            <View style={styles.stat}>
-              <ThemedText style={[styles.statValue, { color: c.accentStrong }]}>{user.scambiCompletati}</ThemedText>
-              <ThemedText type="caption">Giri</ThemedText>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: c.border }]} />
-            <View style={styles.stat}>
-              <ThemedText
-                style={[styles.statValue, { color: (user.karma ?? 0) >= 0 ? c.positive : c.danger }]}>
-                {(user.karma ?? 0) > 0 ? '+' : ''}
-                {user.karma ?? 0}
-              </ThemedText>
-              <ThemedText type="caption">Karma</ThemedText>
-            </View>
+          <View style={styles.profileActions}>
+            <ProfileAction icon="scooter" label="I miei giri" onPress={() => router.push('/my-orders')} />
+            <ProfileAction icon="wallet" label="BeerCoin" onPress={() => router.push('/beercoin' as never)} />
+            <ProfileAction icon="profile" label="Impostazioni" onPress={() => router.push('/settings' as never)} />
+          </View>
+
+          <Card style={[styles.balance, { backgroundColor: c.accent }]}>
+            <View><ThemedText type="label" style={{ color: c.accentText }}>I TUOI BEERCOIN</ThemedText><ThemedText style={[styles.balanceValue, { color: c.accentText }]}>{user.creditiSaldo}</ThemedText></View>
+            <BrandIcon name="wallet" size={52} color={c.accentText} />
+            <ThemedText style={{ color: c.accentText }}>Si guadagnano contribuendo. Non si comprano. Non si trasferiscono.</ThemedText>
           </Card>
 
-          {/* Nudge karma: chi ordina e basta è invitato a consegnare */}
-          {(user.karma ?? 0) < 0 ? (
-            <View style={[styles.nudge, { backgroundColor: c.accentSoft }]}>
-              <ThemedText style={{ color: c.accentStrong, fontSize: 15, lineHeight: 21 }}>
-                🍺 Ordini più di quanto consegni. Fai un giro per riequilibrare il karma e guadagnare {TOKEN_NAME}!
-              </ThemedText>
-            </View>
-          ) : null}
-
-          {/* Badge */}
-          <Card index={2}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              I tuoi badge {badges.length > 0 ? `(${badges.length}/${LEVELS.length + 7})` : ''}
-            </ThemedText>
-            <BadgeGrid unlocked={badges} />
+          <SectionTitle label="RECIPROCITÀ" title="DAI / RICEVI" />
+          <Card style={styles.ratioCard}>
+            <View style={styles.ratioNumbers}><Stat icon="scooter" value={reciprocity.given} label="Hai portato" /><Stat icon="home" value={reciprocity.received} label="Hai ricevuto" /></View>
+            <View style={[styles.track, { backgroundColor: c.surfaceAlt }]}><View style={[styles.fill, { width: `${givenRatio * 100}%`, backgroundColor: c.accent }]} /></View>
+            <ThemedText type="caption">Non è una gara. È il modo più semplice per capire come stai partecipando.</ThemedText>
           </Card>
 
-          {/* Bio */}
-          {user.bio ? (
-            <Card index={3}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                Bio
-              </ThemedText>
-              <ThemedText style={{ color: c.textSecondary }}>{user.bio}</ThemedText>
+          <SectionTitle label="QUESTA SETTIMANA" title="MISSIONI URBANE" />
+          {missions.map((mission) => (
+            <Card key={mission.key} style={styles.mission}>
+              <View style={[styles.missionIcon, { backgroundColor: mission.completed ? c.positiveSoft : c.surfaceAlt }]}><BrandIcon name={mission.completed ? 'check' : 'pin'} size={23} color={mission.completed ? c.positive : c.accent} /></View>
+              <View style={styles.flex}><ThemedText type="subtitle">{mission.title}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{mission.description}</ThemedText><ThemedText type="caption">{Math.min(mission.progress, mission.target)} / {mission.target} · {mission.rewardBeerCoin} BC</ThemedText></View>
+              {mission.completed ? <ThemedText type="caption" style={{ color: c.positive }}>{mission.claimed ? 'Accreditata' : 'In accredito'}</ThemedText> : null}
             </Card>
-          ) : null}
+          ))}
+          {missions.length === 0 ? <EmptyState icon="pin" title="Missioni in arrivo" message="La città sta preparando i prossimi obiettivi." /> : null}
 
-          {/* Preferenze birra */}
-          {user.preferenzeBirra ? (
-            <Card index={4}>
-              <ThemedText type="subtitle" style={styles.sectionTitle}>
-                Preferenze birra
-              </ThemedText>
-              <ThemedText style={{ color: c.textSecondary }}>{user.preferenzeBirra}</ThemedText>
-            </Card>
-          ) : null}
+          {goal ? <Card><ThemedText type="label">OBIETTIVO DI {city.label.toUpperCase()}</ThemedText><ThemedText type="subtitle">{goal.progress} GIRI SU {goal.target}</ThemedText><View style={[styles.track, { backgroundColor: c.surfaceAlt }]}><View style={[styles.fill, { width: `${goalRatio * 100}%`, backgroundColor: c.positive }]} /></View><ThemedText type="caption">Ogni giro confermato muove tutta la città.</ThemedText></Card> : null}
 
-          <Card index={5}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Ultime recensioni
-            </ThemedText>
-            {reviews.length === 0 ? (
-              <EmptyState emoji="💬" title="Nessuna recensione" message="Le recensioni ricevute appariranno qui." />
-            ) : (
-              reviews.map((review) => (
-                <View key={review.id} style={[styles.review, { borderTopColor: c.border }]}>
-                  <View style={styles.reviewHeader}>
-                    <ThemedText type="defaultSemiBold">{review.author?.nome ?? 'Utente'}</ThemedText>
-                    <ThemedText type="caption">{formatShortDate(review.createdAt)}</ThemedText>
-                  </View>
-                  <StarRating value={review.voto} readonly size={20} />
-                  {review.commento ? <ThemedText style={{ color: c.textSecondary }}>{review.commento}</ThemedText> : null}
-                </View>
-              ))
-            )}
-          </Card>
+          <SectionTitle label="BEERCOIN" title="ULTIMI MOVIMENTI" />
+          <Card>{transactions.length ? transactions.map((tx) => <View key={tx.id} style={styles.row}><BrandIcon name={tx.tipo === 'entrata' ? 'plus' : 'arrow-right'} size={18} color={tx.tipo === 'entrata' ? c.positive : c.textSecondary} /><View style={styles.flex}><ThemedText type="defaultSemiBold">{tx.descrizione}</ThemedText><ThemedText type="caption">{formatShortDate(tx.data)}</ThemedText></View><ThemedText type="defaultSemiBold">{tx.tipo === 'entrata' ? '+' : '−'}{tx.importo}</ThemedText></View>) : <ThemedText style={{ color: c.textSecondary }}>Nessun movimento.</ThemedText>}</Card>
 
-          {/* Modifica profilo */}
-          <Button label="Modifica profilo" variant="secondary" onPress={() => router.push('/edit-profile')} />
+          <SectionTitle label="FIDUCIA" title="RECENSIONI" />
+          <Card>{reviews.length ? reviews.map((review) => <View key={review.id} style={styles.review}><ThemedText type="defaultSemiBold">{review.author?.nome ?? 'Community'} · {review.voto} su 5</ThemedText>{review.commento ? <ThemedText style={{ color: c.textSecondary }}>{review.commento}</ThemedText> : null}</View>) : <ThemedText style={{ color: c.textSecondary }}>Le recensioni arriveranno dopo i giri confermati.</ThemedText>}</Card>
 
-          {/* Amministrazione — visibile solo agli admin (flag privato is_admin) */}
-          {user.isAdmin ? (
-            <Button
-              label="🛡 Pannello amministrazione"
-              variant="secondary"
-              onPress={() => router.push('/admin' as never)}
-            />
-          ) : null}
-
-          <Card>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Aggiornamenti beta
-            </ThemedText>
-            <ThemedText type="caption" style={{ marginBottom: Spacing.sm }}>
-              Le build preview e production scaricano gli update JS senza rifare l’APK.
-            </ThemedText>
-            {updateMessage ? (
-              <ThemedText type="caption" style={{ marginBottom: Spacing.sm }}>
-                {updateMessage}
-              </ThemedText>
-            ) : null}
-            <Button
-              label="Controlla aggiornamenti"
-              variant="secondary"
-              size="md"
-              onPress={handleCheckForUpdates}
-              loading={checkingUpdate}
-              disabled={checkingUpdate}
-            />
-          </Card>
-
-          {/* Esci — il redirect alle schermate di accesso avviene dal guard nel root layout. */}
-          <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
+          {user.isAdmin ? <Button label="Amministrazione" variant="secondary" onPress={() => router.push('/admin' as never)} /> : null}
+          <Card><ThemedText type="subtitle">Migliora BeerToBeer</ThemedText><ThemedText type="caption">Segnala un bug o proponi una funzione direttamente a chi sviluppa.</ThemedText><Button label="Invia feedback" variant="secondary" onPress={() => router.push('/feedback' as never)} /></Card>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
   );
 }
 
-/** Barra di progresso animata verso il livello Peroni successivo. */
-function LevelProgress({ scambi }: { scambi: number }) {
-  const c = useColors();
-  const next = nextLevel(scambi);
-  const progressValue = useSharedValue(0);
-
-  const prevThreshold = LEVELS.filter((l) => l.scambiRichiesti <= scambi).pop()?.scambiRichiesti ?? 0;
-  const span = next ? next.scambiRichiesti - prevThreshold || 1 : 1;
-  const progress = next ? Math.max(0.03, Math.min(1, (scambi - prevThreshold) / span)) : 1;
-
-  useEffect(() => {
-    progressValue.value = withDelay(300, withSpring(progress, Springs.gentle));
-  }, [progress, progressValue]);
-
-  const fillStyle = useAnimatedStyle(() => ({
-    width: `${progressValue.value * 100}%`,
-  }));
-
-  if (!next) {
-    return (
-      <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>
-        🏆 Hai raggiunto il livello massimo. Sei una leggenda.
-      </ThemedText>
-    );
-  }
-  const mancano = next.scambiRichiesti - scambi;
-
-  return (
-    <View style={styles.levelProgress}>
-      <View style={[styles.progressTrack, { backgroundColor: c.surfaceAlt }]}>
-        <Animated.View style={[styles.progressFill, { backgroundColor: c.accent }, fillStyle]} />
-      </View>
-      <ThemedText type="caption" style={{ textAlign: 'center' }}>
-        Ancora {mancano} {mancano === 1 ? 'giro' : 'giri'} per diventare {next.emoji} {next.titolo}
-      </ThemedText>
-    </View>
-  );
-}
+function SectionTitle({ label, title }: { label: string; title: string }) { return <View style={styles.sectionTitle}><ThemedText type="label">{label}</ThemedText><ThemedText type="title">{title}</ThemedText></View>; }
+function Stat({ icon, value, label }: { icon: BrandIconName; value: number; label: string }) { const c = useColors(); return <View style={styles.stat}><BrandIcon name={icon} size={24} color={c.accent} /><ThemedText style={styles.statValue}>{value}</ThemedText><ThemedText type="caption">{label}</ThemedText></View>; }
+function ProfileAction({ icon, label, onPress }: { icon: BrandIconName; label: string; onPress: () => void }) { const c = useColors(); return <PressableScale onPress={onPress} style={[styles.profileAction, { backgroundColor: c.surface }]}><BrandIcon name={icon} size={23} color={c.accent} /><ThemedText type="caption" style={{ textAlign: 'center' }}>{label}</ThemedText></PressableScale>; }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safe: { flex: 1 },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-  },
-  loadingArea: { padding: Spacing.md, gap: Spacing.md },
-  loadingHero: { alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.md },
-  content: {
-    padding: Spacing.md,
-    gap: Spacing.md,
-  },
-  header: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-    paddingVertical: Spacing.md,
-  },
-  name: {
-    marginTop: Spacing.sm,
-  },
-  headerMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-    marginTop: 2,
-  },
-  statsCard: {
-    flexDirection: 'row',
-    paddingVertical: Spacing.lg,
-  },
-  stat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  statValue: {
-    fontFamily: Fonts.display,
-    fontSize: 28,
-    lineHeight: 30,
-    letterSpacing: 0.5,
-  },
-  statDivider: {
-    width: 1,
-  },
-  nudge: {
-    borderRadius: Radii.md,
-    padding: Spacing.md,
-  },
-  levelProgress: {
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.xs,
-  },
-  progressTrack: {
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 10,
-    borderRadius: 5,
-  },
-  sectionTitle: {
-    marginBottom: Spacing.sm,
-  },
-  review: {
-    borderTopWidth: 1,
-    paddingTop: Spacing.sm,
-    marginTop: Spacing.sm,
-    gap: Spacing.xs,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.sm,
-  },
+  container: { flex: 1 }, safe: { flex: 1 }, content: { padding: Spacing.md, paddingBottom: Spacing.xxl, gap: Spacing.md }, loading: { padding: Spacing.lg, alignItems: 'center', gap: Spacing.md }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, flex: { flex: 1 },
+  hero: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, heroText: { flex: 1 }, name: { fontSize: 38, lineHeight: 40 }, balance: { minHeight: 170, justifyContent: 'space-between', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }, balanceValue: { fontFamily: Fonts.display, fontSize: 64, lineHeight: 68 },
+  profileActions: { flexDirection: 'row', gap: Spacing.sm }, profileAction: { flex: 1, minHeight: 74, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 5 },
+  sectionTitle: { marginTop: Spacing.sm }, ratioCard: { gap: Spacing.md }, ratioNumbers: { flexDirection: 'row' }, stat: { flex: 1, alignItems: 'center', gap: 2 }, statValue: { fontFamily: Fonts.display, fontSize: 36, lineHeight: 40 }, track: { height: 9, borderRadius: 2, overflow: 'hidden' }, fill: { height: 9 },
+  mission: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' }, missionIcon: { width: 46, height: 46, borderRadius: Radii.sm, alignItems: 'center', justifyContent: 'center' }, row: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }, review: { paddingVertical: Spacing.sm, gap: 4 },
 });

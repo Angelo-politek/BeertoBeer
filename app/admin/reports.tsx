@@ -10,6 +10,7 @@ import { useToast } from '@/components/toast';
 import { Spacing } from '@/constants/theme';
 import {
   adminSetOrderModeration,
+  adminCancelOrder,
   adminSuspendUser,
   deleteAdminReport,
   getAdminReports,
@@ -179,6 +180,7 @@ export default function AdminReportsScreen() {
                       style={styles.actionButton}
                     />
                   </View>
+                  <Button label="Chiudi giro forzatamente" variant="danger" onPress={() => void adminCancelOrder(item.orderId as string, `Segnalazione ${item.id}: ${item.motivo}`).then(() => handleDismiss(item.id)).then(() => toast.show('Giro chiuso e azione registrata')).catch(() => Alert.alert('Operazione non riuscita'))} />
                 </>
               ) : (
                 <View style={styles.actions}>

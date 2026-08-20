@@ -2,24 +2,26 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
+import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
 type Props = {
   title: string;
   message: string;
-  /** emoji grande nel cerchio in alto (default 🍺) */
-  emoji?: string;
+  /** icona brand nel riquadro (default: bottle) */
+  icon?: BrandIconName;
 };
 
-/** Stato vuoto stile sticker: quadrato storto tono-su-tono con emoji + copy diretto. */
-export function EmptyState({ title, message, emoji = '🍺' }: Props) {
+/** Stato vuoto stile sticker: quadrato storto con icona brand + copy diretto. */
+export function EmptyState({ title, message, icon }: Props) {
   const c = useColors();
+  const name = icon ?? 'bottle';
 
   return (
     <Animated.View entering={FadeInUp.springify().damping(20).stiffness(160)} style={styles.wrap}>
-      <View style={[styles.circle, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
-        <ThemedText style={styles.emoji}>{emoji}</ThemedText>
+      <View style={[styles.sticker, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
+        <BrandIcon name={name} size={44} color={c.accent} />
       </View>
       <ThemedText type="subtitle" style={styles.title}>
         {title}
@@ -36,7 +38,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.xl,
   },
-  circle: {
+  sticker: {
     width: 84,
     height: 84,
     borderRadius: 14,
@@ -46,7 +48,6 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     transform: [{ rotate: '-4deg' }],
   },
-  emoji: { fontSize: 36, lineHeight: 48 },
   title: {
     textAlign: 'center',
   },

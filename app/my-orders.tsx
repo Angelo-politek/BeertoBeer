@@ -13,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { getMyOrders } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
+import { nextOrderAction } from '@/lib/discovery';
 import { isExpired, STATO_LABEL } from '@/lib/orders';
 import type { BeerRequest } from '@/types';
 
@@ -25,7 +26,7 @@ export default function MyOrdersScreen() {
   const [orders, setOrders] = useState<BeerRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showCompleted, setShowCompleted] = useState(false);
+  const [section, setSection] = useState<'todo' | 'progress' | 'waiting' | 'done'>('todo');
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async (asRefresh = false) => {
@@ -36,7 +37,7 @@ export default function MyOrdersScreen() {
       setOrders(rows);
       setError(null);
     } catch {
-      setError('Impossibile caricare i tuoi ordini. Riprova.');
+      setError('Impossibile caricare i tuoi giri. Riprova.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -49,13 +50,17 @@ export default function MyOrdersScreen() {
     }, [load]),
   );
 
-  const visibleOrders = orders.filter((order) =>
-    showCompleted ? order.stato === 'confermato' : order.stato !== 'confermato',
-  );
+  const visibleOrders = orders.filter((order) => {
+    const action = nextOrderAction(order, myId);
+    if (section === 'done') return ['confermato', 'annullato'].includes(order.stato) || isExpired(order);
+    if (section === 'todo') return ['accept', 'start', 'arrive', 'verify', 'confirm'].includes(action.key);
+    if (section === 'progress') return ['accettato', 'in_consegna', 'arrivato'].includes(order.stato);
+    return order.stato !== 'confermato' && ['wait', 'open'].includes(action.key);
+  }).sort((a, b) => nextOrderAction(b, myId).priority - nextOrderAction(a, myId).priority);
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'I miei ordini' }} />
+      <Stack.Screen options={{ title: 'I miei giri' }} />
       {loading ? (
         <View style={styles.skeletons}>
           <SkeletonCard />
@@ -64,7 +69,7 @@ export default function MyOrdersScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <EmptyState emoji="😵" title="Ops" message={error} />
+          <EmptyState icon="x-mark" title="Giri non disponibili" message={error} />
         </View>
       ) : (
         <FlatList
@@ -74,13 +79,16 @@ export default function MyOrdersScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}
           ListHeaderComponent={
             <View style={styles.filters}>
-              <Chip label="Attivi" active={!showCompleted} onPress={() => setShowCompleted(false)} />
-              <Chip label="Completati" active={showCompleted} onPress={() => setShowCompleted(true)} />
+              <Chip label="Da fare" active={section === 'todo'} onPress={() => setSection('todo')} />
+              <Chip label="In corso" active={section === 'progress'} onPress={() => setSection('progress')} />
+              <Chip label="In attesa" active={section === 'waiting'} onPress={() => setSection('waiting')} />
+              <Chip label="Conclusi" active={section === 'done'} onPress={() => setSection('done')} />
             </View>
           }
           renderItem={({ item }) => {
             const isHost = item.host.id === myId;
-            const birreLabel = item.birre.map((b) => `${b.quantita}× ${b.nome}`).join(' · ');
+            const birreLabel = item.birre.map((b) => `${b.quantita} × ${b.nome}`).join(' · ');
+            const action = nextOrderAction(item, myId);
             // Stati speciali: moderazione e scadenza vincono sull'etichetta di stato.
             const badge =
               item.statoModerazione === 'rimosso'
@@ -94,19 +102,21 @@ export default function MyOrdersScreen() {
               <Card onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <ThemedText type="defaultSemiBold">
-                    {isHost ? 'La tua richiesta' : `Consegna per ${item.host.nome}`}
+                    {isHost ? 'Hai chiesto' : `Stai portando a ${item.host.nome}`}
                   </ThemedText>
                   <Badge label={badge.label} tone={badge.tone} />
                 </View>
                 <ThemedText style={{ color: c.textSecondary }}>{birreLabel}</ThemedText>
+                <ThemedText type="defaultSemiBold">{action.label}</ThemedText>
+                {item.fascia ? <ThemedText type="caption">{item.fascia}</ThemedText> : null}
                 <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong }}>
-                  +{item.creditiOfferti} crediti
+                  {item.creditiOfferti} BeerCoin
                 </ThemedText>
               </Card>
             );
           }}
           ListEmptyComponent={
-            <EmptyState title="Nessun ordine" message="Le richieste che crei e le consegne che accetti compariranno qui." />
+            <EmptyState title="Niente da mostrare" message="I giri compariranno qui in base alla prossima azione." />
           }
         />
       )}
@@ -119,7 +129,7 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.md },
   skeletons: { padding: Spacing.md, gap: Spacing.md },
   list: { padding: Spacing.md, gap: Spacing.md },
-  filters: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.sm },
   card: {
     gap: Spacing.sm,
   },

@@ -8,10 +8,11 @@ export default function TabLayout() {
     <Tabs
       tabBar={(props) => <AppTabBar {...props} />}
       screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="index" options={{ title: 'Feed' }} />
-      <Tabs.Screen name="community" options={{ title: 'Community' }} />
-      <Tabs.Screen name="wallet" options={{ title: 'Wallet' }} />
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="map" options={{ title: 'Mappa' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profilo' }} />
+      <Tabs.Screen name="community" options={{ href: null }} />
+      <Tabs.Screen name="wallet" options={{ href: null }} />
     </Tabs>
   );
 }

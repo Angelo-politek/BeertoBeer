@@ -92,7 +92,7 @@ export default function RegisterScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <Animated.View entering={FadeInDown.springify().damping(20).stiffness(180)} style={styles.header}>
-              <ThemedText type="label">Bastano 30 secondi 🍺</ThemedText>
+              <ThemedText type="label">BASTANO 30 SECONDI</ThemedText>
               <ThemedText type="title">Crea il tuo account</ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>
                 Devi avere almeno 18 anni per partecipare.

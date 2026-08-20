@@ -16,6 +16,7 @@ import { getOnboardingSignal, resetOnboardingSignal, subscribeOnboardingSignal }
 import { useColors } from '@/hooks/use-colors';
 import { SessionProvider, useSession } from '@/lib/auth-context';
 import { CityProvider, useCity } from '@/lib/city-context';
+import { DiscoveryProvider } from '@/lib/discovery-context';
 import { registerForPushNotifications } from '@/lib/push-notifications';
 import { supabaseConfigError } from '@/lib/supabase';
 
@@ -230,10 +231,12 @@ function RootLayout() {
     <ThemeProvider value={BrandTheme}>
       <SessionProvider>
         <CityProvider>
-          <ToastProvider>
-            <RootNavigator />
-            <StatusBar style="light" />
-          </ToastProvider>
+          <DiscoveryProvider>
+            <ToastProvider>
+              <RootNavigator />
+              <StatusBar style="light" />
+            </ToastProvider>
+          </DiscoveryProvider>
         </CityProvider>
       </SessionProvider>
     </ThemeProvider>

@@ -187,7 +187,7 @@ export default function EditProfileScreen() {
                 {cercoCompagnia ? <View style={[styles.checkboxDot, { backgroundColor: c.accentText }]} /> : null}
               </View>
               <View style={{ flex: 1 }}>
-                <ThemedText type="defaultSemiBold">🍺 Cerco compagnia</ThemedText>
+                <ThemedText type="defaultSemiBold">Cerco compagnia</ThemedText>
                 <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
                   Fatti trovare da chi vuole bere una birra in compagnia nella tua zona.
                 </ThemedText>

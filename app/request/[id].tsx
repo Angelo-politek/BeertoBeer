@@ -1,6 +1,6 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
@@ -12,14 +12,17 @@ import { ReportModal } from '@/components/report-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
+import { BrandIcon } from '@/components/ui/brand-icon';
+import { Chip } from '@/components/ui/chip';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { acceptOrder, advanceOrder, cancelOrder, confirmOrder, getRequestById, reportUser } from '@/data/api';
+import { acceptOrder, advanceOrder, arriveOrder, cancelActiveOrder, cancelOrder, cancelStaleOrder, confirmExchangeNearby, confirmOrder, getDeliveryCodeState, getOrderEta, getOrderSafetyEvents, getRequestById, regenerateDeliveryCode, releaseAcceptedOrder, reportOrderIssue, reportUser, saveTrustedContact, setOrderEta, updateOrderPresence, verifyDeliveryCode } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
 import { CREDIT_CAP, estimateBonus, FORMATS } from '@/lib/credits';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
-import { STATO_LABEL } from '@/lib/orders';
-import type { BeerRequest, ReportReason } from '@/types';
+import { ORDER_TIMELINE, STATO_LABEL } from '@/lib/orders';
+import { nextOrderAction } from '@/lib/discovery';
+import type { BeerRequest, DeliveryCodeState, OrderIssueType, OrderSafetyEvent, ReportReason } from '@/types';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -37,6 +40,13 @@ export default function RequestDetailScreen() {
   const [reportReason, setReportReason] = useState<ReportReason>('ordine_falso');
   const [reportDetails, setReportDetails] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
+  const [deliveryCode, setDeliveryCode] = useState<DeliveryCodeState | null>(null);
+  const [codeInput, setCodeInput] = useState('');
+  const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  const [safetyEvents, setSafetyEvents] = useState<OrderSafetyEvent[]>([]);
+  const [trustedName, setTrustedName] = useState('');
+  const [trustedContact, setTrustedContact] = useState('');
+  const [handshakeStatus, setHandshakeStatus] = useState<'idle'|'waiting'|'code_required'|'too_far'>('idle');
 
   // Posizione dell'utente (per la distanza dalla consegna). Best-effort.
   useEffect(() => {
@@ -55,7 +65,16 @@ export default function RequestDetailScreen() {
       setLoading(true);
       getRequestById(id)
         .then((r) => {
-          if (active) setRequest(r);
+          if (active) {
+            setRequest(r);
+            if (r && r.host.id === session?.user.id && r.stato !== 'richiesto') {
+              getDeliveryCodeState(id).then(setDeliveryCode).catch(() => setDeliveryCode(null));
+            }
+            if (r && r.stato !== 'richiesto') {
+              getOrderEta(id).then(setEtaMinutes).catch(() => null);
+              getOrderSafetyEvents(id).then(setSafetyEvents).catch(() => setSafetyEvents([]));
+            }
+          }
         })
         .catch(() => {
           if (active) setRequest(null);
@@ -66,16 +85,16 @@ export default function RequestDetailScreen() {
       return () => {
         active = false;
       };
-    }, [id]),
+    }, [id, session?.user.id]),
   );
 
-  async function reload() {
+  const reload = useCallback(async () => {
     try {
       setRequest(await getRequestById(id));
     } catch {
       // teniamo lo stato corrente in caso di errore di refresh
     }
-  }
+  }, [id]);
 
   function errorMessage(e: unknown): string {
     return (e as { message?: string })?.message ?? 'Operazione non riuscita. Riprova.';
@@ -121,6 +140,69 @@ export default function RequestDetailScreen() {
     }
   }
 
+  useEffect(() => {
+    if (!request || !['accettato','in_consegna','arrivato','consegnato'].includes(request.stato)) return;
+    const timer = setInterval(() => { reload(); }, 3000);
+    return () => clearInterval(timer);
+  }, [request, id, reload]);
+
+  useEffect(() => {
+    if (!request || !driverCoords || !['accettato','in_consegna','arrivato','consegnato'].includes(request.stato)) return;
+    updateOrderPresence(id, driverCoords).catch(() => null);
+    const timer = setInterval(async () => {
+      const coords = await getCurrentCoords();
+      if (coords) { setDriverCoords(coords); updateOrderPresence(id, coords).catch(() => null); }
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [request, id, driverCoords]);
+
+  async function handleTrustedContact() {
+    if (!trustedName.trim() || !trustedContact.trim()) return;
+    await runAction(async () => {
+      await saveTrustedContact(id, trustedName, trustedContact);
+      toast.show('Contatto fidato salvato per questo giro.');
+    });
+  }
+
+  async function handleEta(minutes: number) {
+    await runAction(async () => { await setOrderEta(id, minutes); setEtaMinutes(minutes); toast.show(`Arrivo stimato: ${minutes} minuti.`); });
+  }
+
+  async function handleIssue(type: OrderIssueType) {
+    await runAction(async () => { await reportOrderIssue(id, type); toast.show(type === 'unsafe' ? 'Safety Center avvisato.' : 'Imprevisto comunicato.'); });
+  }
+
+  async function handleRegenerateCode() {
+    await runAction(async () => { await regenerateDeliveryCode(id); setDeliveryCode(await getDeliveryCodeState(id)); toast.show('Nuovo codice pronto.'); });
+  }
+
+  async function handleNearbyConfirm() {
+    setActing(true); setActionError(null);
+    try {
+      const coords = await getCurrentCoords();
+      if (!coords) { setHandshakeStatus('code_required'); return; }
+      const result = await confirmExchangeNearby(id, coords);
+      if (result.status === 'completed') { toast.show('Scambio confermato. Buona birra!'); await reload(); }
+      else { setHandshakeStatus(result.status); if (result.status === 'waiting') toast.show('Confermato. Manca solo l’altra persona.'); }
+    } catch (e) { setActionError(errorMessage(e)); } finally { setActing(false); }
+  }
+
+  function askRelease() {
+    Alert.alert('Liberare il giro?', 'La richiesta tornerà disponibile e non ci saranno penalità.', [
+      { text: 'Resta nel giro', style: 'cancel' },
+      { text: 'Libera', style: 'destructive', onPress: () => runAction(() => releaseAcceptedOrder(id)) },
+    ]);
+  }
+
+  function askSeriousCancel() {
+    Alert.alert('Perché devi fermarti?', 'Dopo la partenza il motivo viene registrato per sicurezza.', [
+      { text: 'Emergenza', onPress: () => runAction(() => cancelActiveOrder(id, 'emergenza')) },
+      { text: 'Guasto o incidente', onPress: () => runAction(() => cancelActiveOrder(id, 'guasto')) },
+      { text: 'Non è sicuro', style: 'destructive', onPress: () => runAction(() => cancelActiveOrder(id, 'non_sicuro')) },
+      { text: 'Annulla', style: 'cancel' },
+    ]);
+  }
+
   if (loading) {
     return (
       <ThemedView style={styles.container}>
@@ -152,7 +234,9 @@ export default function RequestDetailScreen() {
   const myId = session?.user.id;
   const isHost = host.id === myId;
   const isDriver = request.driverId != null && request.driverId === myId;
+  const nextAction = nextOrderAction(request, myId);
   const canSeeAddress = isHost || isDriver;
+  const canCloseStale = canSeeAddress && !['richiesto','confermato','annullato'].includes(request.stato) && Date.now()-new Date(request.createdAt).getTime()>24*3600*1000;
 
   const formatLabel = (key?: string) => FORMATS.find((f) => f.key === key)?.label ?? '';
   const hasCoords = request.lat != null && request.lng != null;
@@ -181,11 +265,10 @@ export default function RequestDetailScreen() {
     if (stato === 'accettato') {
       if (isDriver) {
         return (
-          <Button
-            label="Inizia consegna"
-            onPress={() => runAction(() => advanceOrder(id, 'in_consegna'))}
-            loading={acting}
-          />
+          <View style={styles.footerActions}>
+            <Button label="Inizia consegna" onPress={() => runAction(() => advanceOrder(id, 'in_consegna'))} loading={acting} />
+            <Button label="Ho cambiato idea: libera" variant="secondary" onPress={askRelease} />
+          </View>
         );
       }
       return <StatusNote text="Un driver ha accettato e si sta organizzando." />;
@@ -195,13 +278,40 @@ export default function RequestDetailScreen() {
       if (isDriver) {
         return (
           <Button
-            label="Segna come consegnato"
-            onPress={() => runAction(() => advanceOrder(id, 'consegnato'))}
+            label="Sono arrivato"
+            onPress={() => runAction(() => arriveOrder(id))}
             loading={acting}
           />
         );
       }
-      return <StatusNote text="Consegna in corso." />;
+      return <StatusNote text="La birra è in arrivo." />;
+    }
+
+    if (stato === 'arrivato') {
+      if ((isHost || isDriver) && handshakeStatus === 'idle') {
+        return <View style={styles.codeForm}><ThemedText type="defaultSemiBold">Siete insieme?</ThemedText><ThemedText type="caption">Un tocco a testa. Verifichiamo solo che i telefoni siano vicini.</ThemedText><Button label="Conferma scambio" onPress={handleNearbyConfirm} loading={acting} /><Button label="La posizione non funziona" variant="secondary" onPress={() => setHandshakeStatus('code_required')} /></View>;
+      }
+      if (handshakeStatus === 'waiting') {
+        return <View style={styles.codeForm}><ThemedText type="defaultSemiBold">La tua conferma è registrata</ThemedText><ThemedText type="caption">Manca solo l’altra persona. La pagina si aggiorna automaticamente.</ThemedText><Button label="Verifica di nuovo" variant="secondary" onPress={handleNearbyConfirm} /></View>;
+      }
+      if (isDriver) {
+        return (
+          <View style={styles.codeForm}>
+            <ThemedText type="defaultSemiBold">Chiedi il codice all’host</ThemedText>
+            <TextInput
+              value={codeInput}
+              onChangeText={(value) => setCodeInput(value.replace(/\D/g, '').slice(0, 3))}
+              keyboardType="number-pad"
+              maxLength={3}
+              placeholder="000"
+              placeholderTextColor={c.textSecondary}
+              style={[styles.codeInput, { color: c.text, backgroundColor: c.surfaceAlt, borderColor: c.border }]}
+            />
+            <Button label="Conferma con codice" disabled={codeInput.length !== 3} onPress={() => runAction(() => verifyDeliveryCode(id, codeInput))} loading={acting} />
+          </View>
+        );
+      }
+      return <StatusNote text="Chi porta è arrivato. Comunica il codice solo quando siete insieme." />;
     }
 
     if (stato === 'consegnato') {
@@ -232,15 +342,20 @@ export default function RequestDetailScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Dettaglio richiesta' }} />
+      <Stack.Screen options={{ title: 'Dettaglio giro' }} />
 
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={[styles.liveHero, { backgroundColor: c.accent }]}>
+          <ThemedText type="label" style={{ color: c.accentText }}>PROSSIMA AZIONE</ThemedText>
+          <ThemedText type="title" style={{ color: c.accentText }}>{nextAction.label}</ThemedText>
+          <ThemedText style={{ color: c.accentText, opacity: 0.72 }}>{STATO_LABEL[request.stato]}{etaMinutes ? ` · ${etaMinutes} min` : ''}</ThemedText>
+        </View>
         {/* Stato corrente + segnalazione */}
         <View style={styles.statusRow}>
           <Badge label={STATO_LABEL[request.stato]} tone="accent" />
           {!isHost && request.stato === 'richiesto' ? (
             <Pressable onPress={() => setReportOpen(true)} hitSlop={8}>
-              <ThemedText style={{ color: c.danger, fontSize: 13 }}>⚠ Segnala richiesta</ThemedText>
+              <ThemedText style={{ color: c.danger, fontSize: 13 }}>Segnala</ThemedText>
             </Pressable>
           ) : null}
         </View>
@@ -253,10 +368,10 @@ export default function RequestDetailScreen() {
           <View style={styles.hostInfo}>
             <ThemedText type="subtitle">{host.nome}</ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>
-              {host.eta} anni · ⭐ {host.ratingMedio.toFixed(1)} · {host.scambiCompletati} scambi
+              {host.eta} anni · {host.ratingMedio.toFixed(1)} su 5 · {host.scambiCompletati} giri
             </ThemedText>
           </View>
-          <ThemedText style={{ color: c.textSecondary }}>›</ThemedText>
+          <BrandIcon name="arrow-right" size={20} color={c.textSecondary} />
         </Pressable>
         {host.bio ? (
           <ThemedText style={[styles.bio, { color: c.textSecondary }]}>{host.bio}</ThemedText>
@@ -266,13 +381,51 @@ export default function RequestDetailScreen() {
         {request.vibeMode ? (
           <View style={[styles.vibeBanner, { backgroundColor: c.accentSoft }]}>
             <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong }}>
-              ✨ Vibe mode attiva
+              VIBE MODE ATTIVA
             </ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>
               {host.nome} ti invita a fermarti a bere insieme una volta consegnate le birre. È sempre
               facoltativo: puoi anche consegnare e andare via.
             </ThemedText>
           </View>
+        ) : null}
+
+        {isDriver && ['accettato', 'in_consegna'].includes(request.stato) ? (
+          <Section title="Quanto manca?">
+            <View style={styles.quickRow}>{[10, 20, 30, 45].map((minutes) => <Chip key={minutes} label={`${minutes} min`} active={etaMinutes === minutes} onPress={() => handleEta(minutes)} />)}</View>
+            <Button label="Sono in ritardo" size="md" variant="secondary" onPress={() => handleIssue('delay')} />
+          </Section>
+        ) : null}
+
+        {(isHost || isDriver) && ['in_consegna', 'arrivato'].includes(request.stato) ? (
+          <Button label="Devo fermare il giro" variant="danger" onPress={askSeriousCancel} />
+        ) : null}
+
+        <Section title="Stato del giro">
+          <View style={styles.timeline}>
+            {ORDER_TIMELINE.map((step, index) => {
+              const current = ORDER_TIMELINE.indexOf(request.stato);
+              const done = index <= current;
+              return (
+                <View key={step} style={styles.timelineItem}>
+                  <View style={[styles.timelineDot, { backgroundColor: done ? c.accent : c.surfaceAlt, borderColor: done ? c.accent : c.border }]}>
+                    {done ? <BrandIcon name="check" size={12} color={c.accentText} /> : null}
+                  </View>
+                  <ThemedText type={step === request.stato ? 'defaultSemiBold' : 'caption'} style={{ color: done ? c.text : c.textSecondary }}>{STATO_LABEL[step]}</ThemedText>
+                </View>
+              );
+            })}
+          </View>
+          {safetyEvents.length ? <View style={styles.eventList}>{safetyEvents.slice(-6).map((event) => <View key={event.id} style={styles.eventRow}><BrandIcon name="check" size={14} color={c.positive} /><ThemedText type="caption">{eventLabel(event.eventType)} · {new Date(event.createdAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</ThemedText></View>)}</View> : null}
+        </Section>
+
+        {isHost && deliveryCode?.code && ['accettato', 'in_consegna', 'arrivato'].includes(request.stato) ? (
+          <Section title="Codice di consegna">
+            <ThemedText style={[styles.deliveryCode, { color: c.accent }]}>{deliveryCode.code}</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>Comunicalo solo quando chi porta è davanti a te.</ThemedText>
+            <ThemedText type="caption">Tentativi disponibili: {deliveryCode.attemptsRemaining}. Il codice scade automaticamente.</ThemedText>
+            <Button label="Genera nuovo codice" size="md" variant="secondary" onPress={handleRegenerateCode} />
+          </Section>
         ) : null}
 
         {/* Birre richieste */}
@@ -299,7 +452,7 @@ export default function RequestDetailScreen() {
             <ThemedText>{request.indirizzo}</ThemedText>
           ) : (
             <ThemedText style={{ color: c.textSecondary }}>
-              📍 Indirizzo esatto visibile dopo l’accettazione.
+              Indirizzo esatto visibile dopo l’accettazione.
             </ThemedText>
           )}
           {request.fascia ? (
@@ -319,9 +472,9 @@ export default function RequestDetailScreen() {
         </Section>
 
         {/* Crediti */}
-        <Section title="Ricompensa">
+        <Section title="BeerCoin">
           <ThemedText type="title" style={{ color: c.accent }}>
-            {request.creditiOfferti} crediti
+            {request.creditiOfferti} BC
           </ThemedText>
           {request.stato === 'richiesto' && !isHost ? (
             <ThemedText style={{ color: c.textSecondary }}>
@@ -330,10 +483,31 @@ export default function RequestDetailScreen() {
                 : `Quando accetti si aggiunge un bonus in base alla tua distanza (massimo ${CREDIT_CAP} totali).`}
             </ThemedText>
           ) : null}
-          <ThemedText style={{ color: c.textSecondary }}>
-            Più il rimborso esatto della spesa, al momento della consegna.
-          </ThemedText>
+          <ThemedText style={{ color: c.textSecondary }}>Credito chiuso: non si compra, non si trasferisce, non si converte.</ThemedText>
         </Section>
+
+        {canSeeAddress && request.stato !== 'richiesto' && request.stato !== 'confermato' ? (
+          <Section title="Sicurezza">
+            <Button
+              label="Condividi stato del giro"
+              variant="secondary"
+              onPress={() => Share.share({ message: `BeerToBeer · Giro ${STATO_LABEL[request.stato]} · ${request.citta ?? 'città'} · beertobeer://request/${request.id}` })}
+            />
+            <ThemedText type="caption">Il messaggio non contiene l’indirizzo esatto.</ThemedText>
+            <View style={styles.trustedForm}>
+              <ThemedText type="defaultSemiBold">Contatto fidato</ThemedText>
+              <TextInput value={trustedName} onChangeText={setTrustedName} placeholder="Nome" placeholderTextColor={c.textSecondary} style={[styles.safetyInput, { color: c.text, backgroundColor: c.surfaceAlt, borderColor: c.border }]} />
+              <TextInput value={trustedContact} onChangeText={setTrustedContact} placeholder="Telefono o contatto" placeholderTextColor={c.textSecondary} style={[styles.safetyInput, { color: c.text, backgroundColor: c.surfaceAlt, borderColor: c.border }]} />
+              <Button label="Salva per questo giro" size="md" variant="secondary" disabled={!trustedName.trim() || !trustedContact.trim()} onPress={handleTrustedContact} />
+            </View>
+            <View style={styles.issueGrid}>
+              <Button label="Non trovo la persona" size="md" variant="secondary" onPress={() => handleIssue('person_absent')} />
+              <Button label="Richiesta diversa" size="md" variant="secondary" onPress={() => handleIssue('request_mismatch')} />
+              <Button label="Non mi sento al sicuro" size="md" variant="danger" onPress={() => handleIssue('unsafe')} />
+              {canCloseStale ? <Button label="Chiudi giro bloccato" size="md" variant="danger" onPress={() => runAction(() => cancelStaleOrder(id))} /> : null}
+            </View>
+          </Section>
+        ) : null}
       </ScrollView>
 
       {/* Footer azione (dipende da ruolo e stato) */}
@@ -371,6 +545,15 @@ export default function RequestDetailScreen() {
 function StatusNote({ text }: { text: string }) {
   const c = useColors();
   return <ThemedText style={[styles.statusNote, { color: c.textSecondary }]}>{text}</ThemedText>;
+}
+
+function eventLabel(type: OrderSafetyEvent['eventType']): string {
+  const labels: Record<OrderSafetyEvent['eventType'], string> = {
+    accepted: 'Giro accettato', started: 'Partenza o ETA aggiornata', arrived: 'Arrivo registrato',
+    code_failed: 'Codice non valido', code_verified: 'Codice verificato', exited: 'Uscita dal giro',
+    shared: 'Stato condiviso', reported: 'Imprevisto registrato', completed: 'Giro completato',
+  };
+  return labels[type];
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -442,4 +625,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: Spacing.sm,
   },
+  timeline: { gap: Spacing.sm },
+  timelineItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  timelineDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  deliveryCode: { fontSize: 44, lineHeight: 50, letterSpacing: 8, textAlign: 'center' },
+  codeForm: { gap: Spacing.sm },
+  codeInput: { height: 58, borderWidth: 1, borderRadius: 8, textAlign: 'center', fontSize: 28, letterSpacing: 8 },
+  trustedForm: { gap: Spacing.sm, marginTop: Spacing.sm },
+  safetyInput: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: Spacing.md },
+  liveHero: { borderRadius: 12, padding: Spacing.md, gap: 3 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  eventList: { marginTop: Spacing.sm, gap: 6 },
+  eventRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  issueGrid: { gap: Spacing.sm, marginTop: Spacing.sm },
 });

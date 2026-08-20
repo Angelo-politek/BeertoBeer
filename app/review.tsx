@@ -22,6 +22,9 @@ export default function ReviewScreen() {
   const toast = useToast();
   const [context, setContext] = useState<ReviewContext | null>(null);
   const [rating, setRating] = useState(5);
+  const [puntualita, setPuntualita] = useState(5);
+  const [comunicazione, setComunicazione] = useState(5);
+  const [rispetto, setRispetto] = useState(5);
   const [comment, setComment] = useState('');
   const [compliment, setCompliment] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +57,7 @@ export default function ReviewScreen() {
     setSaving(true);
     setError(null);
     try {
-      await submitReview(orderId, rating, comment);
+      await submitReview(orderId, rating, comment, { puntualita, comunicazione, rispetto });
       // Complimento (best-effort: non deve bloccare il salvataggio recensione).
       if (compliment && context) {
         await sendCompliment(orderId, context.target.id, compliment).catch(() => null);
@@ -104,6 +107,11 @@ export default function ReviewScreen() {
           <View style={styles.ratingWrap}>
             <StarRating value={rating} onChange={setRating} size={42} />
           </View>
+          <View style={styles.dimensions}>
+            <Dimension label="Puntualità" value={puntualita} onChange={setPuntualita} />
+            <Dimension label="Comunicazione" value={comunicazione} onChange={setComunicazione} />
+            <Dimension label="Rispetto" value={rispetto} onChange={setRispetto} />
+          </View>
 
           <View style={styles.field}>
             <ThemedText type="defaultSemiBold">Un complimento? (facoltativo)</ThemedText>
@@ -113,7 +121,7 @@ export default function ReviewScreen() {
                 return (
                   <Chip
                     key={comp.key}
-                    label={`${comp.emoji} ${comp.label}`}
+                    label={comp.label}
                     active={active}
                     onPress={() => setCompliment(active ? null : comp.key)}
                   />
@@ -145,5 +153,9 @@ const styles = StyleSheet.create({
   ratingWrap: { alignItems: 'center' },
   field: { gap: Spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  dimensions: { gap: Spacing.md },
 });
 
+function Dimension({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return <View style={styles.field}><ThemedText type="defaultSemiBold">{label}</ThemedText><StarRating value={value} onChange={onChange} size={28} /></View>;
+}

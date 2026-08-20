@@ -4,6 +4,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, V
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
 import { Spacing } from '@/constants/theme';
 import { adminDashboardStats, type AdminStats } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
@@ -74,23 +75,27 @@ export default function AdminDashboardScreen() {
         {/* Sezioni operative (con contatori di cosa richiede attenzione) */}
         <View style={styles.grid}>
           <NavCard
-            icon="⚠️"
+            icon="bell"
             label="Segnalazioni"
             badge={stats.segnalazioniAperte}
             onPress={() => router.push('/admin/reports' as never)}
           />
           <NavCard
-            icon="👥"
+            icon="profile"
             label="Utenti"
             badge={stats.utentiSospesi > 0 ? stats.utentiSospesi : undefined}
             onPress={() => router.push('/admin/users' as never)}
           />
           <NavCard
-            icon="🏪"
+            icon="cart"
             label="Negozi"
             badge={stats.negoziInAttesa}
             onPress={() => router.push('/admin/shops' as never)}
           />
+        </View>
+        <View style={styles.grid}>
+          <NavCard icon="chat" label="Feedback" onPress={() => router.push('/admin/feedback' as never)} />
+          <NavCard icon="pin" label="Safety map" onPress={() => router.push('/admin/safety-map' as never)} />
         </View>
 
         {/* Ecosistema */}
@@ -135,7 +140,7 @@ function NavCard({
   badge,
   onPress,
 }: {
-  icon: string;
+  icon: BrandIconName;
   label: string;
   badge?: number;
   onPress: () => void;
@@ -148,7 +153,7 @@ function NavCard({
         styles.navCard,
         { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.7 : 1 },
       ]}>
-      <ThemedText style={styles.navIcon}>{icon}</ThemedText>
+      <BrandIcon name={icon} size={26} color={c.accent} />
       <ThemedText type="defaultSemiBold">{label}</ThemedText>
       {badge != null && badge > 0 ? (
         <View style={[styles.navBadge, { backgroundColor: c.danger }]}>

@@ -1,4 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -21,6 +22,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
+import { BrandIcon } from '@/components/ui/brand-icon';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { createOrder, getCurrentUser } from '@/data/api';
@@ -34,6 +36,7 @@ import type { BeerItem } from '@/types';
 type BeerInput = { nome: string; quantita: string; formato: string };
 
 const FASCE = ['Adesso', 'Tra 1 ora', 'Stasera', 'Domani'];
+const DRAFT_KEY = 'btb.giro-composer.draft.v21';
 
 export default function CreateRequestScreen() {
   const c = useColors();
@@ -66,6 +69,23 @@ export default function CreateRequestScreen() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    AsyncStorage.getItem(DRAFT_KEY).then((raw) => {
+      if (!raw) return;
+      const draft = JSON.parse(raw) as { birre?: BeerInput[]; indirizzo?: string; fascia?: string; vibeMode?: boolean; coords?: Coords | null };
+      if (draft.birre?.length) setBirre(draft.birre);
+      if (draft.indirizzo) setIndirizzo(draft.indirizzo);
+      if (draft.fascia) setFascia(draft.fascia);
+      if (draft.vibeMode != null) setVibeMode(draft.vibeMode);
+      if (draft.coords) setCoords(draft.coords);
+    }).catch(() => null);
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ birre, indirizzo, fascia, vibeMode, coords })).catch(() => null), 350);
+    return () => clearTimeout(timer);
+  }, [birre, indirizzo, fascia, vibeMode, coords]);
 
   // Moderazione: sospeso finché la data è nel futuro (il server è il gate vero).
   const suspended = sospesoFino != null && new Date(sospesoFino).getTime() > Date.now();
@@ -175,6 +195,7 @@ export default function CreateRequestScreen() {
         lat: point?.lat ?? null,
         lng: point?.lng ?? null,
       });
+      await AsyncStorage.removeItem(DRAFT_KEY).catch(() => null);
       router.replace({ pathname: '/request/[id]', params: { id: newId } });
     } catch (e) {
       setSubmitting(false);
@@ -189,6 +210,9 @@ export default function CreateRequestScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.composerHeader}>
+            {['COSA', 'DOVE', 'QUANDO', 'VIBE', 'RIEPILOGO'].map((label, index) => <View key={label} style={styles.composerStep}><View style={[styles.stepNumber, { backgroundColor: index === 0 ? c.accent : c.surfaceAlt }]}><ThemedText style={{ color: index === 0 ? c.accentText : c.textSecondary, fontSize: 11 }}>{index + 1}</ThemedText></View><ThemedText type="caption">{label}</ThemedText></View>)}
+          </View>
           {/* Banner moderazione: account sospeso */}
           {suspended ? (
             <View style={[styles.suspendedBanner, { backgroundColor: c.dangerSoft }]}>
@@ -210,7 +234,7 @@ export default function CreateRequestScreen() {
 
           {/* Birre */}
           <View style={styles.field}>
-            <Text style={[styles.label, { color: c.textSecondary }]}>Cosa vuoi ordinare?</Text>
+            <Text style={[styles.label, { color: c.textSecondary }]}>Cosa ti serve?</Text>
             {birre.map((b, i) => (
               <View key={i} style={styles.beerBlock}>
                 <View style={styles.beerRow}>
@@ -239,7 +263,7 @@ export default function CreateRequestScreen() {
                   />
                   {birre.length > 1 ? (
                     <Pressable onPress={() => removeBeer(i)} style={styles.remove}>
-                      <Text style={[styles.removeText, { color: c.danger }]}>✕</Text>
+                    <BrandIcon name="x-mark" size={18} color={c.danger} />
                     </Pressable>
                   ) : null}
                 </View>
@@ -257,7 +281,7 @@ export default function CreateRequestScreen() {
               </View>
             ))}
             <Pressable onPress={addBeer} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
-              <Text style={[styles.addBeer, { color: c.accent }]}>{"+ Aggiungi un'altra birra"}</Text>
+              <View style={styles.addRow}><BrandIcon name="plus" size={17} color={c.accent} /><Text style={[styles.addBeer, { color: c.accent }]}>Aggiungi un&apos;altra birra</Text></View>
             </Pressable>
           </View>
 
@@ -274,14 +298,14 @@ export default function CreateRequestScreen() {
           />
           <View style={styles.addressButtons}>
             <Button
-              label={coords ? '📍 Posizione trovata' : 'Trova indirizzo'}
+              label={coords ? 'Posizione trovata' : 'Trova indirizzo'}
               variant="secondary"
               onPress={handleFindAddress}
               loading={geocoding}
               style={styles.addressButton}
             />
             <Button
-              label="🗺 Scegli sulla mappa"
+              label="Scegli sulla mappa"
               variant="secondary"
               onPress={() => {
                 setMapPick(coords);
@@ -304,7 +328,7 @@ export default function CreateRequestScreen() {
           {/* Vibe mode */}
           <View style={[styles.vibeRow, { backgroundColor: c.surfaceAlt }]}>
             <View style={styles.vibeText}>
-              <ThemedText type="defaultSemiBold">✨ Vibe mode</ThemedText>
+              <ThemedText type="defaultSemiBold">Vibe mode</ThemedText>
               <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
                 Invita chi consegna a fermarsi a bere insieme.
               </ThemedText>
@@ -315,10 +339,10 @@ export default function CreateRequestScreen() {
           {/* Stima crediti: parte peso subito, bonus distanza quando un driver accetta */}
           <View style={[styles.creditsCard, { backgroundColor: c.accentSoft }]}>
             <ThemedText type="label" style={{ color: c.accentStrong }}>
-              Crediti offerti
+              BEERCOIN DEL GIRO
             </ThemedText>
             <ThemedText type="title" style={{ color: c.accentStrong }}>
-              {stima} crediti
+              {stima} BeerCoin
             </ThemedText>
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
               Calcolati dal peso delle birre.
@@ -335,7 +359,7 @@ export default function CreateRequestScreen() {
           </View>
 
           <Button
-            label="Pubblica richiesta"
+            label="Pubblica il giro"
             onPress={handleSubmit}
             loading={submitting}
             disabled={nonCopribile || suspended}
@@ -353,7 +377,7 @@ export default function CreateRequestScreen() {
                 {city.label} — sposta e zooma la mappa, poi tocca dove consegnare.
               </ThemedText>
             </View>
-            <LocationPickerMap center={coords ?? city.center} onPick={setMapPick} />
+            <LocationPickerMap center={coords ?? city.center} value={mapPick} onPick={setMapPick} />
             <View style={styles.mapFooter}>
               <Button label="Annulla" variant="secondary" onPress={() => setMapOpen(false)} style={styles.addressButton} />
               <Button label="Conferma punto" onPress={handleMapConfirm} disabled={!mapPick} style={styles.addressButton} />
@@ -408,4 +432,8 @@ const styles = StyleSheet.create({
   addressButton: { flex: 1 },
   mapHeader: { padding: Spacing.md, gap: 2 },
   mapFooter: { flexDirection: 'row', gap: Spacing.sm, padding: Spacing.md },
+  composerHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 4, paddingBottom: Spacing.sm },
+  composerStep: { alignItems: 'center', gap: 3, flex: 1 },
+  stepNumber: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  addRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

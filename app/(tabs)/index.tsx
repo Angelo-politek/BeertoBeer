@@ -1,274 +1,167 @@
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { AddShopModal } from '@/components/add-shop-modal';
 import { Button } from '@/components/button';
 import { CityPicker } from '@/components/city-picker';
 import { EmptyState } from '@/components/empty-state';
-import { FeedMap } from '@/components/feed-map';
+import { DiscoveryFilterBar } from '@/components/discovery-filter-bar';
 import { RequestCard } from '@/components/request-card';
 import { SkeletonCard } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useToast } from '@/components/toast';
-import { Chip } from '@/components/ui/chip';
+import { BrandIcon } from '@/components/ui/brand-icon';
 import { PressableScale } from '@/components/ui/pressable-scale';
-import { Fonts, Radii, Spacing } from '@/constants/theme';
-import { addShop, deleteShop, getCurrentUser, getRequests, getShops, type Shop } from '@/data/api';
-import { useColors, useShadows } from '@/hooks/use-colors';
-import { useSession } from '@/lib/auth-context';
-import { nearestCity } from '@/lib/cities';
+import { Radii, Spacing } from '@/constants/theme';
+import { getEvents, getMyOrders, getNotifications } from '@/data/api';
+import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
+import { useDiscoveryFilters } from '@/lib/discovery-context';
+import { nextOrderAction, requestMatchesFilters, sortDiscovery } from '@/lib/discovery';
+import { useSession } from '@/lib/auth-context';
+import { getDiscoveryRequests } from '@/lib/discovery-cache';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
-import type { BeerRequest } from '@/types';
+import { STATO_LABEL } from '@/lib/orders';
+import type { BeerEvent, BeerRequest } from '@/types';
 
-export default function FeedScreen() {
+export default function HomeScreen() {
   const router = useRouter();
-  const colors = useColors();
-  const sh = useShadows();
-  const toast = useToast();
-  const { session } = useSession();
-  const { city, ready, hasChosen, setCityKey } = useCity();
+  const c = useColors();
+  const { city, setCityKey } = useCity();
   const [requests, setRequests] = useState<BeerRequest[]>([]);
+  const [myOrders, setMyOrders] = useState<BeerRequest[]>([]);
+  const [events, setEvents] = useState<BeerEvent[]>([]);
+  const [unread, setUnread] = useState(0);
+  const [coords, setCoords] = useState<Coords | null>(null);
+  const { filters } = useDiscoveryFilters();
+  const { session } = useSession();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [vibeOnly, setVibeOnly] = useState(false);
-  const [coords, setCoords] = useState<Coords | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  const [shops, setShops] = useState<Shop[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [addShopOpen, setAddShopOpen] = useState(false);
-  const [addingShop, setAddingShop] = useState(false);
 
-  const load = useCallback(
-    async (asRefresh = false) => {
-      if (asRefresh) setRefreshing(true);
-      else setLoading(true);
-      try {
-        const rows = await getRequests(city.key);
-        setRequests(rows);
-        setError(null);
-      } catch {
-        setError('Impossibile caricare le richieste. Riprova.');
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [city.key],
-  );
+  useEffect(() => { getCurrentCoords().then(setCoords).catch(() => null); }, []);
 
-  useEffect(() => {
-    getCurrentCoords().then(setCoords).catch(() => setCoords(null));
-    getCurrentUser()
-      .then((u) => setIsAdmin(!!u.isAdmin))
-      .catch(() => null);
-  }, []);
-
-  // Negozi della città per la vista mappa.
-  useEffect(() => {
-    getShops(city.key).then(setShops).catch(() => setShops([]));
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true);
+    else setLoading(true);
+    try {
+      const [available, mine, nextEvents] = await Promise.all([
+        getDiscoveryRequests(city.key, refresh),
+        getMyOrders(),
+        getEvents(city.key).catch(() => []),
+      ]);
+      setRequests(available);
+      setMyOrders(mine);
+      setEvents(nextEvents);
+      getNotifications().then((items) => setUnread(items.filter((item) => !item.readAt).length)).catch(() => setUnread(0));
+      setError(null);
+    } catch {
+      setError('La città non risponde. Riprova tra poco.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [city.key]);
 
-  // Primo avvio senza città scelta: proponi quella più vicina al GPS.
-  useEffect(() => {
-    if (ready && !hasChosen && coords) {
-      setCityKey(nearestCity(coords).key);
-    }
-  }, [ready, hasChosen, coords, setCityKey]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load]),
-  );
-
+  const actionableOrders = useMemo(() => myOrders
+    .filter((order) => !['confermato', 'annullato'].includes(order.stato))
+    .map((order) => ({ order, action: nextOrderAction(order, session?.user.id) }))
+    .sort((a, b) => b.action.priority - a.action.priority), [myOrders, session?.user.id]);
+  const activeOrder = actionableOrders[0];
   const visibleRequests = useMemo(() => {
-    return requests
-      .filter((item) => !vibeOnly || item.vibeMode)
-      .map((item) => {
-        const distanzaKm =
-          coords && item.lat != null && item.lng != null ? haversineKm(coords, { lat: item.lat, lng: item.lng }) : undefined;
-        return { ...item, distanzaKm };
-      })
-      .sort((a, b) => (a.distanzaKm ?? Number.MAX_VALUE) - (b.distanzaKm ?? Number.MAX_VALUE));
-  }, [coords, requests, vibeOnly]);
-
-  async function handleAddShop(input: { nome: string; coords: Coords; orari?: string }) {
-    setAddingShop(true);
-    try {
-      await addShop({
-        nome: input.nome,
-        citta: city.key,
-        lat: input.coords.lat,
-        lng: input.coords.lng,
-        orari: input.orari,
-      });
-      setAddShopOpen(false);
-      setShops(await getShops(city.key));
-      toast.show('Negozio proposto: sarà visibile dopo l’approvazione');
-    } catch {
-      toast.show('Negozio non aggiunto, riprova', 'error');
-    } finally {
-      setAddingShop(false);
-    }
-  }
-
-  function handleDeleteShop(shop: Shop) {
-    Alert.alert(`Eliminare "${shop.nome}"?`, 'Il negozio sparirà dalla mappa.', [
-      { text: 'Annulla', style: 'cancel' },
-      {
-        text: 'Elimina',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await deleteShop(shop.id);
-            setShops((current) => current.filter((s) => s.id !== shop.id));
-            toast.show('Negozio eliminato');
-          } catch {
-            toast.show('Eliminazione non riuscita', 'error');
-          }
-        },
-      },
-    ]);
-  }
+    const withDistance = requests.map((request) => ({
+      ...request,
+      distanzaKm: coords && request.lat != null && request.lng != null
+        ? haversineKm(coords, { lat: request.lat, lng: request.lng })
+        : undefined,
+    })).filter((request) => requestMatchesFilters(request, filters));
+    return sortDiscovery(withDistance, filters);
+  }, [coords, requests, filters]);
 
   return (
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safe} edges={['top']}>
-        {/* Header hero */}
-        <Animated.View entering={FadeInDown.duration(350)} style={styles.header}>
-          <View style={styles.headerText}>
-            <ThemedText type="label">La tua zona 🍺</ThemedText>
-            <ThemedText type="title">Richieste</ThemedText>
-          </View>
-          <PressableScale
-            onPress={() => router.push('/create-request')}
-            pressedScale={0.92}
-            style={[styles.newButton, { backgroundColor: colors.accent }, sh.fab]}>
-            <Text style={[styles.newButtonText, { color: colors.accentText }]}>+ Nuova</Text>
-          </PressableScale>
-        </Animated.View>
+        <FlatList
+          data={loading ? [] : visibleRequests}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}
+          ListHeaderComponent={
+            <View style={styles.headerContent}>
+              <View style={styles.brandRow}>
+                <Image source={require('../../assets/brand/wordmark.png')} style={styles.wordmark} contentFit="contain" />
+                <View style={styles.headerActions}><CityPicker selectedKey={city.key} onSelect={setCityKey} /><PressableScale accessibilityRole="button" accessibilityLabel={`Notifiche${unread ? `, ${unread} non lette` : ''}`} onPress={() => router.push('/notifications' as never)} style={[styles.bell, { borderColor: c.border }]}><BrandIcon name="bell" size={22} color={c.text} />{unread ? <View style={[styles.unread, { backgroundColor: c.danger }]}><ThemedText style={styles.unreadText}>{Math.min(unread, 9)}</ThemedText></View> : null}</PressableScale></View>
+              </View>
 
-        {/* Filtri */}
-        <Animated.View entering={FadeInDown.delay(60).duration(350)} style={styles.tools}>
-          <CityPicker selectedKey={city.key} onSelect={setCityKey} />
-          <View style={styles.toolsRight}>
-            <Chip
-              label={viewMode === 'list' ? '🗺 Mappa' : '☰ Lista'}
-              onPress={() => setViewMode((mode) => (mode === 'list' ? 'map' : 'list'))}
-            />
-            <Chip label="✨ Vibe" active={vibeOnly} onPress={() => setVibeOnly((value) => !value)} />
-          </View>
-        </Animated.View>
+              <View style={styles.hero}>
+                <ThemedText type="label">RADAR DELLA SERATA</ThemedText>
+                <ThemedText type="title" style={styles.heroTitle}>{visibleRequests.length} {visibleRequests.length === 1 ? 'GIRO' : 'GIRI'} IN ZONA</ThemedText>
+                <View style={styles.heroActions}>
+                  <Button label="Chiedi una birra" onPress={() => router.push('/create-request')} style={styles.flex} />
+                  <PressableScale onPress={() => router.push('/my-orders')} style={[styles.roundAction, { borderColor: c.text }]}>
+                    <BrandIcon name="scooter" size={26} color={c.text} />
+                  </PressableScale>
+                </View>
+              </View>
 
-        <PressableScale
-          onPress={() => router.push('/my-orders')}
-          haptic={false}
-          pressedScale={0.98}
-          style={styles.myOrders}>
-          <ThemedText type="defaultSemiBold" style={{ color: colors.accentStrong, fontSize: 14 }}>
-            I miei ordini →
-          </ThemedText>
-        </PressableScale>
+              {activeOrder ? (
+                <PressableScale onPress={() => router.push({ pathname: '/request/[id]', params: { id: activeOrder.order.id } })} style={[styles.activeOrder, { backgroundColor: c.accent }]}>
+                  <View style={styles.activeIcon}><BrandIcon name="bottle" size={24} color={c.accentText} /></View>
+                  <View style={styles.flex}>
+                    <ThemedText type="label" style={{ color: c.accentText }}>GIRO ATTIVO</ThemedText>
+                    <ThemedText type="subtitle" style={{ color: c.accentText }}>{activeOrder.action.label}</ThemedText>
+                    <ThemedText style={{ color: c.accentText, opacity: 0.72 }}>{STATO_LABEL[activeOrder.order.stato]}{actionableOrders.length > 1 ? ` · altri ${actionableOrders.length - 1}` : ''}</ThemedText>
+                  </View>
+                  <BrandIcon name="arrow-right" size={22} color={c.accentText} />
+                </PressableScale>
+              ) : null}
 
-        {loading ? (
-          <View style={styles.skeletons}>
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </View>
-        ) : error ? (
-          <View style={styles.center}>
-            <EmptyState emoji="😵" title="Ops, qualcosa è andato storto" message={error} />
-            <Button label="Riprova" size="md" variant="secondary" onPress={() => load()} />
-          </View>
-        ) : viewMode === 'map' ? (
-          <FeedMap
-            city={city}
-            requests={visibleRequests}
-            shops={shops}
-            onOpenRequest={(id) => router.push({ pathname: '/request/[id]', params: { id } })}
-            canDeleteShop={(shop) => isAdmin || shop.createdBy === session?.user.id}
-            onDeleteShop={handleDeleteShop}
-            onAddShop={() => setAddShopOpen(true)}
-          />
-        ) : (
-          <FlatList
-            data={visibleRequests}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.list}
-            showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={colors.accent} />}
-            renderItem={({ item, index }) => (
-              <RequestCard
-                request={item}
-                index={index}
-                onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })}
-              />
-            )}
-            ListEmptyComponent={
-              <EmptyState
-                emoji="🌵"
-                title={`Nessuna richiesta a ${city.label}`}
-                message="Quando qualcuno pubblica una richiesta di birre in questa città, comparirà qui. Puoi cambiare città dal selettore in alto."
-              />
-            }
-          />
-        )}
+              <View style={styles.sectionHead}>
+                <View><ThemedText type="label">VICINO A TE</ThemedText><ThemedText type="title">GIRI APERTI</ThemedText></View>
+                <PressableScale onPress={() => router.push('/(tabs)/map' as never)} style={styles.mapLink}>
+                  <BrandIcon name="pin" size={18} color={c.accent} /><ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Mappa</ThemedText>
+                </PressableScale>
+              </View>
+              <DiscoveryFilterBar />
+              {loading ? <View style={styles.loading}><SkeletonCard /><SkeletonCard /></View> : null}
+              {error ? <EmptyState icon="x-mark" title="Feed fermo" message={error} /> : null}
+            </View>
+          }
+          renderItem={({ item }) => <RequestCard request={item} onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })} />}
+          ListEmptyComponent={!loading && !error ? <EmptyState icon="bottle" title="Strada libera" message="Non ci sono giri aperti. Puoi crearne uno o guardare cosa succede nella community." /> : null}
+          ListFooterComponent={
+            <PressableScale onPress={() => router.push('/(tabs)/community' as never)} style={[styles.community, { backgroundColor: c.surface }]}>
+              <View style={styles.communityText}>
+                <ThemedText type="label">COMMUNITY</ThemedText>
+                <ThemedText type="title">FUORI DAL FEED</ThemedText>
+                <ThemedText style={{ color: c.textSecondary }}>
+                  {events[0] ? `Prossimo incontro: ${events[0].titolo}` : 'Incontri e bacheca della tua città.'}
+                </ThemedText>
+              </View>
+              <Image source={require('../../assets/brand/sticker-b2b.png')} style={styles.sticker} contentFit="contain" />
+              <BrandIcon name="arrow-right" size={24} color={c.accent} />
+            </PressableScale>
+          }
+        />
       </SafeAreaView>
-
-      <AddShopModal
-        visible={addShopOpen}
-        city={city}
-        loading={addingShop}
-        onClose={() => setAddShopOpen(false)}
-        onSubmit={handleAddShop}
-      />
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  safe: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md + 4,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  headerText: { flex: 1, gap: 2 },
-  newButton: {
-    height: 42,
-    paddingHorizontal: 18,
-    borderRadius: Radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  newButtonText: { fontFamily: Fonts.display, fontSize: 18, letterSpacing: 1, textTransform: 'uppercase' },
-  tools: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md + 4,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
-  },
-  toolsRight: { flexDirection: 'row', gap: Spacing.sm },
-  myOrders: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: Spacing.md + 4,
-    paddingBottom: Spacing.sm,
-  },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'flex-start', padding: Spacing.md, gap: Spacing.sm },
-  skeletons: { padding: Spacing.md, gap: Spacing.md },
-  list: { paddingHorizontal: Spacing.md, paddingTop: 4, paddingBottom: Spacing.xl, gap: Spacing.md },
+  container: { flex: 1 }, safe: { flex: 1 }, content: { padding: Spacing.md, paddingBottom: Spacing.xxl, gap: Spacing.md },
+  headerContent: { gap: Spacing.md }, brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  wordmark: { width: 104, height: 48 }, hero: { paddingVertical: 2, gap: Spacing.sm }, heroTitle: { fontSize: 36, lineHeight: 38, maxWidth: 320 },
+  heroActions: { flexDirection: 'row', gap: Spacing.sm }, flex: { flex: 1 }, roundAction: { width: 54, height: 54, borderWidth: 1.5, borderRadius: Radii.md, alignItems: 'center', justifyContent: 'center' },
+  activeOrder: { minHeight: 78, padding: Spacing.md, borderRadius: Radii.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, activeIcon: { width: 34, alignItems: 'center' },
+  sectionHead: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: Spacing.sm }, mapLink: { flexDirection: 'row', alignItems: 'center', gap: 5, padding: Spacing.sm },
+  filters: { flexDirection: 'row', gap: Spacing.sm }, loading: { gap: Spacing.md },
+  community: { marginTop: Spacing.xl, minHeight: 150, padding: Spacing.md, borderRadius: Radii.lg, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
+  communityText: { flex: 1, gap: 4, zIndex: 1 }, sticker: { width: 86, height: 100, opacity: 0.9 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }, bell: { width: 44, height: 44, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, unread: { position: 'absolute', right: -3, top: -3, minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, unreadText: { color: '#F4F1EA', fontSize: 10 },
 });

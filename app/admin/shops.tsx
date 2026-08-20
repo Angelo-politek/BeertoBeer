@@ -82,7 +82,7 @@ export default function AdminShopsScreen() {
             <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
               <View style={styles.cardHeader}>
                 <ThemedText type="defaultSemiBold" style={styles.cardTitle}>
-                  🏪 {item.nome}
+                  {item.nome}
                 </ThemedText>
                 <Badge
                   label={item.stato === 'in_attesa' ? 'In attesa' : item.stato === 'approvato' ? 'Pubblicato' : 'Rimosso'}
@@ -95,7 +95,7 @@ export default function AdminShopsScreen() {
               </ThemedText>
               <View style={styles.actions}>
                 <Button
-                  label="📍 Verifica sulla mappa"
+                  label="Verifica sulla mappa"
                   variant="secondary"
                   onPress={() =>
                     Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`).catch(

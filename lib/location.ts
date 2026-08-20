@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 
-export type Coords = { lat: number; lng: number };
+export type Coords = { lat: number; lng: number; accuracy?: number | null };
 
 /** Distanza geodetica in km tra due coordinate (formula dell'emisenoverso). */
 export function haversineKm(a: Coords, b: Coords): number {
@@ -22,8 +22,8 @@ export async function getCurrentCoords(): Promise<Coords | null> {
   try {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') return null;
-    const pos = await Location.getCurrentPositionAsync({});
-    return { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+    return { lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy };
   } catch {
     return null;
   }

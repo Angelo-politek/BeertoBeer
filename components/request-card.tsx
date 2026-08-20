@@ -3,10 +3,10 @@ import { StyleSheet, View } from 'react-native';
 import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
 import { Card } from '@/components/card';
-import { LevelBadge } from '@/components/level-badge';
 import { ThemedText } from '@/components/themed-text';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { whyThisRequest } from '@/lib/discovery';
 import type { BeerRequest } from '@/types';
 
 type Props = {
@@ -22,9 +22,8 @@ type Props = {
  */
 export function RequestCard({ request, onPress, index }: Props) {
   const c = useColors();
-  const birreLabel = request.birre.map((b) => `${b.quantita}× ${b.nome}`).join(' · ');
-  const rightHint =
-    request.distanzaKm != null ? `📍 ${request.distanzaKm.toFixed(1)} km` : request.fascia ? `🕗 ${request.fascia}` : null;
+  const birreLabel = request.birre.map((b) => `${b.quantita} × ${b.nome}`).join(' · ');
+  const rightHint = request.distanzaKm != null ? `${request.distanzaKm.toFixed(1)} km` : request.fascia ?? null;
 
   return (
     <Card onPress={onPress} index={index}>
@@ -34,7 +33,7 @@ export function RequestCard({ request, onPress, index }: Props) {
           <ThemedText type="defaultSemiBold" numberOfLines={1}>
             {request.host.nome}
           </ThemedText>
-          <LevelBadge level={request.host.livello ?? 0} />
+          <ThemedText type="caption">{request.host.ratingMedio.toFixed(1)} su 5 · {request.host.scambiCompletati} giri</ThemedText>
         </View>
         {rightHint ? (
           <ThemedText type="caption" style={{ color: c.textSecondary }}>
@@ -44,18 +43,22 @@ export function RequestCard({ request, onPress, index }: Props) {
       </View>
 
       <ThemedText style={[styles.beers, { color: c.textSecondary }]} numberOfLines={2}>
-        🍺 {birreLabel}
+        {birreLabel}
       </ThemedText>
+      <ThemedText type="caption" style={{ color: c.accent }}>{whyThisRequest(request)}</ThemedText>
 
       <View style={styles.footerRow}>
         <View style={styles.badges}>
-          {request.vibeMode && <Badge label="✨ vibe mode" tone="accent" />}
+          {request.vibeMode && <Badge label="Vibe mode" tone="accent" />}
         </View>
         <View style={[styles.reward, { backgroundColor: c.accentSoft }]}>
           <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 15 }}>
-            +{request.creditiOfferti} PT
+            {request.creditiOfferti} BeerCoin
           </ThemedText>
         </View>
+      </View>
+      <View style={[styles.openAction, { borderTopColor: c.border }]}>
+        <ThemedText type="defaultSemiBold">Vedi giro</ThemedText>
       </View>
     </Card>
   );
@@ -92,4 +95,5 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: Radii.pill,
   },
+  openAction: { marginTop: Spacing.sm, paddingTop: Spacing.sm, borderTopWidth: 1, alignItems: 'flex-end' },
 });

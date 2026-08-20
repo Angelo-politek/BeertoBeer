@@ -9,6 +9,7 @@ import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { BrandIcon } from '@/components/ui/brand-icon';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { supabase } from '@/lib/supabase';
@@ -52,7 +53,7 @@ export default function ForgotPasswordScreen() {
               <Animated.View
                 entering={ZoomIn.springify().damping(14).stiffness(200)}
                 style={[styles.logoCircle, { backgroundColor: c.accentSoft }]}>
-                <ThemedText style={styles.logoEmoji}>🔑</ThemedText>
+                <BrandIcon name="cap" size={38} color={c.accent} />
               </Animated.View>
               <Animated.View entering={FadeInDown.delay(100).springify().damping(20).stiffness(180)} style={styles.headerText}>
                 <ThemedText type="title" style={styles.centered}>

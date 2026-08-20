@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
+import { BrandIcon } from '@/components/ui/brand-icon';
 import { BADGES, TOKEN_SHORT } from '@/constants/branding';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
@@ -28,7 +29,7 @@ export function BadgeGrid({ unlocked, showLocked = true }: Props) {
   if (visible.length === 0) {
     return (
       <ThemedText style={{ color: c.textSecondary }}>
-        Nessun badge ancora. Fai un giro per sbloccare il primo! 🚴
+        I badge V1 sono stati ritirati. Ora contano i contributi reali alla città.
       </ThemedText>
     );
   }
@@ -47,7 +48,7 @@ export function BadgeGrid({ unlocked, showLocked = true }: Props) {
                 ? { backgroundColor: c.accentSoft }
                 : { backgroundColor: c.surfaceAlt, opacity: 0.65 },
             ]}>
-            <ThemedText style={styles.emoji}>{has ? b.emoji : '🔒'}</ThemedText>
+            <BrandIcon name={has ? 'check' : 'x-mark'} size={28} color={has ? c.accent : c.textSecondary} />
             <ThemedText
               type="defaultSemiBold"
               style={[styles.name, { color: has ? c.accentStrong : c.textSecondary }]}

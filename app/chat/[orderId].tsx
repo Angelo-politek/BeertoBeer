@@ -1,25 +1,31 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ChatView } from '@/components/chat-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { getMessages, sendMessage, subscribeToMessages } from '@/data/api';
+import { getMessages, getOrderEta, getRequestById, sendMessage, subscribeToMessages } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
-import type { Message } from '@/types';
+import type { BeerRequest, Message } from '@/types';
+import { PressableScale } from '@/components/ui/pressable-scale';
+import { BrandIcon } from '@/components/ui/brand-icon';
+import { STATO_LABEL } from '@/lib/orders';
 
 /** Chat legata a un ordine: host e driver si coordinano sulla consegna. */
 export default function ChatScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
   const c = useColors();
+  const router = useRouter();
   const { session } = useSession();
   const myId = session?.user.id;
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [request, setRequest] = useState<BeerRequest | null>(null);
+  const [eta, setEta] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -33,6 +39,8 @@ export default function ChatScreen() {
       .finally(() => {
         if (active) setLoading(false);
       });
+    getRequestById(orderId).then(setRequest).catch(() => null);
+    getOrderEta(orderId).then(setEta).catch(() => null);
 
     const unsubscribe = subscribeToMessages(orderId, (message) => {
       setMessages((current) => (current.some((m) => m.id === message.id) ? current : [...current, message]));
@@ -46,13 +54,15 @@ export default function ChatScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Chat ordine' }} />
+      <Stack.Screen options={{ title: 'Chat del giro' }} />
       {error ? <ThemedText style={[styles.error, { color: c.danger }]}>{error}</ThemedText> : null}
       <ChatView
         messages={messages}
         myId={myId}
         loading={loading}
-        emptyMessage="La conversazione dell'ordine apparira qui."
+        emptyMessage="Usa la chat solo per coordinare il giro."
+        quickReplies={['Parto ora', 'Arrivo tra 10 minuti', 'Sono sotto', 'Ho un ritardo']}
+        header={request ? <PressableScale onPress={() => router.push({ pathname: '/request/[id]', params: { id: orderId } })} style={[styles.hub, { backgroundColor: c.accentSoft }]}><View style={styles.hubText}><ThemedText type="label">GIRO {STATO_LABEL[request.stato].toUpperCase()}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{request.fascia ?? 'Fascia non indicata'}{eta ? ` · ETA ${eta} min` : ''}</ThemedText></View><BrandIcon name="arrow-right" size={20} color={c.accent} /></PressableScale> : null}
         onSend={(testo) => sendMessage(orderId, testo)}
       />
     </ThemedView>
@@ -62,4 +72,6 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   error: { paddingHorizontal: Spacing.md, paddingTop: Spacing.xs },
+  hub: { minHeight: 68, borderRadius: 10, padding: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  hubText: { flex: 1, gap: 2 },
 });

@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Dimensions, FlatList, StyleSheet, View, type ViewToken } from 'react-native';
 import Animated, {
-  Extrapolation,
   interpolate,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -17,6 +16,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { PressableScale } from '@/components/ui/pressable-scale';
+import { BrandIcon } from '@/components/ui/brand-icon';
 import { ONBOARDING_SLIDES, PHILOSOPHY_TAGLINE, type OnboardingSlide } from '@/constants/branding';
 import { Radii, Spacing, Springs } from '@/constants/theme';
 import { completeOnboarding } from '@/data/api';
@@ -39,7 +39,7 @@ const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Page>);
  */
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { city, hasChosen, setCityKey } = useCity();
+  const { city, setCityKey } = useCity();
   const listRef = useRef<FlatList<Page>>(null);
   const [index, setIndex] = useState(0);
   const [over18, setOver18] = useState(false);
@@ -47,18 +47,10 @@ export default function OnboardingScreen() {
   const [finishing, setFinishing] = useState(false);
   const scrollX = useSharedValue(0);
 
-  // Città più vicina dal GPS, se non ancora scelta.
-  useEffect(() => {
-    if (hasChosen) return;
-    let active = true;
-    getCurrentCoords().then((coords) => {
-      if (active && coords) setCityKey(nearestCity(coords).key);
-    });
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  async function detectCity() {
+    const coords = await getCurrentCoords().catch(() => null);
+    if (coords) setCityKey(nearestCity(coords).key);
+  }
 
   // Gli slide della filosofia + un ultimo step "setup" (città/gate).
   const pages: Page[] = [
@@ -120,6 +112,7 @@ export default function OnboardingScreen() {
                 onToggleRules={() => setAcceptedRules((v) => !v)}
                 cityKey={city.key}
                 onPickCity={setCityKey}
+                onUseLocation={detectCity}
               />
             )
           }
@@ -135,7 +128,7 @@ export default function OnboardingScreen() {
         <View style={styles.footer}>
           {isLast ? (
             <Button
-              label="Entra nella community 🍺"
+              label="Entra nella community"
               onPress={finish}
               disabled={!canContinue}
               loading={finishing}
@@ -165,7 +158,6 @@ function Dot({ active }: { active: boolean }) {
   return <Animated.View style={[styles.dot, { backgroundColor: active ? c.accent : c.border }, style]} />;
 }
 
-/** Slide con parallax: l'emoji viaggia più lenta del testo mentre scorri. */
 function SlideView({
   slide,
   pageIndex,
@@ -177,39 +169,18 @@ function SlideView({
 }) {
   const c = useColors();
 
-  const emojiStyle = useAnimatedStyle(() => {
-    const position = scrollX.value / width - pageIndex;
-    return {
-      transform: [
-        { translateX: interpolate(position, [-1, 0, 1], [width * 0.35, 0, -width * 0.35], Extrapolation.CLAMP) },
-        { scale: interpolate(position, [-1, 0, 1], [0.6, 1, 0.6], Extrapolation.CLAMP) },
-      ],
-      opacity: interpolate(position, [-0.8, 0, 0.8], [0, 1, 0], Extrapolation.CLAMP),
-    };
-  });
-
-  const textStyle = useAnimatedStyle(() => {
-    const position = scrollX.value / width - pageIndex;
-    return {
-      transform: [
-        { translateX: interpolate(position, [-1, 0, 1], [width * 0.12, 0, -width * 0.12], Extrapolation.CLAMP) },
-      ],
-      opacity: interpolate(position, [-0.6, 0, 0.6], [0, 1, 0], Extrapolation.CLAMP),
-    };
-  });
-
   return (
     <View style={[styles.page, { width }]}>
       <View style={styles.slideContent}>
-        <Animated.View style={[styles.emojiCircle, { backgroundColor: c.surfaceAlt, borderColor: c.border }, emojiStyle]}>
-          <ThemedText style={styles.slideEmoji}>{slide.emoji}</ThemedText>
-        </Animated.View>
-        <Animated.View style={[styles.slideTextBlock, textStyle]}>
+        <View style={[styles.emojiCircle, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
+          <BrandIcon name={slide.icon} size={64} color={c.accent} />
+        </View>
+        <View style={styles.slideTextBlock}>
           <ThemedText type="title" style={styles.slideTitle}>
             {slide.titolo}
           </ThemedText>
           <ThemedText style={[styles.slideText, { color: c.textSecondary }]}>{slide.testo}</ThemedText>
-        </Animated.View>
+        </View>
       </View>
     </View>
   );
@@ -222,6 +193,7 @@ function SetupView({
   onToggleRules,
   cityKey,
   onPickCity,
+  onUseLocation,
 }: {
   over18: boolean;
   acceptedRules: boolean;
@@ -229,13 +201,14 @@ function SetupView({
   onToggleRules: () => void;
   cityKey: string;
   onPickCity: (key: string) => void;
+  onUseLocation: () => void;
 }) {
   const c = useColors();
   return (
     <View style={[styles.page, { width }]}>
       <View style={styles.setupContent}>
         <ThemedText type="title" style={styles.slideTitle}>
-          Ci siamo quasi 🍻
+          CI SIAMO QUASI
         </ThemedText>
         <ThemedText style={[styles.slideText, { color: c.textSecondary }]}>{PHILOSOPHY_TAGLINE}</ThemedText>
 
@@ -251,6 +224,7 @@ function SetupView({
               />
             ))}
           </View>
+          <Button label="Trova la mia città" size="md" variant="secondary" onPress={onUseLocation} />
         </View>
 
         <View style={styles.checklist}>

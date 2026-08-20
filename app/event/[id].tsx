@@ -55,10 +55,10 @@ export default function EventDetailScreen() {
     try {
       if (event.partecipo) {
         await leaveEvent(event.id);
-        toast.show('Hai abbandonato il giro');
+        toast.show('Hai lasciato l’incontro.');
       } else {
-        await joinEvent(event.id);
-        toast.show('Ci sei! 🍻');
+        const result = await joinEvent(event.id);
+        toast.show(result === 'waitlisted' ? 'Incontro pieno: sei in lista d’attesa.' : 'Partecipazione confermata.');
       }
       await load();
     } catch {
@@ -97,12 +97,12 @@ export default function EventDetailScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: event.titolo }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="title">🍻 {event.titolo}</ThemedText>
+        <ThemedText type="title">{event.titolo}</ThemedText>
 
         <Card style={styles.card} index={0}>
-          <Row label="🗓 Quando" value={formatDateTime(event.quando)} />
-          {event.luogo ? <Row label="📍 Dove" value={event.luogo} /> : null}
-          <Row label="👥 Posti" value={`${event.partecipanti ?? 0} / ${event.posti}`} />
+          <Row label="Quando" value={formatDateTime(event.quando)} />
+          {event.luogo ? <Row label="Dove" value={event.luogo} /> : null}
+          <Row label="Posti" value={`${event.partecipanti ?? 0} / ${event.posti}`} />
         </Card>
 
         {event.descrizione ? (
@@ -137,7 +137,7 @@ export default function EventDetailScreen() {
         ) : pieno ? (
           <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>Giro al completo.</ThemedText>
         ) : (
-          <Button label="Unisciti al giro 🍺" onPress={toggleJoin} loading={acting} />
+          <Button label="Partecipa all’incontro" onPress={toggleJoin} loading={acting} />
         )}
       </ScrollView>
     </ThemedView>

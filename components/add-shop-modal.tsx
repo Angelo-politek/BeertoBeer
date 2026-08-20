@@ -16,6 +16,7 @@ type Props = {
   visible: boolean;
   city: City;
   loading?: boolean;
+  userCoords?: Coords | null;
   onClose: () => void;
   onSubmit: (input: { nome: string; coords: Coords; orari?: string }) => void;
 };
@@ -24,7 +25,7 @@ type Props = {
  * Propone un negozio ("bangladino") per la mappa community: nome, orari stimati
  * e punto sulla mappa. Compare pubblicamente dopo l'approvazione di un admin.
  */
-export function AddShopModal({ visible, city, loading, onClose, onSubmit }: Props) {
+export function AddShopModal({ visible, city, loading, userCoords, onClose, onSubmit }: Props) {
   const c = useColors();
   const [nome, setNome] = useState('');
   const [orari, setOrari] = useState('');
@@ -43,14 +44,14 @@ export function AddShopModal({ visible, city, loading, onClose, onSubmit }: Prop
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <ThemedText type="subtitle">Aggiungi uno Spaccia Peroni</ThemedText>
+            <ThemedText type="subtitle">Segnala un negozio</ThemedText>
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-              Segnala uno spaccia peroni a {city.label}: aiuti i driver a trovare quello più vicino.
+              Segnala un negozio a {city.label}: aiuti la community a trovare quello più vicino.
             </ThemedText>
           </View>
           <View style={styles.form}>
             <TextField
-              label="Nome dello spaccia peroni"
+              label="Nome del negozio"
               value={nome}
               onChangeText={setNome}
               placeholder="Es. Minimarket Via Po"
@@ -62,10 +63,10 @@ export function AddShopModal({ visible, city, loading, onClose, onSubmit }: Prop
               placeholder="Es. 9–24, anche la domenica"
             />
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-              {coords ? '📍 Punto selezionato' : 'Tocca la posizione del negozio sulla mappa:'}
+              {coords ? 'Punto selezionato' : 'Tocca la posizione del negozio sulla mappa:'}
             </ThemedText>
           </View>
-          <LocationPickerMap center={city.center} onPick={setCoords} zoom={13} />
+          <LocationPickerMap center={userCoords ?? city.center} userCoords={userCoords} value={coords} onPick={setCoords} zoom={15} />
           <View style={styles.footer}>
             <Button label="Annulla" variant="secondary" onPress={onClose} style={styles.button} />
             <Button

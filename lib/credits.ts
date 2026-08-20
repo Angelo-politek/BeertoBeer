@@ -64,7 +64,7 @@ export function estimateBonus(distKm: number): number {
 }
 
 /**
- * Reward PeroniToken non legati al peso/distanza. Mirror della migration
+ * Reward BeerCoin non legati al peso/distanza. Mirror della migration
  * gamification (award_tokens / handle_new_user / gamify_on_confirm). Servono
  * SOLO alla UI ("come guadagnare"): l'accredito reale è lato SQL.
  */

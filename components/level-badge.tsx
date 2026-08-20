@@ -11,7 +11,7 @@ type Props = {
   size?: 'sm' | 'md';
 };
 
-/** Chip con emoji + titolo del livello Peroni. Status sociale visibile ovunque. */
+/** Compatibilità V1. I livelli non avanzano più nella V2. */
 export function LevelBadge({ level, size = 'sm' }: Props) {
   const c = useColors();
   const def = LEVELS[Math.max(0, Math.min(level, LEVELS.length - 1))];

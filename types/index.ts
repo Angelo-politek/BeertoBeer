@@ -25,7 +25,7 @@ export type User = {
   sospesoFino?: string | null;
   /** città preferita salvata sul server (per le push); solo da getCurrentUser */
   citta?: string | null;
-  /** livello Peroni (0-4) derivato dagli scambi confermati; vista public_profiles */
+  /** campo storico V1, non mostrato nella V2 */
   livello?: number;
   /** karma: consegne − ordini confermati (positivo = contribuisce) */
   karma?: number;
@@ -33,6 +33,39 @@ export type User = {
   interessi?: string[];
   /** true se l'utente è aperto a conoscere gente nuova */
   cercoCompagnia?: boolean;
+  /** frase breve mostrata nella vetrina del profilo */
+  statusPhrase?: string;
+};
+
+export type ProfilePhotoVisibility = 'tutti' | 'connessioni' | 'nascoste';
+
+export type ProfilePhoto = {
+  id: string;
+  url: string;
+  storagePath: string;
+  position: number;
+};
+
+export type ProfileSticker = {
+  key: string;
+  title: string;
+  assetKey: string;
+  description: string;
+  unlocked: boolean;
+  unlockHint?: string;
+  slot?: number;
+  scale?: number;
+  rotation?: number;
+};
+
+export type ProfileCustomization = {
+  userId: string;
+  statusPhrase: string;
+  beerTastes: string[];
+  availability: string[];
+  photoVisibility: ProfilePhotoVisibility;
+  photos: ProfilePhoto[];
+  stickers: ProfileSticker[];
 };
 
 export type Review = {
@@ -84,8 +117,10 @@ export type OrderStatus =
   | 'richiesto'
   | 'accettato'
   | 'in_consegna'
+  | 'arrivato'
   | 'consegnato'
-  | 'confermato';
+  | 'confermato'
+  | 'annullato';
 
 /**
  * Una richiesta di consegna birre. Schema: tabella `orders`.
@@ -119,6 +154,7 @@ export type BeerRequest = {
   hostConfermato: boolean;
   driverConfermato: boolean;
   createdAt: string;
+  etaMinutes?: number | null;
 };
 
 /** Direzione di un movimento crediti. */
@@ -134,7 +170,52 @@ export type TransactionKind =
   | 'notturno'
   | 'referral'
   | 'zona'
+  | 'missione_urbana'
+  | 'obiettivo_citta'
   | 'admin';
+
+export type OrderSafetyEvent = {
+  id: string;
+  orderId: string;
+  actorId?: string;
+  eventType: 'accepted' | 'started' | 'arrived' | 'code_failed' | 'code_verified' | 'exited' | 'shared' | 'reported' | 'completed';
+  createdAt: string;
+};
+
+export type TrustedContact = { orderId: string; name: string; contact: string };
+export type DeliveryCodeState = { code?: string; failedAttempts: number; attemptsRemaining: number; verifiedAt?: string; expiresAt?: string };
+export type OrderIssueType = 'cannot_start' | 'delay' | 'person_absent' | 'request_mismatch' | 'unsafe';
+export type NotificationItem = { id: string; category: 'order' | 'chat' | 'event' | 'mission' | 'safety'; title: string; body: string; url?: string; readAt?: string; createdAt: string };
+export type ProductFeedback = { id: string; userId: string; kind: 'bug' | 'idea'; message: string; appVersion?: string; createdAt: string; userName?: string };
+
+export type UrbanMission = {
+  key: string;
+  title: string;
+  description: string;
+  target: number;
+  rewardBeerCoin: number;
+  progress: number;
+  completed: boolean;
+  claimed: boolean;
+};
+
+export type CityGoal = { city: string; target: number; progress: number; weekStart: string };
+export type ReciprocitySummary = { given: number; received: number };
+
+export type DiscoveryTime = 'all' | 'now' | 'tonight';
+export type DiscoverySort = 'smart' | 'distance' | 'recent';
+export type DiscoveryFilters = {
+  vibeOnly: boolean;
+  maxDistanceKm: number | null;
+  time: DiscoveryTime;
+  sort: DiscoverySort;
+};
+
+export type OrderNextAction = {
+  key: 'accept' | 'start' | 'arrive' | 'verify' | 'confirm' | 'wait' | 'review' | 'open';
+  label: string;
+  priority: number;
+};
 
 /** Un movimento nel ledger crediti. Schema: tabella `credit_transactions`. */
 export type CreditTransaction = {

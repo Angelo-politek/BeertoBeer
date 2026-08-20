@@ -53,7 +53,7 @@ export default function ConnectionsScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <EmptyState emoji="😵" title="Ops" message={error} />
+          <EmptyState icon="x-mark" title="Connessioni non disponibili" message={error} />
         </View>
       ) : (
         <FlatList
@@ -77,7 +77,7 @@ export default function ConnectionsScreen() {
                 </ThemedText>
               </View>
               <View style={[styles.chatBubble, { backgroundColor: c.accentSoft }]}>
-                <ThemedText style={{ fontSize: 15 }}>💬</ThemedText>
+                <ThemedText style={{ fontSize: 13 }}>CHAT</ThemedText>
               </View>
             </Card>
           )}

@@ -11,21 +11,24 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IconSymbol } from '@/components/ui/icon-symbol';
+import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
 import { Fonts, Radii, Springs } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { useReducedMotion } from '@/hooks/use-reduced-motion';
 
-/** Icona per ogni route delle tab (nomi SF Symbols, mappati su Material in Android). */
-const TAB_ICONS: Record<string, React.ComponentProps<typeof IconSymbol>['name']> = {
-  index: 'house.fill',
-  community: 'person.2.fill',
-  wallet: 'creditcard.fill',
-  profile: 'person.fill',
+/** Icona brand (PNG disegnati a mano) per ogni route delle tab. */
+const TAB_ICONS: Record<string, BrandIconName> = {
+  index: 'home',
+  map: 'pin',
+  profile: 'profile',
 };
+
+/** Le route legacy restano registrate per i vecchi deep link, ma non sono tab. */
+const PRIMARY_TABS = new Set(['index', 'map', 'profile']);
 
 /**
  * Tab bar custom: barra piatta sul nero con riga di separazione sottile,
- * pillola gialla che sboccia dietro l'icona attiva e micro-rimbalzo.
+ * indicatore giallo netto dietro l'icona attiva.
  */
 export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const c = useColors();
@@ -41,16 +44,16 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
           borderTopColor: c.border,
         },
       ]}>
-      {state.routes.map((route, i) => {
+      {state.routes.filter((route) => PRIMARY_TABS.has(route.name)).map((route) => {
         const { options } = descriptors[route.key];
         const label = options.title ?? route.name;
-        const focused = state.index === i;
+        const focused = state.routes[state.index]?.key === route.key;
 
         return (
           <TabItem
             key={route.key}
             label={label}
-            icon={TAB_ICONS[route.name] ?? 'house.fill'}
+            icon={TAB_ICONS[route.name] ?? 'bottle'}
             focused={focused}
             onPress={() => {
               if (Platform.OS !== 'web') {
@@ -75,16 +78,17 @@ function TabItem({
   onPress,
 }: {
   label: string;
-  icon: React.ComponentProps<typeof IconSymbol>['name'];
+  icon: BrandIconName;
   focused: boolean;
   onPress: () => void;
 }) {
   const c = useColors();
+  const reducedMotion = useReducedMotion();
   const active = useSharedValue(focused ? 1 : 0);
 
   useEffect(() => {
-    active.value = withSpring(focused ? 1 : 0, Springs.bouncy);
-  }, [focused, active]);
+    active.value = reducedMotion ? (focused ? 1 : 0) : withSpring(focused ? 1 : 0, Springs.gentle);
+  }, [focused, active, reducedMotion]);
 
   const pillStyle = useAnimatedStyle(() => ({
     opacity: active.value,
@@ -93,8 +97,7 @@ function TabItem({
 
   const iconStyle = useAnimatedStyle(() => ({
     transform: [
-      { scale: interpolate(active.value, [0, 1], [1, 1.08]) },
-      { translateY: interpolate(active.value, [0, 1], [0, -1]) },
+      { scale: interpolate(active.value, [0, 1], [1, 1.03]) },
     ],
   }));
 
@@ -103,11 +106,11 @@ function TabItem({
   }));
 
   return (
-    <Pressable onPress={onPress} style={styles.item} accessibilityRole="tab" accessibilityLabel={label}>
+    <Pressable onPress={onPress} style={styles.item} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: focused }} testID={`tab-${label.toLowerCase()}`}>
       <View style={styles.iconSlot}>
         <Animated.View style={[styles.pill, { backgroundColor: c.accentSoft }, pillStyle]} />
         <Animated.View style={iconStyle}>
-          <IconSymbol size={24} name={icon} color={focused ? c.accent : c.tabIconDefault} />
+          <BrandIcon size={26} name={icon} color={focused ? c.accent : c.tabIconDefault} />
         </Animated.View>
       </View>
       <Animated.Text style={[styles.label, labelStyle]}>{label}</Animated.Text>

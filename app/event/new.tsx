@@ -70,7 +70,7 @@ export default function NewEventScreen() {
         citta: city.key,
         posti: nPosti,
       });
-      toast.show('Giro pubblicato! 🍻');
+      toast.show('Incontro pubblicato.');
       router.replace({ pathname: '/event/[id]', params: { id } } as never);
     } catch {
       Alert.alert('Errore', 'Non è stato possibile creare il giro. Riprova.');
@@ -114,7 +114,7 @@ export default function NewEventScreen() {
         <TextField label="Ora (24h)" value={ora} onChangeText={setOra} placeholder="21:00" keyboardType="numbers-and-punctuation" />
         <TextField label="Posti" value={posti} onChangeText={setPosti} placeholder="6" keyboardType="number-pad" />
 
-        <Button label="Pubblica il giro 🍻" onPress={handleCreate} loading={saving} />
+        <Button label="Pubblica l’incontro" onPress={handleCreate} loading={saving} />
       </ScrollView>
     </ThemedView>
   );

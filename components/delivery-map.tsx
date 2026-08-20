@@ -1,11 +1,9 @@
 import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
 import { StyleSheet, View } from 'react-native';
 
+import { BrandIcon } from '@/components/ui/brand-icon';
+import { BEER_TO_BEER_MAP_STYLE } from '@/constants/map-style';
 import { useColors } from '@/hooks/use-colors';
-
-// Style MapLibre gratuito basato su OpenStreetMap (OpenFreeMap): nessuna chiave,
-// nessuna carta di credito. L'attribuzione OSM è inclusa dallo style.
-const MAP_STYLE_URL = 'https://tiles.openfreemap.org/styles/liberty';
 
 type Props = {
   lat: number;
@@ -20,11 +18,11 @@ export function DeliveryMap({ lat, lng, height = 180, zoom = 14 }: Props) {
 
   return (
     <View style={[styles.wrap, { height, borderColor: c.border }]}>
-      <Map mapStyle={MAP_STYLE_URL} style={styles.map}>
+      <Map mapStyle={BEER_TO_BEER_MAP_STYLE as never} style={styles.map}>
         <Camera initialViewState={{ center: [lng, lat], zoom }} />
         <Marker lngLat={[lng, lat]}>
-          <View style={styles.pin}>
-            <View style={[styles.pinDot, { backgroundColor: c.accent, borderColor: '#fff' }]} />
+          <View style={[styles.pin, { backgroundColor: c.accent, borderColor: c.text }]}>
+            <BrandIcon name="pin" size={20} color={c.accentText} />
           </View>
         </Marker>
       </Map>
@@ -42,13 +40,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pin: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  pinDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 3,
   },
 });

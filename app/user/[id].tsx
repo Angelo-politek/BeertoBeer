@@ -13,11 +13,13 @@ import { StarRating } from '@/components/star-rating';
 import { useToast } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { ProfileShowcase } from '@/components/profile-showcase';
 import { COMPLIMENT_LABELS } from '@/constants/compliments';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import {
   blockUser,
   getCompliments,
+  getProfileCustomization,
   getReviewsForUser,
   getUserBadges,
   getUserById,
@@ -28,7 +30,7 @@ import {
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
 import { formatShortDate } from '@/lib/format';
-import type { ComplimentCount, ReportReason, Review, User, UserBadge } from '@/types';
+import type { ComplimentCount, ProfileCustomization, ReportReason, Review, User, UserBadge } from '@/types';
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,6 +50,7 @@ export default function UserProfileScreen() {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>('comportamento_scorretto');
   const [reportDetails, setReportDetails] = useState('');
+  const [customization, setCustomization] = useState<ProfileCustomization | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -58,14 +61,16 @@ export default function UserProfileScreen() {
       isMe ? Promise.resolve(false) : isUserBlocked(id),
       getUserBadges(id).catch(() => []),
       getCompliments(id).catch(() => []),
+      getProfileCustomization(id).catch(() => null),
     ])
-      .then(([profile, profileReviews, isBlocked, userBadges, userCompliments]) => {
+      .then(([profile, profileReviews, isBlocked, userBadges, userCompliments, custom]) => {
         if (!active) return;
         setUser(profile);
         setReviews(profileReviews);
         setBlocked(isBlocked);
         setBadges(userBadges);
         setCompliments(userCompliments);
+        setCustomization(custom);
       })
       .catch(() => {
         if (active) setUser(null);
@@ -118,6 +123,8 @@ export default function UserProfileScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={c.accent} size="large" />
         </View>
+
+        {customization ? <ProfileShowcase value={customization} /> : null}
       </ThemedView>
     );
   }
@@ -149,7 +156,7 @@ export default function UserProfileScreen() {
         </View>
 
         {!isMe ? (
-          <Button label="💬 Scrivi" variant="secondary" onPress={() => router.push({ pathname: '/chat/direct/[userId]', params: { userId: id } } as never)} />
+          <Button label="Scrivi" variant="secondary" onPress={() => router.push({ pathname: '/chat/direct/[userId]', params: { userId: id } } as never)} />
         ) : null}
 
         <Card style={styles.statsCard}>
