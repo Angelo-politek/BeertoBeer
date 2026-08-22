@@ -588,12 +588,24 @@ export async function cancelOrder(orderId: string): Promise<void> {
 
 // ---------- Wallet ----------
 
-/** Saldo crediti dell'utente corrente. */
+/** Saldo crediti dell'utente corrente (lordo: include quelli già impegnati). */
 export async function getCreditBalance(): Promise<number> {
   const id = await requireUserId();
   const { data, error } = await supabase.from('users').select('crediti_saldo').eq('id', id).single();
   if (error) throw error;
   return (data as { crediti_saldo: number }).crediti_saldo;
+}
+
+/**
+ * BeerCoin realmente spendibili ORA: saldo meno quelli già promessi a giri
+ * aperti o in corso. È il numero su cui il database decide se una nuova
+ * richiesta può partire, quindi è quello da mostrare a chi la sta creando.
+ */
+export async function getAvailableCredits(): Promise<number> {
+  const id = await requireUserId();
+  const { data, error } = await supabase.rpc('available_credits', { p_user: id });
+  if (error) throw error;
+  return Number(data ?? 0);
 }
 
 type TransactionRow = {

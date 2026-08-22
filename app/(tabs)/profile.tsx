@@ -14,7 +14,7 @@ import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { ProfileShowcase } from '@/components/profile-showcase';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
-import { getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions } from '@/data/api';
+import { getAvailableCredits, getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
 import { formatShortDate } from '@/lib/format';
@@ -33,21 +33,23 @@ export default function ProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [customization, setCustomization] = useState<ProfileCustomization | null>(null);
+  const [available, setAvailable] = useState<number | null>(null);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     else setLoading(true);
     try {
       const current = await getCurrentUser();
-      const [ratio, nextMissions, cityGoal, txs, latestReviews, custom] = await Promise.all([
+      const [ratio, nextMissions, cityGoal, txs, latestReviews, custom, disponibili] = await Promise.all([
         getReciprocitySummary().catch(() => ({ given: 0, received: 0 })),
         getUrbanMissions().catch(() => []),
         getCityGoal(city.key).catch(() => null),
         getTransactions().catch(() => []),
         getReviewsForUser(current.id).catch(() => []),
         getProfileCustomization(current.id).catch(() => null),
+        getAvailableCredits().catch(() => null),
       ]);
-      setUser(current); setReciprocity(ratio); setMissions(nextMissions); setGoal(cityGoal); setTransactions(txs.slice(0, 5)); setReviews(latestReviews.slice(0, 3)); setCustomization(custom);
+      setUser(current); setReciprocity(ratio); setMissions(nextMissions); setGoal(cityGoal); setTransactions(txs.slice(0, 5)); setReviews(latestReviews.slice(0, 3)); setCustomization(custom); setAvailable(disponibili);
     } finally { setLoading(false); setRefreshing(false); }
   }, [city.key]);
 
@@ -59,6 +61,8 @@ export default function ProfileScreen() {
   const total = reciprocity.given + reciprocity.received;
   const givenRatio = total === 0 ? 0.5 : reciprocity.given / total;
   const goalRatio = goal ? Math.min(1, goal.progress / goal.target) : 0;
+  // I BeerCoin promessi a giri ancora aperti non sono spendibili.
+  const impegnati = available == null ? 0 : Math.max(user.creditiSaldo - available, 0);
 
   return (
     <ThemedView style={styles.container}>
@@ -82,7 +86,7 @@ export default function ProfileScreen() {
           <Card style={[styles.balance, { backgroundColor: c.accent }]}>
             <View><ThemedText type="label" style={{ color: c.accentText }}>I TUOI BEERCOIN</ThemedText><ThemedText style={[styles.balanceValue, { color: c.accentText }]}>{user.creditiSaldo}</ThemedText></View>
             <BrandIcon name="wallet" size={52} color={c.accentText} />
-            <ThemedText style={{ color: c.accentText }}>Si guadagnano contribuendo. Non si comprano. Non si trasferiscono.</ThemedText>
+            {impegnati > 0 ? <ThemedText style={{ color: c.accentText }}>{impegnati} impegnati in giri aperti · {available} disponibili</ThemedText> : null}<ThemedText style={{ color: c.accentText }}>Si guadagnano contribuendo. Non si comprano. Non si trasferiscono.</ThemedText>
           </Card>
 
           <SectionTitle label="RECIPROCITÀ" title="DAI / RICEVI" />

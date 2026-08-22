@@ -25,7 +25,7 @@ import { Chip } from '@/components/ui/chip';
 import { BrandIcon } from '@/components/ui/brand-icon';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { createOrder, getCurrentUser } from '@/data/api';
+import { createOrder, getAvailableCredits, getCurrentUser } from '@/data/api';
 import { isWithinCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { CREDIT_CAP, DEFAULT_FORMAT, estimateCredits, FORMATS, maxDistanceBonus } from '@/lib/credits';
@@ -58,10 +58,12 @@ export default function CreateRequestScreen() {
 
   useEffect(() => {
     let active = true;
-    getCurrentUser()
-      .then((u) => {
+    // Il saldo che conta è il DISPONIBILE: i BeerCoin promessi a giri ancora
+    // aperti sono già impegnati e non si possono spendere di nuovo.
+    Promise.all([getCurrentUser(), getAvailableCredits()])
+      .then(([u, disponibili]) => {
         if (!active) return;
-        setBalance(u.creditiSaldo);
+        setBalance(disponibili);
         setSospesoFino(u.sospesoFino ?? null);
       })
       .catch(() => {});
@@ -182,7 +184,7 @@ export default function CreateRequestScreen() {
         setSubmitting(false);
         Alert.alert(
           'Crediti insufficienti',
-          `Questa richiesta costa ${stima} crediti e ne hai ${balance}. Guadagnane consegnando, oppure riduci l'ordine.`,
+          `Questa richiesta costa ${stima} BeerCoin e ne hai ${balance} disponibili. Gli altri sono impegnati in giri ancora aperti: chiudili, guadagnane consegnando, oppure riduci l'ordine.`,
         );
         return;
       }

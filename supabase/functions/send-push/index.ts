@@ -10,6 +10,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.110.0';
  *
  * Deployata con "Enforce JWT verification" OFF: viene chiamata da pg_net senza
  * header di autenticazione (vedi trigger push_to_users in schema.sql).
+ *
+ * Proprio perché il JWT è disattivato, la funzione si difende da sola con un
+ * segreto condiviso: senza, chiunque conoscesse l'URL del progetto (che sta
+ * dentro l'APK) potrebbe mandare notifiche a tutti gli utenti.
+ *   - il database lo legge da public.app_secrets e lo manda nell'header
+ *     x-push-secret ad ogni chiamata (vedi push_to_users);
+ *   - qui va impostato come variabile d'ambiente PUSH_SHARED_SECRET
+ *     (dashboard Supabase → Edge Functions → Secrets).
+ * Se il segreto manca o non combacia la richiesta viene rifiutata: si sbaglia
+ * verso "nessuna notifica", mai verso "notifiche a chiunque".
  */
 
 type NewPayload = {
@@ -28,9 +38,29 @@ type LegacyPayload = {
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 const BATCH_SIZE = 100;
 
+/** Confronto a tempo costante: non lascia indovinare il segreto un byte alla volta. */
+function secretMatches(received: string | null, expected: string): boolean {
+  if (!received || received.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i += 1) {
+    diff |= received.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
+  }
+
+  // Gate: solo chi conosce il segreto condiviso può far partire notifiche.
+  const expectedSecret = Deno.env.get('PUSH_SHARED_SECRET');
+  if (!expectedSecret) {
+    // Segreto non configurato: si chiude, non si apre.
+    return new Response('Push secret not configured', { status: 500 });
+  }
+  if (!secretMatches(req.headers.get('x-push-secret'), expectedSecret)) {
+    return new Response('Unauthorized', { status: 401 });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
