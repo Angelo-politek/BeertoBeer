@@ -148,13 +148,15 @@ export default function RequestDetailScreen() {
 
   useEffect(() => {
     if (!request || !driverCoords || !['accettato','in_consegna','arrivato','consegnato'].includes(request.stato)) return;
-    updateOrderPresence(id, driverCoords).catch(() => null);
+    // Senza presenza inviata la conferma per vicinanza non si sblocca mai:
+    // meglio saperlo subito che restare davanti al portone a premere invano.
+    updateOrderPresence(id, driverCoords).catch(() => toast.show('Non riesco a inviare la tua posizione: usa il codice di consegna.', 'error'));
     const timer = setInterval(async () => {
       const coords = await getCurrentCoords();
       if (coords) { setDriverCoords(coords); updateOrderPresence(id, coords).catch(() => null); }
     }, 15000);
     return () => clearInterval(timer);
-  }, [request, id, driverCoords]);
+  }, [request, id, driverCoords, toast]);
 
   async function handleTrustedContact() {
     if (!trustedName.trim() || !trustedContact.trim()) return;

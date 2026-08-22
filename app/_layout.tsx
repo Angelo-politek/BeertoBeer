@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
-import { ToastProvider } from '@/components/toast';
+import { ToastProvider, useToast } from '@/components/toast';
 import { Colors, Fonts } from '@/constants/theme';
 import { getOnboardingCompleted, updateUserCity } from '@/data/api';
 import { getOnboardingSignal, resetOnboardingSignal, subscribeOnboardingSignal } from '@/lib/onboarding-signal';
@@ -116,18 +116,33 @@ function RootNavigator() {
     }
   }, [session, loading, segments, router, onboardingDone]);
 
+  // Senza notifiche la beta muore di silenzio: se la registrazione fallisce per
+  // un motivo che non sia "l'utente ha detto no", va detto. Il permesso negato
+  // resta silenzioso qui: è una scelta consapevole, l'ha appena fatta lui.
+  const toast = useToast();
   useEffect(() => {
     if (!session) return;
-    registerForPushNotifications().catch(() => null);
-  }, [session]);
+    registerForPushNotifications().then((esito) => {
+      if (esito.ok || esito.motivo === 'permesso-negato') return;
+      toast.show(
+        'Notifiche non attivate: non saprai quando arriva una richiesta. Riapri l’app o controlla la connessione.',
+        'error',
+      );
+    });
+  }, [session, toast]);
 
   // Sincronizza sul server la città selezionata (serve alle push "nuova
   // richiesta in città"). Best-effort.
   const { city, hasChosen } = useCity();
   useEffect(() => {
     if (!session || !hasChosen) return;
-    updateUserCity(city.key).catch(() => null);
-  }, [session, hasChosen, city.key]);
+    updateUserCity(city.key).catch(() => {
+      toast.show(
+        `Non sono riuscito a salvare ${city.label} come tua città: potresti non ricevere le richieste della zona.`,
+        'error',
+      );
+    });
+  }, [session, hasChosen, city.key, city.label, toast]);
 
   // Tap su una notifica → naviga al deep link in data.url (anche a freddo:
   // getLastNotificationResponseAsync copre l'app aperta DALLA notifica).

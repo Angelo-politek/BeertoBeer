@@ -60,7 +60,10 @@ export default function ReviewScreen() {
       await submitReview(orderId, rating, comment, { puntualita, comunicazione, rispetto });
       // Complimento (best-effort: non deve bloccare il salvataggio recensione).
       if (compliment && context) {
-        await sendCompliment(orderId, context.target.id, compliment).catch(() => null);
+        // Un complimento che sparisce in silenzio fa credere di averlo mandato.
+        await sendCompliment(orderId, context.target.id, compliment).catch(() => {
+          toast.show('Il complimento non è partito, ma la recensione sì.', 'error');
+        });
       }
       toast.show('Recensione salvata');
       router.back();

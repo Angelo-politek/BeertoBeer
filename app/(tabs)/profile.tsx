@@ -9,6 +9,7 @@ import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
 import { Skeleton } from '@/components/skeleton';
+import { useToast } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
@@ -18,6 +19,7 @@ import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { getAvailableCredits, getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions, getUserBadges } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
+import { failureCounter, PARTIAL_LOAD_MESSAGE, withFallback } from '@/lib/load';
 import { formatShortDate } from '@/lib/format';
 import type { CityGoal, CreditTransaction, ProfileCustomization, ReciprocitySummary, Review, UrbanMission, User, UserBadge } from '@/types';
 
@@ -25,6 +27,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const c = useColors();
   const { city } = useCity();
+  const toast = useToast();
   const [user, setUser] = useState<User | null>(null);
   const [reciprocity, setReciprocity] = useState<ReciprocitySummary>({ given: 0, received: 0 });
   const [missions, setMissions] = useState<UrbanMission[]>([]);
@@ -42,19 +45,24 @@ export default function ProfileScreen() {
     else setLoading(true);
     try {
       const current = await getCurrentUser();
+      // Ogni sezione può fallire per conto suo senza far cadere la schermata,
+      // ma i guasti si contano: una sezione vuota per errore non deve sembrare
+      // una sezione vuota per davvero.
+      const guasti = failureCounter();
       const [ratio, nextMissions, cityGoal, txs, latestReviews, custom, disponibili, myBadges] = await Promise.all([
-        getReciprocitySummary().catch(() => ({ given: 0, received: 0 })),
-        getUrbanMissions().catch(() => []),
-        getCityGoal(city.key).catch(() => null),
-        getTransactions().catch(() => []),
-        getReviewsForUser(current.id).catch(() => []),
-        getProfileCustomization(current.id).catch(() => null),
-        getAvailableCredits().catch(() => null),
-        getUserBadges(current.id).catch(() => []),
+        withFallback(getReciprocitySummary(), { given: 0, received: 0 }, guasti.segnala),
+        withFallback(getUrbanMissions(), [], guasti.segnala),
+        withFallback(getCityGoal(city.key), null, guasti.segnala),
+        withFallback(getTransactions(), [], guasti.segnala),
+        withFallback(getReviewsForUser(current.id), [], guasti.segnala),
+        withFallback(getProfileCustomization(current.id), null, guasti.segnala),
+        withFallback(getAvailableCredits(), null, guasti.segnala),
+        withFallback(getUserBadges(current.id), [], guasti.segnala),
       ]);
+      if (guasti.quanti > 0) toast.show(PARTIAL_LOAD_MESSAGE, 'error');
       setUser(current); setReciprocity(ratio); setMissions(nextMissions); setGoal(cityGoal); setTransactions(txs.slice(0, 5)); setReviews(latestReviews.slice(0, 3)); setCustomization(custom); setAvailable(disponibili); setBadges(myBadges);
     } finally { setLoading(false); setRefreshing(false); }
-  }, [city.key]);
+  }, [city.key, toast]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
