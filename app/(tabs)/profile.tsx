@@ -4,6 +4,7 @@ import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
+import { BadgeGrid } from '@/components/badge-grid';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
@@ -14,11 +15,11 @@ import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { ProfileShowcase } from '@/components/profile-showcase';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
-import { getAvailableCredits, getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions } from '@/data/api';
+import { getAvailableCredits, getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions, getUserBadges } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
 import { formatShortDate } from '@/lib/format';
-import type { CityGoal, CreditTransaction, ProfileCustomization, ReciprocitySummary, Review, UrbanMission, User } from '@/types';
+import type { CityGoal, CreditTransaction, ProfileCustomization, ReciprocitySummary, Review, UrbanMission, User, UserBadge } from '@/types';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -34,13 +35,14 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [customization, setCustomization] = useState<ProfileCustomization | null>(null);
   const [available, setAvailable] = useState<number | null>(null);
+  const [badges, setBadges] = useState<UserBadge[]>([]);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
     else setLoading(true);
     try {
       const current = await getCurrentUser();
-      const [ratio, nextMissions, cityGoal, txs, latestReviews, custom, disponibili] = await Promise.all([
+      const [ratio, nextMissions, cityGoal, txs, latestReviews, custom, disponibili, myBadges] = await Promise.all([
         getReciprocitySummary().catch(() => ({ given: 0, received: 0 })),
         getUrbanMissions().catch(() => []),
         getCityGoal(city.key).catch(() => null),
@@ -48,8 +50,9 @@ export default function ProfileScreen() {
         getReviewsForUser(current.id).catch(() => []),
         getProfileCustomization(current.id).catch(() => null),
         getAvailableCredits().catch(() => null),
+        getUserBadges(current.id).catch(() => []),
       ]);
-      setUser(current); setReciprocity(ratio); setMissions(nextMissions); setGoal(cityGoal); setTransactions(txs.slice(0, 5)); setReviews(latestReviews.slice(0, 3)); setCustomization(custom); setAvailable(disponibili);
+      setUser(current); setReciprocity(ratio); setMissions(nextMissions); setGoal(cityGoal); setTransactions(txs.slice(0, 5)); setReviews(latestReviews.slice(0, 3)); setCustomization(custom); setAvailable(disponibili); setBadges(myBadges);
     } finally { setLoading(false); setRefreshing(false); }
   }, [city.key]);
 
@@ -88,6 +91,9 @@ export default function ProfileScreen() {
             <BrandIcon name="wallet" size={52} color={c.accentText} />
             {impegnati > 0 ? <ThemedText style={{ color: c.accentText }}>{impegnati} impegnati in giri aperti · {available} disponibili</ThemedText> : null}<ThemedText style={{ color: c.accentText }}>Si guadagnano contribuendo. Non si comprano. Non si trasferiscono.</ThemedText>
           </Card>
+
+          <SectionTitle label="TRAGUARDI" title="I TUOI BADGE" />
+          <BadgeGrid unlocked={badges} />
 
           <SectionTitle label="RECIPROCITÀ" title="DAI / RICEVI" />
           <Card style={styles.ratioCard}>

@@ -30,7 +30,7 @@ import { isWithinCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { CREDIT_CAP, DEFAULT_FORMAT, estimateCredits, FORMATS, maxDistanceBonus } from '@/lib/credits';
 import { geocodeAddress, reverseGeocode } from '@/lib/geocoding';
-import type { Coords } from '@/lib/location';
+import { getCurrentCoords, type Coords } from '@/lib/location';
 import type { BeerItem } from '@/types';
 
 type BeerInput = { nome: string; quantita: string; formato: string };
@@ -50,6 +50,7 @@ export default function CreateRequestScreen() {
 
   const [coords, setCoords] = useState<Coords | null>(null);
   const [geocoding, setGeocoding] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [sospesoFino, setSospesoFino] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -110,6 +111,53 @@ export default function CreateRequestScreen() {
   const stima = estimateCredits(cleanBirre);
   const bonusMax = maxDistanceBonus(cleanBirre);
   const nonCopribile = balance != null && stima > balance;
+
+  // Cosa manca davvero per pubblicare: dirlo qui evita di far premere a vuoto
+  // il bottone e di scoprire il problema con un avviso a schermo intero.
+  const mancanze = [
+    cleanBirre.length === 0 ? 'almeno una birra' : null,
+    indirizzo.trim().length === 0 ? "l'indirizzo di consegna" : null,
+    indirizzo.trim().length > 0 && !coords ? "la conferma dell'indirizzo sulla mappa" : null,
+  ].filter((x): x is string => x !== null);
+
+  /**
+   * Rilevamento automatico: prende la posizione del telefono, controlla che sia
+   * dentro la città scelta e prova a ricavarne la via. Se la via non si ricava,
+   * il punto resta comunque salvato: l'indirizzo scritto serve solo al driver
+   * per orientarsi, la consegna segue le coordinate.
+   */
+  async function handleUseMyPosition() {
+    setLocating(true);
+    try {
+      const here = await getCurrentCoords();
+      if (!here) {
+        Alert.alert(
+          'Posizione non disponibile',
+          'Attiva il GPS e concedi il permesso di localizzazione, oppure scegli il punto sulla mappa.',
+        );
+        return;
+      }
+      if (!isWithinCity(here, city)) {
+        Alert.alert(
+          'Sei fuori città',
+          `La tua posizione non risulta dentro ${city.label}. Cambia città dal feed, oppure scegli il punto sulla mappa.`,
+        );
+        return;
+      }
+      setCoords(here);
+      const label = await reverseGeocode(here);
+      if (label) {
+        setIndirizzo(label);
+      } else {
+        Alert.alert(
+          'Punto salvato',
+          'Non sono riuscito a ricavare la via: scrivila tu, il punto di consegna è già a posto.',
+        );
+      }
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function handleFindAddress() {
     if (indirizzo.trim().length === 0) {
@@ -180,6 +228,17 @@ export default function CreateRequestScreen() {
           setCoords(found);
         }
       }
+      // Senza coordinate il giro è inconsegnabile: non compare sulla mappa, non
+      // ha distanza e chi accetta scopre solo dopo dove dovrebbe andare. Prima
+      // si pubblicava lo stesso, aggirando anche il vincolo della città.
+      if (!point) {
+        setSubmitting(false);
+        Alert.alert(
+          'Indirizzo da confermare',
+          `Non riesco a posizionare "${indirizzo.trim()}" dentro ${city.label}. Usa "Usa la mia posizione", oppure scegli il punto sulla mappa: senza il punto esatto chi consegna non saprebbe dove andare.`,
+        );
+        return;
+      }
       if (balance != null && stima > balance) {
         setSubmitting(false);
         Alert.alert(
@@ -212,9 +271,9 @@ export default function CreateRequestScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.composerHeader}>
-            {['COSA', 'DOVE', 'QUANDO', 'VIBE', 'RIEPILOGO'].map((label, index) => <View key={label} style={styles.composerStep}><View style={[styles.stepNumber, { backgroundColor: index === 0 ? c.accent : c.surfaceAlt }]}><ThemedText style={{ color: index === 0 ? c.accentText : c.textSecondary, fontSize: 11 }}>{index + 1}</ThemedText></View><ThemedText type="caption">{label}</ThemedText></View>)}
-          </View>
+          {/* Qui c'era una barra a 5 passi che restava sempre ferma sul primo:
+              il passo attivo era scritto fisso nel codice. Al suo posto, sotto,
+              c'è l'elenco di cosa manca davvero per pubblicare. */}
           {/* Banner moderazione: account sospeso */}
           {suspended ? (
             <View style={[styles.suspendedBanner, { backgroundColor: c.dangerSoft }]}>
@@ -298,6 +357,12 @@ export default function CreateRequestScreen() {
             onBlur={geocodeSilently}
             placeholder="Via e numero civico"
           />
+          <Button
+            label={locating ? 'Rilevamento…' : '📍 Usa la mia posizione'}
+            variant="secondary"
+            onPress={handleUseMyPosition}
+            loading={locating}
+          />
           <View style={styles.addressButtons}>
             <Button
               label={coords ? 'Posizione trovata' : 'Trova indirizzo'}
@@ -351,14 +416,20 @@ export default function CreateRequestScreen() {
               {bonusMax > 0
                 ? ` Quando un driver accetta si aggiunge un bonus in base alla sua distanza (fino a +${bonusMax}, massimo ${CREDIT_CAP} totali).`
                 : ` Sei già al massimo di ${CREDIT_CAP} crediti per consegna.`}
-              {balance != null ? ` Hai ${balance} crediti.` : ''}
+              {balance != null ? ` Hai ${balance} BeerCoin disponibili.` : ''}
             </ThemedText>
             {nonCopribile ? (
               <ThemedText style={{ color: c.danger, fontSize: 13 }}>
-                Non hai abbastanza crediti: guadagnane consegnando, oppure riduci l’ordine.
+                Non hai abbastanza BeerCoin disponibili: gli altri sono impegnati in giri ancora aperti.
               </ThemedText>
             ) : null}
           </View>
+
+          {mancanze.length > 0 ? (
+            <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+              Per pubblicare manca ancora: {mancanze.join(' · ')}.
+            </ThemedText>
+          ) : null}
 
           <Button
             label="Pubblica il giro"
@@ -434,8 +505,5 @@ const styles = StyleSheet.create({
   addressButton: { flex: 1 },
   mapHeader: { padding: Spacing.md, gap: 2 },
   mapFooter: { flexDirection: 'row', gap: Spacing.sm, padding: Spacing.md },
-  composerHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 4, paddingBottom: Spacing.sm },
-  composerStep: { alignItems: 'center', gap: 3, flex: 1 },
-  stepNumber: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });
