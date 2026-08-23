@@ -31,6 +31,9 @@ export default function CommunityScreen() {
   const [feed, setFeed] = useState<CommunityFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Senza questo, un caricamento fallito mostrava "Nessun incontro" e
+  // "Bacheca silenziosa": indistinguibile da una città davvero ferma.
+  const [error, setError] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -39,6 +42,9 @@ export default function CommunityScreen() {
       const [nextEvents, nextFeed] = await Promise.all([getEvents(city.key), getCommunityFeed(city.key)]);
       setEvents(nextEvents);
       setFeed(nextFeed.filter((item) => item.tipo !== 'badge'));
+      setError(false);
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -87,7 +93,7 @@ export default function CommunityScreen() {
                   <BrandIcon name="arrow-right" size={20} color={c.textSecondary} />
                 </Card>
               )}
-              ListEmptyComponent={<EmptyState icon="cheers" title="Nessun incontro" message="Proponi un posto e un’ora. Il resto lo fa la città." />}
+              ListEmptyComponent={error ? <EmptyState icon="x-mark" title="Incontri non caricati" message="Controlla la connessione e tira giù per riprovare." /> : <EmptyState icon="cheers" title="Nessun incontro" message="Proponi un posto e un’ora. Il resto lo fa la città." />}
             />
             <PressableScale onPress={() => router.push('/event/new' as never)} style={[styles.fab, { backgroundColor: c.accent }]}>
               <BrandIcon name="plus" size={20} color={c.accentText} /><ThemedText style={[styles.fabLabel, { color: c.accentText }]}>NUOVO INCONTRO</ThemedText>
@@ -106,7 +112,7 @@ export default function CommunityScreen() {
                 <View style={styles.flex}><ThemedText type="defaultSemiBold">{item.userNome}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{item.titolo}</ThemedText><ThemedText type="caption">{formatShortDate(item.data)}</ThemedText></View>
               </View>
             )}
-            ListEmptyComponent={<EmptyState icon="bell" title="Bacheca silenziosa" message="Quando la città si muove, lo vedrai qui." />}
+            ListEmptyComponent={error ? <EmptyState icon="x-mark" title="Bacheca non caricata" message="Controlla la connessione e tira giù per riprovare." /> : <EmptyState icon="bell" title="Bacheca silenziosa" message="Quando la città si muove, lo vedrai qui." />}
           />
         )}
       </SafeAreaView>
