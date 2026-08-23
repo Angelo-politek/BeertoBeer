@@ -92,7 +92,6 @@ export default function ProfileScreen() {
             <ProfileAction icon="scooter" label="I miei giri" onPress={() => router.push('/my-orders')} />
             <ProfileAction icon="wallet" label="BeerCoin" onPress={() => router.push('/beercoin' as never)} />
             <ProfileAction icon="profile" label="Impostazioni" onPress={() => router.push('/settings' as never)} />
-            <ProfileAction icon="heart" label="Il tuo invito" onPress={() => router.push('/invite' as never)} />
           </View>
 
           <Card style={[styles.balance, { backgroundColor: c.accent }]}>
@@ -103,6 +102,20 @@ export default function ProfileScreen() {
 
           <SectionTitle label="TRAGUARDI" title="I TUOI BADGE" />
           <BadgeGrid unlocked={badges} />
+
+          {/* L'invito ha una card sua: e' il modo in cui la community cresce e
+              l'unico posto in cui una persona sceglie chi entra. Come quarta
+              icona in fila spariva. */}
+          <Card onPress={() => router.push('/invite' as never)} style={styles.invito}>
+            <View style={styles.flex}>
+              <ThemedText type="label">SI ENTRA SOLO SU INVITO</ThemedText>
+              <ThemedText type="subtitle">Il tuo invito</ThemedText>
+              <ThemedText style={{ color: c.textSecondary }}>
+                Ne hai uno. Quando lo usi è speso: scegli bene chi porti dentro.
+              </ThemedText>
+            </View>
+            <BrandIcon name="arrow-right" size={22} color={c.accent} />
+          </Card>
 
           <SectionTitle label="RECIPROCITÀ" title="DAI / RICEVI" />
           <Card style={styles.ratioCard}>
@@ -144,6 +157,7 @@ function ProfileAction({ icon, label, onPress }: { icon: BrandIconName; label: s
 const styles = StyleSheet.create({
   container: { flex: 1 }, safe: { flex: 1 }, content: { padding: Spacing.md, paddingBottom: Spacing.xxl, gap: Spacing.md }, loading: { padding: Spacing.lg, alignItems: 'center', gap: Spacing.md }, center: { flex: 1, alignItems: 'center', justifyContent: 'center' }, flex: { flex: 1 },
   hero: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, heroText: { flex: 1 }, name: { fontSize: 38, lineHeight: 40 }, balance: { minHeight: 170, justifyContent: 'space-between', flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }, balanceValue: { fontFamily: Fonts.display, fontSize: 64, lineHeight: 68 },
+  invito: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
   profileActions: { flexDirection: 'row', gap: Spacing.sm }, profileAction: { flex: 1, minHeight: 74, borderRadius: 10, alignItems: 'center', justifyContent: 'center', gap: 5 },
   sectionTitle: { marginTop: Spacing.sm }, ratioCard: { gap: Spacing.md }, ratioNumbers: { flexDirection: 'row' }, stat: { flex: 1, alignItems: 'center', gap: 2 }, statValue: { fontFamily: Fonts.display, fontSize: 36, lineHeight: 40 }, track: { height: 9, borderRadius: 2, overflow: 'hidden' }, fill: { height: 9 },
   mission: { flexDirection: 'row', gap: Spacing.md, alignItems: 'center' }, missionIcon: { width: 46, height: 46, borderRadius: Radii.sm, alignItems: 'center', justifyContent: 'center' }, row: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }, review: { paddingVertical: Spacing.sm, gap: 4 },
