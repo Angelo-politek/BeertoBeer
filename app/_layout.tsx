@@ -124,8 +124,13 @@ function RootNavigator() {
     if (!session) return;
     registerForPushNotifications().then((esito) => {
       if (esito.ok || esito.motivo === 'permesso-negato') return;
+      // Prima il messaggio era sempre lo stesso ("controlla la connessione")
+      // qualunque fosse la causa: chi lo leggeva non sapeva cosa fare, e
+      // capitava di incolpare la rete quando il problema era un altro.
       toast.show(
-        'Notifiche non attivate: non saprai quando arriva una richiesta. Riapri l’app o controlla la connessione.',
+        esito.motivo === 'configurazione'
+          ? 'Notifiche non disponibili: questa versione dell’app non è configurata per riceverle.'
+          : `Notifiche non attivate: ${esito.dettaglio ?? 'errore sconosciuto'}. Vai in Impostazioni → Notifiche per riprovare.`,
         'error',
       );
     });
