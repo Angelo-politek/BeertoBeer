@@ -204,6 +204,7 @@ function SetupView({
   onUseLocation: () => void;
 }) {
   const c = useColors();
+  const router = useRouter();
   return (
     <View style={[styles.page, { width }]}>
       <View style={styles.setupContent}>
@@ -239,6 +240,13 @@ function SetupView({
             onPress={onToggleRules}
             title="Accetto le regole della community"
             subtitle="Uso responsabile, niente vendita di alcol e rispetto della moderazione."
+          />
+          {/* Si chiedeva di accettare regole che non si potevano leggere. */}
+          <Button
+            label="Leggi le regole e la privacy"
+            size="md"
+            variant="secondary"
+            onPress={() => router.push('/terms' as never)}
           />
         </View>
       </View>

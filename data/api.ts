@@ -723,6 +723,24 @@ export async function submitReview(orderId: string, voto: number, commento: stri
   if (error) throw error;
 }
 
+/**
+ * Gli id dei giri che ho già recensito.
+ *
+ * Serve all'elenco dei giri per proporre "lascia una recensione" finché ha
+ * senso e non oltre. Senza questo dato la schermata non sapeva distinguere un
+ * giro da recensire da uno già recensito, e per non riempire l'elenco di inviti
+ * eterni l'invito non veniva mostrato affatto: la recensione, che è l'ultimo
+ * passo dello scambio, spariva dal percorso.
+ */
+export async function getReviewedOrderIds(): Promise<string[]> {
+  const myId = await requireUserId();
+  const { data, error } = await supabase.from('reviews').select('order_id').eq('from_user_id', myId);
+  if (error) throw error;
+  return (data ?? [])
+    .map((r) => (r as { order_id: string | null }).order_id)
+    .filter((x): x is string => !!x);
+}
+
 export async function getReviewsForUser(userId: string): Promise<Review[]> {
   const { data, error } = await supabase
     .from('reviews')

@@ -11,7 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { getMyOrders } from '@/data/api';
+import { getMyOrders, getReviewedOrderIds } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
 import { nextOrderAction } from '@/lib/discovery';
 import { isExpired, STATO_LABEL } from '@/lib/orders';
@@ -28,13 +28,20 @@ export default function MyOrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [section, setSection] = useState<'todo' | 'progress' | 'waiting' | 'done'>('todo');
   const [error, setError] = useState<string | null>(null);
+  const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(async (asRefresh = false) => {
     if (asRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const rows = await getMyOrders();
+      const [rows, reviewed] = await Promise.all([
+        getMyOrders(),
+        // Best-effort: se non arriva, al massimo riproponiamo una recensione
+        // già lasciata — meglio che non proporla mai.
+        getReviewedOrderIds().catch(() => [] as string[]),
+      ]);
       setOrders(rows);
+      setReviewedIds(new Set(reviewed));
       setError(null);
     } catch {
       setError('Impossibile caricare i tuoi giri. Riprova.');
@@ -61,8 +68,17 @@ export default function MyOrdersScreen() {
   const visibleOrders = orders.filter((order) => {
     const action = nextOrderAction(order, myId);
     if (section === 'done') return isClosed(order);
+
+    // Un giro concluso ma non ancora recensito resta fra le cose da fare: la
+    // recensione è l'ultimo passo dello scambio, non un extra facoltativo.
+    // Sparisce da sola appena la recensione esiste.
+    const daRecensire =
+      order.stato === 'confermato' && action.key === 'review' && !reviewedIds.has(order.id);
+    if (section === 'todo') {
+      return daRecensire || (!isClosed(order) && ['accept', 'start', 'arrive', 'verify', 'confirm'].includes(action.key));
+    }
+
     if (isClosed(order)) return false;
-    if (section === 'todo') return ['accept', 'start', 'arrive', 'verify', 'confirm'].includes(action.key);
     if (section === 'progress') return ['accettato', 'in_consegna', 'arrivato'].includes(order.stato);
     return ['wait', 'open'].includes(action.key);
   }).sort((a, b) => nextOrderAction(b, myId).priority - nextOrderAction(a, myId).priority);

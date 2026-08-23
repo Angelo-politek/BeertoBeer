@@ -26,6 +26,11 @@ export default function SettingsScreen() {
           <ThemedText style={{ color: c.textSecondary }}>Contatti fidati, connessioni e preferenze notifiche saranno raccolti qui.</ThemedText>
           <Button label="Le mie connessioni" variant="secondary" onPress={() => router.push('/connections' as never)} />
         </Card>
+        <Card>
+          <ThemedText type="subtitle">Regole e privacy</ThemedText>
+          <ThemedText style={{ color: c.textSecondary }}>Come funzionano BeerCoin, moderazione e dati personali.</ThemedText>
+          <Button label="Leggi le regole" variant="secondary" onPress={() => router.push('/terms' as never)} />
+        </Card>
         <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
       </View>
     </ThemedView>
