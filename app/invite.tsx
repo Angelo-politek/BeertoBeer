@@ -1,4 +1,3 @@
-import * as Linking from 'expo-linking';
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, Share, StyleSheet, View } from 'react-native';
@@ -10,10 +9,10 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
 import { APK_URL } from '@/constants/branding';
-import { REWARDS } from '@/lib/credits';
 import { Fonts, Spacing } from '@/constants/theme';
 import { getMyInvites } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
+import { REWARDS } from '@/lib/credits';
 import { formatShortDate } from '@/lib/format';
 import type { Invite } from '@/types';
 
@@ -46,23 +45,18 @@ export default function InviteScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   async function condividi(code: string) {
-    // Il link apre direttamente la registrazione col codice già scritto, ma
-    // funziona solo a app installata: per questo il messaggio contiene sempre
-    // anche il codice in chiaro.
-    const link = Linking.createURL('/register', { queryParams: { invito: code } });
+    // Nel messaggio ci vanno due sole cose: il codice e dove scaricare l'app.
+    // C'era anche un link beertobeer://, ma è una riga che confonde e basta:
+    // chi riceve un invito non ha ancora l'app, e chi ce l'ha è già dentro.
+    // (Il link continua a funzionare se qualcuno lo apre: non lo proponiamo più.)
     try {
       await Share.share({
         message:
           `Ti porto dentro Beer to Beer.\n\n` +
           `È una community di Torino dove ci si porta le birre a vicenda tra vicini: nessuno ci guadagna, chi porta viene rimborsato della spesa e riceve BeerCoin che valgono solo dentro l'app.\n\n` +
           `Si entra solo su invito e io ne avevo uno. Ho scelto te.\n\n` +
-          `Il tuo codice: ${code}\n\n` +
-          // Chi riceve l'invito NON ha ancora l'app: senza il link per
-          // scaricarla deve chiedere dove prenderla, e lì si perde metà delle
-          // persone. Il link profondo serve invece a chi ce l'ha già.
-          (APK_URL
-            ? `Scarica l'app: ${APK_URL}\n\nSe ce l'hai già: ${link}`
-            : `Se hai già l'app: ${link}`),
+          `Il tuo codice: ${code}` +
+          (APK_URL ? `\n\nScarica l'app: ${APK_URL}` : ''),
       });
     } catch {
       toast.show('Non sono riuscito ad aprire la condivisione.', 'error');
