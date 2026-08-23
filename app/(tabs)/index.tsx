@@ -143,7 +143,8 @@ export default function HomeScreen() {
                   {events[0] ? `Prossimo incontro: ${events[0].titolo}` : 'Incontri e bacheca della tua città.'}
                 </ThemedText>
               </View>
-              <Image source={require('../../assets/brand/sticker-b2b.png')} style={styles.sticker} contentFit="contain" />
+              {/* sticker-b2b originale era tagliato in basso: qui usiamo il simbolo del brand, completo. */}
+              <Image source={require('../../assets/brand/sticker-community.png')} style={styles.sticker} contentFit="contain" />
               <BrandIcon name="arrow-right" size={24} color={c.accent} />
             </PressableScale>
           }
@@ -162,6 +163,6 @@ const styles = StyleSheet.create({
   sectionHead: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: Spacing.sm }, mapLink: { flexDirection: 'row', alignItems: 'center', gap: 5, padding: Spacing.sm },
   filters: { flexDirection: 'row', gap: Spacing.sm }, loading: { gap: Spacing.md },
   community: { marginTop: Spacing.xl, minHeight: 150, padding: Spacing.md, borderRadius: Radii.lg, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
-  communityText: { flex: 1, gap: 4, zIndex: 1 }, sticker: { width: 86, height: 100, opacity: 0.9 },
+  communityText: { flex: 1, gap: 4, zIndex: 1 }, sticker: { width: 86, height: 70, opacity: 0.9 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }, bell: { width: 44, height: 44, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, unread: { position: 'absolute', right: -3, top: -3, minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, unreadText: { color: '#F4F1EA', fontSize: 10 },
 });

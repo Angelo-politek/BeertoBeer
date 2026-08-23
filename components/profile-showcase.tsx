@@ -18,4 +18,6 @@ export function ProfileShowcase({ value }: { value: ProfileCustomization }) {
     {value.availability.length ? <View><ThemedText type="label">DI SOLITO CI SONO</ThemedText><ThemedText>{value.availability.join(' · ')}</ThemedText></View> : null}
   </Card>;
 }
-const styles=StyleSheet.create({card:{gap:Spacing.md},photos:{gap:Spacing.sm},photo:{width:146,height:183,borderRadius:8},board:{minHeight:104,flexDirection:'row',alignItems:'center',justifyContent:'space-around',padding:Spacing.sm,borderRadius:8}});
+const styles=StyleSheet.create({card:{gap:Spacing.md},photos:{gap:Spacing.sm},photo:{width:146,height:183,borderRadius:8},// flexWrap: con tre sticker larghi e ingranditi al massimo la riga sfonderebbe
+// il bordo della card su un telefono stretto, e verrebbero tagliati.
+board:{minHeight:104,flexDirection:'row',flexWrap:'wrap',alignItems:'center',justifyContent:'space-around',gap:Spacing.sm,padding:Spacing.sm,borderRadius:8}});
