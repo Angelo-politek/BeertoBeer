@@ -12,6 +12,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BrandIcon } from '@/components/ui/brand-icon';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { messaggioAuth } from '@/lib/auth-errors';
 import { supabase } from '@/lib/supabase';
 
 export default function ForgotPasswordScreen() {
@@ -35,7 +36,7 @@ export default function ForgotPasswordScreen() {
         redirectTo,
       });
       if (resetError) {
-        setError('Non siamo riusciti a inviare il reset.');
+        setError(messaggioAuth(resetError, 'accesso'));
         return;
       }
       setMessage('Controlla la tua email. Il link ti porterà alla schermata per scegliere una nuova password.');

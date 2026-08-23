@@ -13,6 +13,7 @@ import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { checkInviteCode } from '@/data/api';
 import { computeAge, parseBirthdate, toISODate } from '@/lib/age';
+import { messaggioAuth } from '@/lib/auth-errors';
 import { supabase } from '@/lib/supabase';
 
 export default function RegisterScreen() {
@@ -97,7 +98,7 @@ export default function RegisterScreen() {
     setLoading(false);
 
     if (signUpError) {
-      setError(signUpError.message);
+      setError(messaggioAuth(signUpError, 'registrazione'));
       return;
     }
 
