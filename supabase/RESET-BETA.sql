@@ -6,18 +6,19 @@
 -- vuole ripulire il campo prima di aprire la beta vera.
 --
 -- COSA CANCELLA
---   tutti gli account tranne quelli che elenchi tu, e con loro giri, chat,
---   recensioni, movimenti BeerCoin, segnalazioni, eventi, inviti, notifiche.
+--   gli account (tutti, o tutti tranne quelli che elenchi tu) e con loro giri,
+--   chat, recensioni, movimenti BeerCoin, segnalazioni, eventi, inviti,
+--   notifiche e registro delle azioni admin.
 --
 -- COSA CONSERVA
 --   la struttura del database, le funzioni, i badge, le missioni e i NEGOZI
---   mappati dalla community (sono lavoro vero fatto da persone: si buttano
---   solo se lo decidi esplicitamente, vedi in fondo).
+--   mappati dalla community (sono lavoro vero fatto da persone; sopravvivono
+--   anche alla cancellazione di chi li ha segnalati). Per buttare anche quelli
+--   c'è una riga da scommentare in fondo.
 --
 -- PRIMA DI ESEGUIRE
---   1. Scrivi qui sotto le email da tenere (almeno la tua e quella di Angelo).
---   2. Metti v_confermo := true.
---   3. Se ti interessa conservare qualcosa, esportalo prima: sul piano
+--   1. Scegli il modo (vedi sotto) e metti v_confermo := true.
+--   2. Se ti interessa conservare qualcosa, esportalo prima: sul piano
 --      gratuito di Supabase non c'è un ripristino a un istante preciso.
 -- ============================================================
 
@@ -26,7 +27,7 @@ declare
   -- ↓↓↓ MODIFICA QUESTE RIGHE ↓↓↓
 
   -- MODO A — tieni alcuni account: elenca qui le loro email.
-  -- MODO B — azzera TUTTO: lascia v_azzera_tutto := true e ignora l'elenco.
+  -- MODO B — azzera TUTTO: metti v_azzera_tutto := true (l'elenco viene ignorato).
   v_tenere       text[] := array[
     'scrivi-qui-la-tua-email@esempio.it',
     'scrivi-qui-email-di-angelo@esempio.it'
@@ -43,14 +44,7 @@ begin
     raise exception 'Sicurezza: metti v_confermo := true quando hai deciso cosa fare.';
   end if;
 
-  if v_azzera_tutto then
-    -- Nessun account sopravvive. Dopo, il PRIMO che si registra entra senza
-    -- invito (il cancello si apre solo se il database è vuoto: senza questa
-    -- eccezione non potrebbe entrare più nessuno, perché non c'è chi invita).
-    -- Fallo quindi PRIMA di distribuire l'app, e registra subito il tuo account.
-    delete from auth.users;
-    get diagnostics v_cancellati = row_count;
-  else
+  if not v_azzera_tutto then
     if array_length(v_tenere, 1) is null then
       raise exception 'Sicurezza: l''elenco delle email da tenere è vuoto. Se vuoi cancellare tutto, usa v_azzera_tutto := true.';
     end if;
@@ -60,15 +54,16 @@ begin
     if not exists (select 1 from auth.users where email = any(v_tenere)) then
       raise exception 'Nessuna delle email indicate esiste: controlla di non esserti sbagliato, o resteresti fuori dalla tua stessa app.';
     end if;
-
-    -- Via gli account non elencati. Le chiavi esterne con "on delete cascade"
-    -- portano con sé profilo, giri, chat, recensioni e movimenti.
-    delete from auth.users where email <> all(v_tenere);
-    get diagnostics v_cancellati = row_count;
   end if;
 
-  -- 2. Ripulisce ciò che resta legato a chi teniamo: vogliamo un campo pulito,
-  --    non i loro giri di prova.
+  -- ------------------------------------------------------------
+  -- 1. Svuota le tabelle operative PRIMA di toccare gli account.
+  --
+  -- L'ordine conta: non tutte le tabelle si cancellano da sole quando sparisce
+  -- l'utente. `admin_audit` (il registro delle azioni degli amministratori)
+  -- punta a users SENZA cancellazione a cascata, e da solo basta a far fallire
+  -- l'intera operazione con un errore di chiave esterna.
+  -- ------------------------------------------------------------
   delete from public.messages;
   delete from public.direct_messages;
   delete from public.reviews;
@@ -89,14 +84,33 @@ begin
   delete from public.invites;
   delete from public.user_missions;
   delete from public.product_feedback;
+  delete from public.admin_audit;
 
-  -- 3. Riporta chi resta alla condizione di partenza: 10 BeerCoin, nessun
-  --    rating ereditato da scambi che non esistono più.
+  -- `referred_by` è un riferimento di users verso users: se un account ne
+  -- indica un altro, la cancellazione si blocca. Azzerarlo prima toglie il nodo.
+  update public.users set referred_by = null;
+
+  -- ------------------------------------------------------------
+  -- 2. Ora gli account.
+  -- ------------------------------------------------------------
+  if v_azzera_tutto then
+    -- Nessun account sopravvive. Dopo, il PRIMO che si registra entra senza
+    -- invito (il cancello si apre solo se il database è vuoto: senza questa
+    -- eccezione non potrebbe entrare più nessuno, perché non c'è chi invita).
+    -- Fallo quindi PRIMA di distribuire l'app, e registrati subito.
+    delete from auth.users;
+  else
+    delete from auth.users where email <> all(v_tenere);
+  end if;
+  get diagnostics v_cancellati = row_count;
+
+  -- ------------------------------------------------------------
+  -- 3. Chi resta torna alla condizione di partenza.
+  -- ------------------------------------------------------------
   update public.users
     set crediti_saldo = 10,
         rating_medio  = 0,
-        sospeso_fino  = null,
-        referred_by   = null;
+        sospeso_fino  = null;
 
   -- 4. Rida a ciascuno il suo invito (agli admin la scorta piena).
   perform public.ensure_invites_for(id) from public.users;
@@ -125,6 +139,6 @@ end $$;
 -- ============================================================
 -- FACOLTATIVO — solo se vuoi buttare anche i negozi mappati
 -- Sono segnalazioni fatte da persone vere: valgono, e ricostruirle costa
--- fatica. Scommenta solo se sei sicuro.
+-- fatica. Sopravvivono al reset di proposito. Scommenta solo se sei sicuro.
 -- ============================================================
 -- delete from public.shops;
