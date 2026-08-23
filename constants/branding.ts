@@ -46,4 +46,11 @@ export const ONBOARDING_SLIDES: OnboardingSlide[] = [
  * nuovo basta cambiare questa riga e mandare l'aggiornamento.
  * Lascia stringa vuota per non mettere il link nel messaggio.
  */
-export const APK_URL = '';
+export const APK_URL =
+  'https://github.com/Angelo-politek/BeertoBeer/releases/download/v1.1.0-beta1/beer-to-beer.apk';
+
+// NB: questo link punta a una versione PRECISA. Pubblicando una release nuova
+// va aggiornato qui e mandato con `eas update` (nessuna ricompilazione).
+// In alternativa, togliendo la spunta "pre-release" su GitHub diventa valido
+// anche l'indirizzo .../releases/latest/download/beer-to-beer.apk, che punta
+// sempre all'ultima versione e non va piu' toccato.
