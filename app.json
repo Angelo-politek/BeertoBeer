@@ -27,7 +27,7 @@
       "package": "com.quantumalbe.beertobeer"
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "updates": {

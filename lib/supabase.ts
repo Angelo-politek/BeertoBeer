@@ -34,24 +34,41 @@ if (supabaseConfigError) {
  *   risulta "non più valido". È anche il flusso raccomandato su mobile,
  *   perché il token non transita mai in chiaro nell'URL.
  */
+/**
+ * Vero solo mentre le pagine web vengono generate (Node), dove `window` non
+ * esiste. Su telefono e su browser vero è sempre falso.
+ *
+ * Serve perché `eas update` esporta anche il web, e lì il client Supabase
+ * partiva comunque a cercare la sessione salvata: il deposito usa `window` e
+ * l'esportazione si fermava con "window is not defined", bloccando l'invio
+ * dell'aggiornamento a TUTTI i telefoni. In generazione non c'è nessun utente
+ * loggato, quindi non serve né deposito né refresh: si parte a vuoto.
+ */
+const inGenerazione = typeof window === 'undefined';
+
 export const supabase = createClient(
   supabaseUrl ?? 'https://config-mancante.supabase.co',
   supabaseAnonKey ?? 'anon-key-mancante',
   {
   auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
+    storage: inGenerazione ? undefined : AsyncStorage,
+    autoRefreshToken: !inGenerazione,
+    persistSession: !inGenerazione,
     detectSessionInUrl: false,
     flowType: 'pkce',
   },
 });
 
 // Rinfresca il token solo quando l'app è in primo piano (consigliato da Supabase).
-AppState.addEventListener('change', (state) => {
-  if (state === 'active') {
-    supabase.auth.startAutoRefresh();
-  } else {
-    supabase.auth.stopAutoRefresh();
-  }
-});
+// In generazione delle pagine web non c'è nessun ciclo di vita da seguire e
+// non c'è sessione da rinfrescare: registrare il listener lì è solo un altro
+// modo per rompere l'esportazione.
+if (!inGenerazione) {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'active') {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+}
