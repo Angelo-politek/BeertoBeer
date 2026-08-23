@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
@@ -79,6 +80,10 @@ export default function RegisterScreen() {
       email: email.trim(),
       password,
       options: {
+        // Dove torna il link di conferma email. Punta a una schermata dentro il
+        // gruppo (auth): fuori di lì il guardiano delle rotte la chiuderebbe
+        // prima che il codice venga scambiato.
+        emailRedirectTo: Linking.createURL('/auth-callback'),
         // Letti dal trigger handle_new_user() per creare la riga in public.users.
         data: {
           nome: nome.trim(),

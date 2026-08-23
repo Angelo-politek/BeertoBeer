@@ -26,6 +26,13 @@ if (supabaseConfigError) {
  * Client Supabase condiviso dall'app.
  * - La sessione è persistita su AsyncStorage → l'utente resta loggato tra i riavvii.
  * - detectSessionInUrl è false perché su mobile non c'è una URL del browser.
+ * - flowType 'pkce': i link inviati per email (recupero password e conferma
+ *   iscrizione) arrivano con un parametro `?code=` da scambiare con
+ *   exchangeCodeForSession. Senza questa riga il client usa il flusso
+ *   predefinito, che manda il token in un frammento `#access_token=...`: le
+ *   schermate di recupero cercano `code`, non lo trovano mai, e ogni link
+ *   risulta "non più valido". È anche il flusso raccomandato su mobile,
+ *   perché il token non transita mai in chiaro nell'URL.
  */
 export const supabase = createClient(
   supabaseUrl ?? 'https://config-mancante.supabase.co',
@@ -36,6 +43,7 @@ export const supabase = createClient(
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    flowType: 'pkce',
   },
 });
 
