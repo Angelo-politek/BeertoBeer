@@ -1,5 +1,5 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -140,23 +140,47 @@ export default function RequestDetailScreen() {
     }
   }
 
+  // Aggiornamento automatico del giro in corso.
+  // Prima era ogni 3 secondi per tutta la consegna, e il timer si ricreava ad
+  // ogni risposta (la dipendenza era l'intero oggetto `request`, che cambia
+  // identità ogni volta): mezz'ora di consegna erano oltre mille chiamate a
+  // testa, fra batteria e traffico. Ora dipende solo dallo STATO, e la
+  // frequenza segue il momento: fitta solo quando i due sono uno davanti
+  // all'altro e aspettano la conferma reciproca, tranquilla nel resto del giro.
+  const statoCorrente = request?.stato;
   useEffect(() => {
-    if (!request || !['accettato','in_consegna','arrivato','consegnato'].includes(request.stato)) return;
-    const timer = setInterval(() => { reload(); }, 3000);
+    if (!statoCorrente || !['accettato', 'in_consegna', 'arrivato', 'consegnato'].includes(statoCorrente)) return;
+    const intervallo = statoCorrente === 'arrivato' ? 3000 : 10000;
+    const timer = setInterval(() => { reload(); }, intervallo);
     return () => clearInterval(timer);
-  }, [request, id, reload]);
+  }, [statoCorrente, reload]);
 
+  // Invio periodico della posizione, che alimenta la conferma per vicinanza.
+  // Dipende dallo stato e non dalle coordinate: prima ogni nuova posizione
+  // faceva ripartire l'effetto, rimandando subito tutto da capo.
+  const presenzaFallitaRef = useRef(false);
   useEffect(() => {
-    if (!request || !driverCoords || !['accettato','in_consegna','arrivato','consegnato'].includes(request.stato)) return;
-    // Senza presenza inviata la conferma per vicinanza non si sblocca mai:
-    // meglio saperlo subito che restare davanti al portone a premere invano.
-    updateOrderPresence(id, driverCoords).catch(() => toast.show('Non riesco a inviare la tua posizione: usa il codice di consegna.', 'error'));
-    const timer = setInterval(async () => {
+    if (!statoCorrente || !['accettato', 'in_consegna', 'arrivato', 'consegnato'].includes(statoCorrente)) return;
+    let vivo = true;
+    const invia = async () => {
       const coords = await getCurrentCoords();
-      if (coords) { setDriverCoords(coords); updateOrderPresence(id, coords).catch(() => null); }
-    }, 15000);
-    return () => clearInterval(timer);
-  }, [request, id, driverCoords, toast]);
+      if (!vivo || !coords) return;
+      setDriverCoords(coords);
+      updateOrderPresence(id, coords).catch(() => {
+        // Senza presenza la conferma per vicinanza non si sblocca mai: va detto,
+        // ma una volta sola — non un avviso ogni quindici secondi.
+        if (presenzaFallitaRef.current) return;
+        presenzaFallitaRef.current = true;
+        toast.show('Non riesco a inviare la tua posizione: usate il codice di consegna.', 'error');
+      });
+    };
+    invia();
+    const timer = setInterval(invia, 15000);
+    return () => {
+      vivo = false;
+      clearInterval(timer);
+    };
+  }, [statoCorrente, id, toast]);
 
   async function handleTrustedContact() {
     if (!trustedName.trim() || !trustedContact.trim()) return;
