@@ -138,16 +138,23 @@ function RootNavigator() {
 
   // Sincronizza sul server la città selezionata (serve alle push "nuova
   // richiesta in città"). Best-effort.
-  const { city, hasChosen } = useCity();
+  const { city, ready } = useCity();
   useEffect(() => {
-    if (!session || !hasChosen) return;
+    // Si salva la città SEMPRE, non solo quando l'utente la sceglie a mano.
+    // Prima si aspettava una scelta esplicita: chi accettava quella proposta e
+    // andava avanti restava con il campo vuoto sul profilo — e la notifica
+    // "qualcuno ha bisogno di birre", che va a chi condivide la città, non
+    // raggiungeva nessuno. Verificato nel registro: destinatari 0.
+    // `ready` evita di scrivere la città predefinita prima di aver letto
+    // quella salvata sul telefono.
+    if (!session || !ready) return;
     updateUserCity(city.key).catch(() => {
       toast.show(
         `Non sono riuscito a salvare ${city.label} come tua città: potresti non ricevere le richieste della zona.`,
         'error',
       );
     });
-  }, [session, hasChosen, city.key, city.label, toast]);
+  }, [session, ready, city.key, city.label, toast]);
 
   // Tap su una notifica → naviga al deep link in data.url (anche a freddo:
   // getLastNotificationResponseAsync copre l'app aperta DALLA notifica).
