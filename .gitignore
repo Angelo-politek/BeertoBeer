@@ -48,3 +48,6 @@ app-example
 
 # Build binarie distribuite a mano
 *.apk
+
+# log temporanei delle esportazioni
+*.out
