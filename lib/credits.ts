@@ -69,9 +69,9 @@ export function estimateBonus(distKm: number): number {
  * SOLO alla UI ("come guadagnare"): l'accredito reale è lato SQL.
  */
 export const REWARDS = {
-  welcome: 10,
+  welcome: 5,
   notturno: 2,
-  referral: 5,
+  referral: 3,
   /** bonus una tantum per livello raggiunto (indice = livello) */
-  livello: [0, 2, 5, 10, 20],
+  livello: [0, 1, 2, 3, 5],
 } as const;

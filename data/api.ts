@@ -412,7 +412,7 @@ export async function saveProfileCustomization(input: Pick<ProfileCustomization,
   const { error } = await supabase.rpc('set_profile_customization', {
     p_status_phrase: input.statusPhrase.trim(), p_beer_tastes: input.beerTastes,
     p_availability: input.availability, p_photo_visibility: input.photoVisibility,
-    p_stickers: stickers.filter((s) => s.unlocked && s.slot !== undefined).map((s) => ({ key: s.key, slot: s.slot, scale: s.scale ?? 1, rotation: s.rotation ?? 0 })),
+    p_stickers: stickers.filter((s) => s.unlocked && s.slot != null).map((s) => ({ key: s.key, slot: s.slot, scale: s.scale ?? 1, rotation: s.rotation ?? 0 })),
   });
   if (error) throw error;
 }
