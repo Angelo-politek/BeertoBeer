@@ -23,34 +23,49 @@
 
 do $$
 declare
-  -- ↓↓↓ MODIFICA QUESTE DUE RIGHE ↓↓↓
-  v_tenere  text[] := array[
+  -- ↓↓↓ MODIFICA QUESTE RIGHE ↓↓↓
+
+  -- MODO A — tieni alcuni account: elenca qui le loro email.
+  -- MODO B — azzera TUTTO: lascia v_azzera_tutto := true e ignora l'elenco.
+  v_tenere       text[] := array[
     'scrivi-qui-la-tua-email@esempio.it',
     'scrivi-qui-email-di-angelo@esempio.it'
   ];
-  v_confermo boolean := false;
-  -- ↑↑↑ MODIFICA QUESTE DUE RIGHE ↑↑↑
+  v_azzera_tutto boolean := false;
+  v_confermo     boolean := false;
+
+  -- ↑↑↑ MODIFICA QUESTE RIGHE ↑↑↑
 
   v_cancellati int;
   v_rimasti    int;
 begin
   if not v_confermo then
-    raise exception 'Sicurezza: metti v_confermo := true dopo aver scritto le email da tenere.';
-  end if;
-  if array_length(v_tenere, 1) is null then
-    raise exception 'Sicurezza: l''elenco delle email da tenere è vuoto.';
-  end if;
-  if exists (select 1 from unnest(v_tenere) e where e like 'scrivi-qui%') then
-    raise exception 'Sicurezza: hai lasciato le email di esempio. Mettici quelle vere.';
-  end if;
-  if not exists (select 1 from auth.users where email = any(v_tenere)) then
-    raise exception 'Nessuna delle email indicate esiste: controlla di non esserti sbagliato, o resteresti fuori dalla tua stessa app.';
+    raise exception 'Sicurezza: metti v_confermo := true quando hai deciso cosa fare.';
   end if;
 
-  -- 1. Via gli account non elencati. Le chiavi esterne con "on delete cascade"
-  --    portano con sé profilo, giri, chat, recensioni e movimenti.
-  delete from auth.users where email <> all(v_tenere);
-  get diagnostics v_cancellati = row_count;
+  if v_azzera_tutto then
+    -- Nessun account sopravvive. Dopo, il PRIMO che si registra entra senza
+    -- invito (il cancello si apre solo se il database è vuoto: senza questa
+    -- eccezione non potrebbe entrare più nessuno, perché non c'è chi invita).
+    -- Fallo quindi PRIMA di distribuire l'app, e registra subito il tuo account.
+    delete from auth.users;
+    get diagnostics v_cancellati = row_count;
+  else
+    if array_length(v_tenere, 1) is null then
+      raise exception 'Sicurezza: l''elenco delle email da tenere è vuoto. Se vuoi cancellare tutto, usa v_azzera_tutto := true.';
+    end if;
+    if exists (select 1 from unnest(v_tenere) e where e like 'scrivi-qui%') then
+      raise exception 'Sicurezza: hai lasciato le email di esempio. Mettici quelle vere.';
+    end if;
+    if not exists (select 1 from auth.users where email = any(v_tenere)) then
+      raise exception 'Nessuna delle email indicate esiste: controlla di non esserti sbagliato, o resteresti fuori dalla tua stessa app.';
+    end if;
+
+    -- Via gli account non elencati. Le chiavi esterne con "on delete cascade"
+    -- portano con sé profilo, giri, chat, recensioni e movimenti.
+    delete from auth.users where email <> all(v_tenere);
+    get diagnostics v_cancellati = row_count;
+  end if;
 
   -- 2. Ripulisce ciò che resta legato a chi teniamo: vogliamo un campo pulito,
   --    non i loro giri di prova.
@@ -89,6 +104,23 @@ begin
   select count(*) into v_rimasti from public.users;
   raise notice 'Fatto: % account cancellati, % rimasti.', v_cancellati, v_rimasti;
 end $$;
+
+-- ============================================================
+-- DOPO IL RESET — rendere amministratore un account
+--
+-- Da eseguire SEPARATAMENTE, dopo esserti registrato dall'app.
+-- Un amministratore ha sempre inviti disponibili (servono a seminare la beta),
+-- vede il pannello di moderazione e può gestire le segnalazioni.
+--
+-- Sostituisci l'email e lancia solo questa riga:
+-- ============================================================
+-- update public.users set is_admin = true
+--   where id = (select id from auth.users where email = 'tua-email@esempio.it');
+
+-- Controllo di chi è amministratore adesso:
+-- select u.nome, au.email, u.is_admin
+--   from public.users u join auth.users au on au.id = u.id
+--   where u.is_admin;
 
 -- ============================================================
 -- FACOLTATIVO — solo se vuoi buttare anche i negozi mappati
