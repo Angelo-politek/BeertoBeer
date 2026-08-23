@@ -9,6 +9,8 @@ import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
+import { APK_URL } from '@/constants/branding';
+import { REWARDS } from '@/lib/credits';
 import { Fonts, Spacing } from '@/constants/theme';
 import { getMyInvites } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
@@ -55,7 +57,12 @@ export default function InviteScreen() {
           `È una community di Torino dove ci si porta le birre a vicenda tra vicini: nessuno ci guadagna, chi porta viene rimborsato della spesa e riceve BeerCoin che valgono solo dentro l'app.\n\n` +
           `Si entra solo su invito e io ne avevo uno. Ho scelto te.\n\n` +
           `Il tuo codice: ${code}\n\n` +
-          `Se hai già l'app: ${link}`,
+          // Chi riceve l'invito NON ha ancora l'app: senza il link per
+          // scaricarla deve chiedere dove prenderla, e lì si perde metà delle
+          // persone. Il link profondo serve invece a chi ce l'ha già.
+          (APK_URL
+            ? `Scarica l'app: ${APK_URL}\n\nSe ce l'hai già: ${link}`
+            : `Se hai già l'app: ${link}`),
       });
     } catch {
       toast.show('Non sono riuscito ad aprire la condivisione.', 'error');
@@ -109,7 +116,7 @@ export default function InviteScreen() {
                 <ThemedText type="label">IL TUO CODICE</ThemedText>
                 <ThemedText style={[styles.code, { color: c.accentStrong }]}>{inv.code}</ThemedText>
                 <ThemedText type="caption">
-                  Quando chi inviti completa il suo primo giro, ricevete 5 BeerCoin a testa.
+                  {`Quando chi inviti completa il suo primo giro, ricevete ${REWARDS.referral} BeerCoin a testa.`}
                 </ThemedText>
                 <Button label="Condividi l’invito" onPress={() => condividi(inv.code)} />
               </Card>

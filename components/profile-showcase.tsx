@@ -8,7 +8,11 @@ import { useColors } from '@/hooks/use-colors';
 import type { ProfileCustomization } from '@/types';
 
 export function ProfileShowcase({ value }: { value: ProfileCustomization }) {
-  const c = useColors(); const shown = value.stickers.filter((s) => s.unlocked && s.slot !== undefined).sort((a,b) => (a.slot ?? 0)-(b.slot ?? 0));
+  const c = useColors();
+  // slot != null e non !== undefined: il database restituisce null per gli
+  // sticker NON messi in vetrina, e col confronto stretto passavano tutti —
+  // la vetrina mostrava ogni sticker sbloccato e non cambiava mai.
+  const shown = value.stickers.filter((s) => s.unlocked && s.slot != null).sort((a,b) => (a.slot ?? 0)-(b.slot ?? 0));
   if (!value.photos.length && !value.statusPhrase && !shown.length && !value.beerTastes.length && !value.availability.length) return null;
   return <Card style={styles.card}>
     {value.photos.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>{value.photos.map((p) => <Image key={p.id} source={{ uri: p.url }} contentFit="cover" style={styles.photo} />)}</ScrollView> : null}

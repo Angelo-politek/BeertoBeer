@@ -404,7 +404,21 @@ export async function getProfileCustomization(userId?: string): Promise<ProfileC
     availability: row.availability ?? [],
     photoVisibility: row.photo_visibility ?? 'tutti',
     photos: (row.photos ?? []).map((p) => ({ id: p.id, url: p.url, storagePath: p.storage_path, position: p.position })),
-    stickers: (row.stickers ?? []).map((s) => ({ key: s.key, title: s.title, assetKey: s.asset_key, description: s.description ?? '', unlocked: Boolean(s.unlocked), unlockHint: s.unlock_hint, slot: s.slot, scale: s.scale, rotation: s.rotation })),
+    // scale e rotation arrivano da colonne numeriche: se il driver li consegna
+    // come stringhe, "1" + 0.1 diventa concatenazione e i pulsanti di
+    // ingrandimento smettono di funzionare senza dire niente. Forzarli a numero
+    // qui li rende affidabili ovunque.
+    stickers: (row.stickers ?? []).map((s) => ({
+      key: s.key,
+      title: s.title,
+      assetKey: s.asset_key,
+      description: s.description ?? '',
+      unlocked: Boolean(s.unlocked),
+      unlockHint: s.unlock_hint,
+      slot: s.slot == null ? undefined : Number(s.slot),
+      scale: s.scale == null ? undefined : Number(s.scale),
+      rotation: s.rotation == null ? undefined : Number(s.rotation),
+    })),
   };
 }
 

@@ -31,3 +31,19 @@ export const ONBOARDING_SLIDES: OnboardingSlide[] = [
   { icon: 'pin', titolo: 'PRIMA LA SICUREZZA', testo: 'L’indirizzo resta protetto. Il codice chiude il giro solo quando siete davvero insieme.' },
   { icon: 'smile', titolo: 'VIBE, SE VUOI', testo: 'Puoi invitare chi porta a fermarsi. È sempre facoltativo e puoi cambiare idea.' },
 ];
+
+/**
+ * Dove si scarica l'APK, per il messaggio d'invito.
+ *
+ * Chi riceve un invito NON ha ancora l'app: senza questo link deve chiedere
+ * dove prenderla, e metà delle persone si ferma lì.
+ *
+ * ⚠️ Deve essere un indirizzo apribile da CHIUNQUE, senza account e senza
+ * login. Gli allegati delle release di un repository PRIVATO non lo sono:
+ * chi non è collaboratore riceve una pagina di errore.
+ *
+ * Si aggiorna via `eas update`, senza ricompilare: quando pubblichi un APK
+ * nuovo basta cambiare questa riga e mandare l'aggiornamento.
+ * Lascia stringa vuota per non mettere il link nel messaggio.
+ */
+export const APK_URL = '';
