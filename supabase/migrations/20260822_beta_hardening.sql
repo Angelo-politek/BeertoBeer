@@ -123,7 +123,12 @@ end; $$;
 -- l'ultima condizione. pair_blocked è SECURITY DEFINER e vede i blocchi in
 -- entrambe le direzioni, quindi sparisce anche chi ha bloccato te.
 -- ============================================================
-create or replace view public.open_requests as
+-- drop + create, NON "create or replace": updated_at è stato aggiunto IN MEZZO
+-- alle colonne, e create-or-replace non permette di inserire o riordinare le
+-- colonne di una vista esistente (errore 42P16). Così il file resta
+-- rieseguibile anche su un database dove la vista c'è già in versione vecchia.
+drop view if exists public.open_requests;
+create view public.open_requests as
 select
   id,
   host_id,

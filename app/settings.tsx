@@ -27,6 +27,11 @@ export default function SettingsScreen() {
           <Button label="Le mie connessioni" variant="secondary" onPress={() => router.push('/connections' as never)} />
         </Card>
         <Card>
+          <ThemedText type="subtitle">Notifiche</ThemedText>
+          <ThemedText style={{ color: c.textSecondary }}>Senza, non ti accorgi delle richieste: qui vedi se sono attive e le provi.</ThemedText>
+          <Button label="Gestisci le notifiche" variant="secondary" onPress={() => router.push('/notification-settings' as never)} />
+        </Card>
+        <Card>
           <ThemedText type="subtitle">Regole e privacy</ThemedText>
           <ThemedText style={{ color: c.textSecondary }}>Come funzionano BeerCoin, moderazione e dati personali.</ThemedText>
           <Button label="Leggi le regole" variant="secondary" onPress={() => router.push('/terms' as never)} />

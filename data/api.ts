@@ -1162,6 +1162,16 @@ export async function getUserBadges(userId: string): Promise<UserBadge[]> {
 // ---------- Referral ----------
 
 /**
+ * Manda una notifica di prova a sé stessi. È l'unico modo per verificare
+ * l'intera catena (permesso del telefono, token salvato, funzione push, Expo)
+ * invece di scoprire che non arriva niente quando serviva davvero.
+ */
+export async function sendTestPush(): Promise<void> {
+  const { error } = await supabase.rpc('send_test_push');
+  if (error) throw error;
+}
+
+/**
  * I miei inviti. In Beer to Beer si entra solo su invito e ognuno ne ha uno
  * solo: la lista è corta di proposito.
  */
