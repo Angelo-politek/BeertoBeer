@@ -817,12 +817,23 @@ export async function getMessages(orderId: string): Promise<Message[]> {
   return rows.map((r) => mapMessage(r, senders.get(r.sender_id)));
 }
 
-export async function sendMessage(orderId: string, testo: string): Promise<void> {
+/**
+ * Invia un messaggio e restituisce la riga creata, così chi scrive può vederla
+ * comparire SUBITO. Prima non tornava nulla e il messaggio appariva solo quando
+ * rimbalzava indietro dal tempo reale: se quello era lento o giù, si scriveva,
+ * il campo si svuotava e non si vedeva niente.
+ */
+export async function sendMessage(orderId: string, testo: string): Promise<Message | null> {
   const senderId = await requireUserId();
   const clean = testo.trim();
-  if (!clean) return;
-  const { error } = await supabase.from('messages').insert({ order_id: orderId, sender_id: senderId, testo: clean });
+  if (!clean) return null;
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({ order_id: orderId, sender_id: senderId, testo: clean })
+    .select(MESSAGE_COLUMNS)
+    .single();
   if (error) throw error;
+  return mapMessage(data as MessageRow);
 }
 
 export function subscribeToMessages(orderId: string, onMessage: (message: Message) => void) {
@@ -831,7 +842,14 @@ export function subscribeToMessages(orderId: string, onMessage: (message: Messag
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `order_id=eq.${orderId}` },
-      (payload) => onMessage(mapMessage(payload.new as MessageRow)),
+      async (payload) => {
+        const row = payload.new as MessageRow;
+        // Il payload del tempo reale porta solo la riga: senza il profilo di chi
+        // scrive, la bolla in arrivo resta con avatar anonimo e nome "Utente"
+        // finché non si riapre la chat.
+        const profiles = await fetchProfiles([row.sender_id]).catch(() => new Map<string, User>());
+        onMessage(mapMessage(row, profiles.get(row.sender_id)));
+      },
     )
     .subscribe();
 

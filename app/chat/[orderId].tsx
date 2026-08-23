@@ -52,6 +52,19 @@ export default function ChatScreen() {
     };
   }, [orderId]);
 
+  /**
+   * Mostra subito il proprio messaggio, senza aspettare che rimbalzi dal tempo
+   * reale: se quello è lento o non attivo, altrimenti si scrive e non si vede
+   * niente. Stesso comportamento della chat diretta. Il controllo sull'id evita
+   * il doppione quando poi l'evento arriva davvero.
+   */
+  async function handleSend(testo: string) {
+    const inviato = await sendMessage(orderId, testo);
+    if (inviato) {
+      setMessages((current) => (current.some((m) => m.id === inviato.id) ? current : [...current, inviato]));
+    }
+  }
+
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Chat del giro' }} />
@@ -63,7 +76,7 @@ export default function ChatScreen() {
         emptyMessage="Usa la chat solo per coordinare il giro."
         quickReplies={['Parto ora', 'Arrivo tra 10 minuti', 'Sono sotto', 'Ho un ritardo']}
         header={request ? <PressableScale onPress={() => router.push({ pathname: '/request/[id]', params: { id: orderId } })} style={[styles.hub, { backgroundColor: c.accentSoft }]}><View style={styles.hubText}><ThemedText type="label">GIRO {STATO_LABEL[request.stato].toUpperCase()}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{request.fascia ?? 'Fascia non indicata'}{eta ? ` · ETA ${eta} min` : ''}</ThemedText></View><BrandIcon name="arrow-right" size={20} color={c.accent} /></PressableScale> : null}
-        onSend={(testo) => sendMessage(orderId, testo)}
+        onSend={handleSend}
       />
     </ThemedView>
   );
