@@ -165,16 +165,22 @@ export default function CreateRequestScreen() {
       return;
     }
     setGeocoding(true);
-    const found = await geocodeAddress(indirizzo, city);
+    const esito = await geocodeAddress(indirizzo, city);
     setGeocoding(false);
-    if (!found) {
+    // "Non esiste" e "non riesco a chiedere" sono due cose diverse: dire la
+    // prima quando è vera la seconda manda l'utente a correggere un indirizzo
+    // che era già giusto.
+    if (!esito.ok) {
       setCoords(null);
       Alert.alert(
-        'Indirizzo non trovato',
-        `Nessun risultato a ${city.label}. Scrivilo in modo più preciso (via e numero) oppure scegli il punto sulla mappa.`,
+        esito.motivo === 'servizio' ? 'Ricerca non disponibile' : 'Indirizzo non trovato',
+        esito.motivo === 'servizio'
+          ? 'Il servizio mappe non risponde in questo momento. Riprova fra poco, oppure scegli subito il punto sulla mappa.'
+          : `Nessun risultato a ${city.label}. Scrivilo in modo più preciso (via e numero) oppure scegli il punto sulla mappa.`,
       );
       return;
     }
+    const found = esito.coords;
     if (!isWithinCity(found, city)) {
       setCoords(null);
       Alert.alert(
@@ -190,9 +196,9 @@ export default function CreateRequestScreen() {
   async function geocodeSilently() {
     if (indirizzo.trim().length === 0 || coords) return;
     setGeocoding(true);
-    const found = await geocodeAddress(indirizzo, city);
+    const esito = await geocodeAddress(indirizzo, city);
     setGeocoding(false);
-    if (found && isWithinCity(found, city)) setCoords(found);
+    if (esito.ok && isWithinCity(esito.coords, city)) setCoords(esito.coords);
   }
 
   async function handleMapConfirm() {
@@ -222,10 +228,10 @@ export default function CreateRequestScreen() {
       // Assicura le coordinate (geocode al volo, vincolato alla città, se mancano).
       let point = coords;
       if (!point) {
-        const found = await geocodeAddress(indirizzo, city);
-        if (found && isWithinCity(found, city)) {
-          point = found;
-          setCoords(found);
+        const esito = await geocodeAddress(indirizzo, city);
+        if (esito.ok && isWithinCity(esito.coords, city)) {
+          point = esito.coords;
+          setCoords(esito.coords);
         }
       }
       // Senza coordinate il giro è inconsegnabile: non compare sulla mappa, non

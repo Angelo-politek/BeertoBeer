@@ -1,10 +1,54 @@
 import type { City } from '@/lib/cities';
 import type { Coords } from '@/lib/location';
 
+/**
+ * Ricerca indirizzi via Nominatim (OpenStreetMap): gratuito, senza chiave e
+ * senza carta di credito. In cambio la loro usage policy chiede due cose che
+ * qui vanno rispettate alla lettera, perché il prezzo del contrario è il blocco
+ * dell'IP — cioè nessuno che riesce più a pubblicare un giro:
+ *
+ *   1. un User-Agent che identifichi l'applicazione E un contatto;
+ *   2. non più di una richiesta al secondo.
+ *
+ * Con quattro amici non succedeva niente; con cinquanta persone che cercano un
+ * indirizzo il sabato sera, succede.
+ */
 const NOMINATIM_HEADERS = {
   Accept: 'application/json',
-  'User-Agent': 'BeerToBeer/1.0 (open-source, no-profit app)',
+  'User-Agent': 'BeerToBeer/1.0 (+https://github.com/Angelo-politek/BeertoBeer)',
 };
+
+/** Distanza minima fra due chiamate. 1.1s per stare larghi sul limite di 1/s. */
+const MIN_INTERVAL_MS = 1100;
+
+let lastCallAt = 0;
+let coda: Promise<unknown> = Promise.resolve();
+
+/**
+ * Accoda le chiamate e le distanzia. Serializzare è voluto: due richieste
+ * partite insieme violerebbero il limite anche rispettando ognuna il proprio
+ * ritardo.
+ */
+function conLimite<T>(fn: () => Promise<T>): Promise<T> {
+  const turno = coda.then(async () => {
+    const attesa = lastCallAt + MIN_INTERVAL_MS - Date.now();
+    if (attesa > 0) await new Promise((resolve) => setTimeout(resolve, attesa));
+    lastCallAt = Date.now();
+  });
+  coda = turno.catch(() => undefined);
+  return turno.then(fn);
+}
+
+/**
+ * Esito della ricerca. Prima "indirizzo inesistente" e "servizio irraggiungibile"
+ * tornavano entrambi `null`: all'utente veniva detto che il suo indirizzo non
+ * esiste anche quando il problema era la rete o un blocco per troppe richieste.
+ * Distinguerli permette di dire la verità.
+ */
+export type GeocodeResult =
+  | { ok: true; coords: Coords }
+  | { ok: false; motivo: 'non-trovato' }
+  | { ok: false; motivo: 'servizio' };
 
 /** Bounding box `left,top,right,bottom` (lng/lat) attorno al centro città. */
 function cityViewbox(city: City): string {
@@ -18,16 +62,13 @@ function cityViewbox(city: City): string {
 }
 
 /**
- * Forward geocoding via Nominatim (OpenStreetMap): indirizzo → coordinate.
- * Se viene passata una città, la ricerca è VINCOLATA alla sua bounding box
- * (viewbox + bounded=1): "Via Roma" trova quella della città selezionata,
- * non un'omonima a 300 km. Nessuna chiave/carta richiesta. Limiti d'uso:
- * ~1 richiesta/secondo e User-Agent identificativo (ok per l'MVP).
- * Ritorna null se l'indirizzo non viene trovato o la rete fallisce.
+ * Indirizzo → coordinate. Se viene passata una città la ricerca è VINCOLATA
+ * alla sua bounding box (viewbox + bounded=1): "Via Roma" trova quella della
+ * città selezionata, non un'omonima a 300 km.
  */
-export async function geocodeAddress(address: string, city?: City): Promise<Coords | null> {
+export async function geocodeAddress(address: string, city?: City): Promise<GeocodeResult> {
   const q = address.trim();
-  if (!q) return null;
+  if (!q) return { ok: false, motivo: 'non-trovato' };
 
   const query = city ? `${q}, ${city.label}` : q;
   let url =
@@ -38,13 +79,14 @@ export async function geocodeAddress(address: string, city?: City): Promise<Coor
   }
 
   try {
-    const res = await fetch(url, { headers: NOMINATIM_HEADERS });
-    if (!res.ok) return null;
+    const res = await conLimite(() => fetch(url, { headers: NOMINATIM_HEADERS }));
+    // 429 = troppe richieste, 403 = bloccati: è un problema nostro, non dell'indirizzo.
+    if (!res.ok) return { ok: false, motivo: 'servizio' };
     const data = (await res.json()) as { lat: string; lon: string }[];
-    if (!Array.isArray(data) || data.length === 0) return null;
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    if (!Array.isArray(data) || data.length === 0) return { ok: false, motivo: 'non-trovato' };
+    return { ok: true, coords: { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } };
   } catch {
-    return null;
+    return { ok: false, motivo: 'servizio' };
   }
 }
 
@@ -61,9 +103,9 @@ type ReverseResult = {
 };
 
 /**
- * Reverse geocoding via Nominatim: coordinate → indirizzo leggibile e breve
- * ("Via Po 12, Torino"). Usato dal picker sulla mappa per precompilare il
- * campo indirizzo. Ritorna null se il punto non è risolvibile o la rete fallisce.
+ * Coordinate → indirizzo leggibile e breve ("Via Po 12, Torino"). Qui `null`
+ * va benissimo: se la via non si ricava, il punto di consegna resta comunque
+ * valido e l'utente completa a mano.
  */
 export async function reverseGeocode(coords: Coords): Promise<string | null> {
   const url =
@@ -71,7 +113,7 @@ export async function reverseGeocode(coords: Coords): Promise<string | null> {
     `?format=json&addressdetails=1&lat=${coords.lat}&lon=${coords.lng}`;
 
   try {
-    const res = await fetch(url, { headers: NOMINATIM_HEADERS });
+    const res = await conLimite(() => fetch(url, { headers: NOMINATIM_HEADERS }));
     if (!res.ok) return null;
     const data = (await res.json()) as ReverseResult;
     const a = data.address;

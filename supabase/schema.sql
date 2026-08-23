@@ -1,9 +1,30 @@
 -- ============================================================
--- Beer to Beer — Schema database (Fase 1, Step 1)
+-- Beer to Beer — Schema database: BASE del progetto
 --
--- Come usarlo: apri il dashboard Supabase del progetto → SQL Editor →
--- incolla TUTTO questo file → Run. È idempotente (si può rieseguire).
+-- Questo file crea il database da zero. NON è l'intero schema attuale: sopra
+-- di lui vanno le migrazioni in supabase/migrations/, in ordine di data, che
+-- aggiungono gamification, eventi, negozi, profilo, sicurezza consegne e
+-- ARRICCHISCONO viste e permessi già definiti qui.
+--
+-- Ordine corretto su un database NUOVO:
+--   1) questo file
+--   2) supabase/migrations/*.sql, dal più vecchio al più recente
+--
+-- ⚠️ Su un database GIÀ MIGRATO questo file NON va rieseguito da solo:
+-- ricreerebbe `public_profiles` senza livello/karma/interessi/città e
+-- riporterebbe i permessi di scrittura alla lista corta, rompendo l'app.
+-- (Diceva di essere idempotente: lo era alla Fase 1, non lo è più.)
+-- Il blocco qui sotto se ne accorge da solo e ferma tutto prima di toccare
+-- qualsiasi cosa. Per rifare un database da zero, esegui prima le migrazioni
+-- su un progetto vuoto: lì il controllo non scatta.
 -- ============================================================
+do $$
+begin
+  if to_regclass('public.profile_stickers') is not null then
+    raise exception using message =
+      'STOP: questo database ha già le migrazioni applicate. Rieseguire schema.sql da solo cancellerebbe colonne di public_profiles e permessi su users, rompendo l''app. Applica solo le migrazioni mancanti da supabase/migrations/.';
+  end if;
+end $$;
 
 -- ---------- USERS ----------
 -- Profilo dell'utente. La chiave primaria è anche FK verso auth.users:
