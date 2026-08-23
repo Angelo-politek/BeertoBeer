@@ -139,6 +139,10 @@ select
   host_confermato,
   driver_confermato,
   created_at,
+  -- updated_at serve all'app: è il campo su cui il server decide se un giro è
+  -- "bloccato" da 24 ore (cancel_stale_order). Senza, il client usava created_at
+  -- e mostrava il pulsante di sblocco quando il server lo avrebbe rifiutato.
+  updated_at,
   citta,
   stato_moderazione
 from public.orders

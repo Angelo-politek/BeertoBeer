@@ -45,7 +45,7 @@ import type {
 const PROFILE_COLUMNS =
   'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati, livello, karma, interessi, cerco_compagnia, citta';
 const ORDER_COLUMNS =
-  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, citta, stato_moderazione';
+  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, updated_at, citta, stato_moderazione';
 const REVIEW_COLUMNS = 'id, order_id, from_user_id, to_user_id, voto, commento, created_at';
 const MESSAGE_COLUMNS = 'id, order_id, sender_id, testo, created_at';
 
@@ -195,6 +195,7 @@ type OrderRow = {
   host_confermato: boolean;
   driver_confermato: boolean;
   created_at: string;
+  updated_at: string | null;
   citta: string | null;
   stato_moderazione: string;
 };
@@ -216,6 +217,7 @@ function mapOrder(row: OrderRow, host: User | undefined): BeerRequest {
     hostConfermato: row.host_confermato,
     driverConfermato: row.driver_confermato,
     createdAt: row.created_at,
+    updatedAt: row.updated_at ?? undefined,
     citta: row.citta,
     statoModerazione: row.stato_moderazione,
   };

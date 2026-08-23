@@ -238,7 +238,11 @@ export default function RequestDetailScreen() {
   const isDriver = request.driverId != null && request.driverId === myId;
   const nextAction = nextOrderAction(request, myId);
   const canSeeAddress = isHost || isDriver;
-  const canCloseStale = canSeeAddress && !['richiesto','confermato','annullato'].includes(request.stato) && Date.now()-new Date(request.createdAt).getTime()>24*3600*1000;
+  // 24h dall'ULTIMO aggiornamento, non dalla creazione: è la regola che applica
+  // cancel_stale_order lato server. Con createdAt il pulsante compariva anche su
+  // giri appena movimentati, e il server lo rifiutava.
+  const ultimoMovimento = request.updatedAt ?? request.createdAt;
+  const canCloseStale = canSeeAddress && !['richiesto','confermato','annullato'].includes(request.stato) && Date.now()-new Date(ultimoMovimento).getTime()>24*3600*1000;
 
   const formatLabel = (key?: string) => FORMATS.find((f) => f.key === key)?.label ?? '';
   const hasCoords = request.lat != null && request.lng != null;

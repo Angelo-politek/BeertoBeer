@@ -154,6 +154,8 @@ export type BeerRequest = {
   hostConfermato: boolean;
   driverConfermato: boolean;
   createdAt: string;
+  /** ultimo cambiamento: il server ci decide se un giro è bloccato da 24h */
+  updatedAt?: string;
   etaMinutes?: number | null;
 };
 
