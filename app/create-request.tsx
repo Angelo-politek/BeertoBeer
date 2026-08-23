@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { Card } from '@/components/card';
 import { LocationPickerMap } from '@/components/location-picker-map';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -107,6 +108,10 @@ export default function CreateRequestScreen() {
   const cleanBirre: BeerItem[] = birre
     .filter((b) => b.nome.trim().length > 0)
     .map((b) => ({ nome: b.nome.trim(), quantita: Math.max(1, Number(b.quantita) || 1), formato: b.formato }));
+
+  // Righe con quantità o formato ma senza nome: vengono scartate in silenzio
+  // sia dalla stima sia dalla pubblicazione. Meglio dirlo prima.
+  const righeIncomplete = birre.length - cleanBirre.length;
 
   const stima = estimateCredits(cleanBirre);
   const bonusMax = maxDistanceBonus(cleanBirre);
@@ -299,9 +304,9 @@ export default function CreateRequestScreen() {
             </View>
           ) : null}
 
-          {/* Birre */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: c.textSecondary }]}>Cosa ti serve?</Text>
+          {/* 1 — COSA */}
+          <Card style={styles.section}>
+            <ThemedText type="label">COSA TI SERVE</ThemedText>
             {birre.map((b, i) => (
               <View key={i} style={styles.beerBlock}>
                 <View style={styles.beerRow}>
@@ -313,7 +318,7 @@ export default function CreateRequestScreen() {
                     style={[
                       styles.input,
                       styles.beerName,
-                      { color: c.text, borderColor: c.border, backgroundColor: c.surface },
+                      { color: c.text, borderColor: c.border, backgroundColor: c.surfaceAlt },
                     ]}
                   />
                   <TextInput
@@ -325,7 +330,7 @@ export default function CreateRequestScreen() {
                     style={[
                       styles.input,
                       styles.beerQty,
-                      { color: c.text, borderColor: c.border, backgroundColor: c.surface },
+                      { color: c.text, borderColor: c.border, backgroundColor: c.surfaceAlt },
                     ]}
                   />
                   {birre.length > 1 ? (
@@ -350,53 +355,61 @@ export default function CreateRequestScreen() {
             <Pressable onPress={addBeer} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
               <View style={styles.addRow}><BrandIcon name="plus" size={17} color={c.accent} /><Text style={[styles.addBeer, { color: c.accent }]}>Aggiungi un&apos;altra birra</Text></View>
             </Pressable>
-          </View>
+            {righeIncomplete > 0 ? (
+              <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+                {righeIncomplete === 1 ? 'Una riga è senza nome e non verrà pubblicata.' : `${righeIncomplete} righe sono senza nome e non verranno pubblicate.`}
+              </ThemedText>
+            ) : null}
+          </Card>
 
-          {/* Indirizzo + geocoding (vincolato alla città selezionata nel feed) */}
-          <TextField
-            label={`Indirizzo di consegna a ${city.label}`}
-            value={indirizzo}
-            onChangeText={(t) => {
-              setIndirizzo(t);
-              setCoords(null); // l'indirizzo è cambiato: va ri-cercato
-            }}
-            onBlur={geocodeSilently}
-            placeholder="Via e numero civico"
-          />
-          <Button
-            label={locating ? 'Rilevamento…' : '📍 Usa la mia posizione'}
-            variant="secondary"
-            onPress={handleUseMyPosition}
-            loading={locating}
-          />
-          <View style={styles.addressButtons}>
-            <Button
-              label={coords ? 'Posizione trovata' : 'Trova indirizzo'}
-              variant="secondary"
-              onPress={handleFindAddress}
-              loading={geocoding}
-              style={styles.addressButton}
-            />
-            <Button
-              label="Scegli sulla mappa"
-              variant="secondary"
-              onPress={() => {
-                setMapPick(coords);
-                setMapOpen(true);
+          {/* 2 — DOVE (ricerca vincolata alla città selezionata nel feed) */}
+          <Card style={styles.section}>
+            <ThemedText type="label">DOVE CONSEGNARE</ThemedText>
+            <TextField
+              label={`Indirizzo di consegna a ${city.label}`}
+              value={indirizzo}
+              onChangeText={(t) => {
+                setIndirizzo(t);
+                setCoords(null); // l'indirizzo è cambiato: va ri-cercato
               }}
-              style={styles.addressButton}
+              onBlur={geocodeSilently}
+              placeholder="Via e numero civico"
             />
-          </View>
+            <Button
+              label={locating ? 'Rilevamento…' : '📍 Usa la mia posizione'}
+              variant="secondary"
+              onPress={handleUseMyPosition}
+              loading={locating}
+            />
+            <View style={styles.addressButtons}>
+              <Button
+                label={coords ? 'Posizione trovata' : 'Trova indirizzo'}
+                variant="secondary"
+                onPress={handleFindAddress}
+                loading={geocoding}
+                style={styles.addressButton}
+              />
+              <Button
+                label="Scegli sulla mappa"
+                variant="secondary"
+                onPress={() => {
+                  setMapPick(coords);
+                  setMapOpen(true);
+                }}
+                style={styles.addressButton}
+              />
+            </View>
+          </Card>
 
-          {/* Fascia oraria */}
-          <View style={styles.field}>
-            <Text style={[styles.label, { color: c.textSecondary }]}>Quando</Text>
+          {/* 3 — QUANDO */}
+          <Card style={styles.section}>
+            <ThemedText type="label">QUANDO</ThemedText>
             <View style={styles.chips}>
               {FASCE.map((f) => (
                 <Chip key={f} label={f} active={f === fascia} onPress={() => setFascia(f)} />
               ))}
             </View>
-          </View>
+          </Card>
 
           {/* Vibe mode */}
           <View style={[styles.vibeRow, { backgroundColor: c.surfaceAlt }]}>
@@ -473,6 +486,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { padding: Spacing.md, gap: Spacing.md },
   field: { gap: Spacing.xs },
+  section: { gap: Spacing.sm },
   label: { fontFamily: Fonts.sansSemiBold, fontSize: 14 },
   input: {
     fontFamily: Fonts.sans,
