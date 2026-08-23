@@ -1,5 +1,5 @@
-import { Link, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { checkInviteCode } from '@/data/api';
 import { computeAge, parseBirthdate, toISODate } from '@/lib/age';
 import { supabase } from '@/lib/supabase';
 
@@ -20,8 +21,27 @@ export default function RegisterScreen() {
   const [birthdate, setBirthdate] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  // In Beer to Beer si entra solo su invito. Il codice può arrivare da un link
+  // (beertobeer://register?invito=...) e in quel caso il campo è già compilato.
+  const { invito: invitoDalLink } = useLocalSearchParams<{ invito?: string }>();
+  const [invito, setInvito] = useState('');
+  const [invitoOk, setInvitoOk] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (invitoDalLink) setInvito(invitoDalLink.toUpperCase());
+  }, [invitoDalLink]);
+
+  /** Verifica il codice appena l'utente finisce di scriverlo, non alla fine. */
+  async function verificaInvito() {
+    const code = invito.trim();
+    if (code.length < 6) {
+      setInvitoOk(null);
+      return;
+    }
+    setInvitoOk(await checkInviteCode(code));
+  }
 
   async function handleRegister() {
     setError(null);
@@ -49,6 +69,10 @@ export default function RegisterScreen() {
       setError('La password deve avere almeno 6 caratteri.');
       return;
     }
+    if (!invito.trim()) {
+      setError('Serve un codice di invito: in Beer to Beer si entra solo se qualcuno ti porta.');
+      return;
+    }
 
     setLoading(true);
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -59,6 +83,9 @@ export default function RegisterScreen() {
         data: {
           nome: nome.trim(),
           data_nascita: toISODate(birth),
+          // Il cancello vero è lato server (handle_new_user): se l'invito non
+          // è valido la registrazione viene annullata per intero.
+          invito: invito.trim().toUpperCase(),
         },
       },
     });
@@ -131,6 +158,29 @@ export default function RegisterScreen() {
                 secureTextEntry
                 autoCapitalize="none"
               />
+
+              <TextField
+                label="Codice di invito"
+                value={invito}
+                onChangeText={(t) => {
+                  setInvito(t.toUpperCase());
+                  setInvitoOk(null);
+                }}
+                onBlur={verificaInvito}
+                placeholder="Es. ABCD-2345"
+                autoCapitalize="characters"
+              />
+              <ThemedText
+                style={{
+                  color: invitoOk === false ? c.danger : invitoOk ? c.positive : c.textSecondary,
+                  fontSize: 13,
+                }}>
+                {invitoOk === false
+                  ? 'Questo codice non esiste o è già stato usato.'
+                  : invitoOk
+                    ? 'Invito valido: qualcuno ha speso il suo unico posto per te.'
+                    : 'In Beer to Beer si entra solo su invito. Fattelo dare da chi ti ha parlato dell’app.'}
+              </ThemedText>
 
               {error ? (
                 <View style={[styles.errorBanner, { backgroundColor: c.dangerSoft }]}>

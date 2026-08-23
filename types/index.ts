@@ -204,6 +204,15 @@ export type UrbanMission = {
 export type CityGoal = { city: string; target: number; progress: number; weekStart: string };
 export type ReciprocitySummary = { given: number; received: number };
 
+/** Un invito: in Beer to Beer si entra solo così. */
+export type Invite = {
+  code: string;
+  usato: boolean;
+  /** nome di chi l'ha usato, se è stato speso */
+  invitato?: string;
+  usedAt?: string;
+};
+
 export type DiscoveryTime = 'all' | 'now' | 'tonight';
 export type DiscoverySort = 'smart' | 'distance' | 'recent';
 export type DiscoveryFilters = {

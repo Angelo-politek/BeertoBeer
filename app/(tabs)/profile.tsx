@@ -92,6 +92,7 @@ export default function ProfileScreen() {
             <ProfileAction icon="scooter" label="I miei giri" onPress={() => router.push('/my-orders')} />
             <ProfileAction icon="wallet" label="BeerCoin" onPress={() => router.push('/beercoin' as never)} />
             <ProfileAction icon="profile" label="Impostazioni" onPress={() => router.push('/settings' as never)} />
+            <ProfileAction icon="heart" label="Il tuo invito" onPress={() => router.push('/invite' as never)} />
           </View>
 
           <Card style={[styles.balance, { backgroundColor: c.accent }]}>

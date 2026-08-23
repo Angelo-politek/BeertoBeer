@@ -32,6 +32,7 @@ import type {
     ProductFeedback,
     ReciprocitySummary,
     UrbanMission,
+    Invite,
     ReportReason,
     Review,
     User,
@@ -1160,7 +1161,32 @@ export async function getUserBadges(userId: string): Promise<UserBadge[]> {
 
 // ---------- Referral ----------
 
-/** Applica un referral: dichiara chi mi ha invitato (premia entrambi una volta). */
+/**
+ * I miei inviti. In Beer to Beer si entra solo su invito e ognuno ne ha uno
+ * solo: la lista è corta di proposito.
+ */
+export async function getMyInvites(): Promise<Invite[]> {
+  const { data, error } = await supabase.rpc('my_invites');
+  if (error) throw error;
+  return ((data ?? []) as { code: string; usato: boolean; invitato: string | null; used_at: string | null }[]).map((r) => ({
+    code: r.code,
+    usato: r.usato,
+    invitato: r.invitato ?? undefined,
+    usedAt: r.used_at ?? undefined,
+  }));
+}
+
+/**
+ * Il codice esiste ed è ancora libero? Serve alla registrazione per dirlo
+ * subito, invece di far compilare tutto e fallire alla fine.
+ */
+export async function checkInviteCode(code: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('invite_is_valid', { p_code: code.trim() });
+  if (error) return false;
+  return Boolean(data);
+}
+
+/** @deprecated Gli inviti si registrano all'ingresso: questa non fa più nulla. */
 export async function applyReferral(inviterId: string): Promise<void> {
   const { error } = await supabase.rpc('apply_referral', { p_inviter: inviterId });
   if (error) throw error;
