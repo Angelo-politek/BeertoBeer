@@ -50,12 +50,21 @@ export default function MyOrdersScreen() {
     }, [load]),
   );
 
+  /**
+   * Un giro chiuso è chiuso e basta: prima "annullato" e "scaduto" finivano sia
+   * fra i conclusi sia fra quelli in attesa, perché la sezione "in attesa"
+   * escludeva solo lo stato 'confermato'. Un unico criterio evita il doppione.
+   */
+  const isClosed = (order: BeerRequest) =>
+    ['confermato', 'annullato'].includes(order.stato) || isExpired(order);
+
   const visibleOrders = orders.filter((order) => {
     const action = nextOrderAction(order, myId);
-    if (section === 'done') return ['confermato', 'annullato'].includes(order.stato) || isExpired(order);
+    if (section === 'done') return isClosed(order);
+    if (isClosed(order)) return false;
     if (section === 'todo') return ['accept', 'start', 'arrive', 'verify', 'confirm'].includes(action.key);
     if (section === 'progress') return ['accettato', 'in_consegna', 'arrivato'].includes(order.stato);
-    return order.stato !== 'confermato' && ['wait', 'open'].includes(action.key);
+    return ['wait', 'open'].includes(action.key);
   }).sort((a, b) => nextOrderAction(b, myId).priority - nextOrderAction(a, myId).priority);
 
   return (
