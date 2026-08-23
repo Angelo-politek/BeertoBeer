@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Share, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -77,7 +77,9 @@ export default function InviteScreen() {
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Il tuo invito' }} />
-      <View style={styles.content}>
+      {/* ScrollView e non View: con i caratteri di sistema ingranditi il
+          contenuto non ci sta in altezza e senza scorrimento resta tagliato. */}
+      <ScrollView contentContainerStyle={styles.content}>
         {error ? (
           <EmptyState icon="x-mark" title="Inviti non disponibili" message="Controlla la connessione e riprova." />
         ) : (
@@ -132,7 +134,7 @@ export default function InviteScreen() {
             ) : null}
           </>
         )}
-      </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -140,7 +142,7 @@ export default function InviteScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: Spacing.md, gap: Spacing.md },
+  content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
   intro: { marginTop: Spacing.xs, lineHeight: 22 },
   nota: { gap: Spacing.xs },
   codeCard: { gap: Spacing.sm, alignItems: 'center' },

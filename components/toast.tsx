@@ -33,7 +33,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback((message: string, type: ToastType = 'success') => {
     if (timer.current) clearTimeout(timer.current);
     setToast({ id: Date.now(), message, type });
-    timer.current = setTimeout(() => setToast(null), 2600);
+    // Gli errori restano più a lungo: spesso spiegano cosa fare e in 2,6
+    // secondi non si fa in tempo a leggerli — capitava di vedere un avviso
+    // rosso e non sapere cosa dicesse.
+    timer.current = setTimeout(() => setToast(null), type === 'error' ? 7000 : 2600);
   }, []);
 
   const value = useMemo(() => ({ show }), [show]);

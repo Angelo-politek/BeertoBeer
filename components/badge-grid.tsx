@@ -35,8 +35,17 @@ export function BadgeGrid({ unlocked, showLocked = true }: Props) {
   }
 
   return (
-    <View style={styles.grid}>
-      {visible.map((b, i) => {
+    <>
+      {/* I badge NON si scelgono: si sbloccano da soli con quello che fai.
+          Senza dirlo, la griglia sembra un elenco da spuntare e si finisce a
+          toccarli aspettandosi che succeda qualcosa. Gli sticker della vetrina
+          sono un'altra cosa, e quelli sì che si scelgono. */}
+      <ThemedText type="caption">
+        Si sbloccano da soli con quello che fai: non si scelgono. Per decidere cosa mostrare sul
+        profilo usa “Personalizza la vetrina”.
+      </ThemedText>
+      <View style={styles.grid}>
+        {visible.map((b, i) => {
         const has = unlockedKeys.has(b.key);
         return (
           <Animated.View
@@ -63,9 +72,10 @@ export function BadgeGrid({ unlocked, showLocked = true }: Props) {
               <ThemedText style={[styles.reward, { color: c.textSecondary }]}>—</ThemedText>
             )}
           </Animated.View>
-        );
-      })}
-    </View>
+          );
+        })}
+      </View>
+    </>
   );
 }
 

@@ -23,11 +23,23 @@ export type ThemedTextProps = TextProps & {
  * maiuscolo, molto grande), il resto in Inter. `label` per le etichette
  * di sezione, `link` per i rimandi in giallo.
  */
+/**
+ * Limite all'ingrandimento del testo di sistema.
+ *
+ * Chi imposta caratteri molto grandi sul telefono vedeva i testi sfondare i
+ * bordi delle card e sparire fuori schermo: l'app rispettava il moltiplicatore
+ * senza alcun tetto, e a 2x nessun riquadro reggeva. 1.3 è un compromesso
+ * onesto: il testo diventa comunque più grande e leggibile, ma i riquadri
+ * restano interi. Si può alzare per singolo testo passando la prop.
+ */
+const MAX_INGRANDIMENTO = 1.3;
+
 export function ThemedText({
   style,
   lightColor,
   darkColor,
   type = 'default',
+  maxFontSizeMultiplier = MAX_INGRANDIMENTO,
   ...rest
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
@@ -35,6 +47,7 @@ export function ThemedText({
 
   return (
     <Text
+      maxFontSizeMultiplier={maxFontSizeMultiplier}
       style={[
         { color },
         type === 'default' ? styles.default : undefined,

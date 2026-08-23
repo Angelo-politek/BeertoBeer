@@ -1,5 +1,5 @@
 import { Stack, useRouter } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -15,7 +15,7 @@ export default function SettingsScreen() {
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Impostazioni' }} />
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Card>
           <ThemedText type="subtitle">Profilo e privacy</ThemedText>
           <ThemedText style={{ color: c.textSecondary }}>Gestisci foto, bio, preferenze e disponibilità sociale.</ThemedText>
@@ -37,9 +37,9 @@ export default function SettingsScreen() {
           <Button label="Leggi le regole" variant="secondary" onPress={() => router.push('/terms' as never)} />
         </Card>
         <Button label="Esci" variant="danger" onPress={() => supabase.auth.signOut()} />
-      </View>
+      </ScrollView>
     </ThemedView>
   );
 }
 
-const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: Spacing.md, gap: Spacing.md } });
+const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl } });

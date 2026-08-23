@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, ScrollView, StyleSheet } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
@@ -91,7 +91,7 @@ export default function NotificationSettingsScreen() {
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Notifiche' }} />
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         <Card style={styles.card}>
           <ThemedText type="label">STATO</ThemedText>
           <ThemedText type="subtitle" style={{ color: colore }}>
@@ -131,13 +131,13 @@ export default function NotificationSettingsScreen() {
             muovendo.
           </ThemedText>
         </Card>
-      </View>
+      </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: Spacing.md, gap: Spacing.md },
+  content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },
   card: { gap: Spacing.sm },
 });
