@@ -1,0 +1,64 @@
+-- BeerToBeer — «quali migrazioni ho gia' applicato?»
+--
+-- Incolla tutto nel SQL Editor di Supabase e premi Run. NON MODIFICA NIENTE:
+-- legge soltanto. Ogni riga dice APPLICATA o DA APPLICARE.
+--
+-- Serviva perche' le migrazioni si lanciano a mano una alla volta e dopo
+-- qualche giorno non e' piu' ovvio a che punto si era arrivati. Tirare a
+-- indovinare qui significa o rilanciare cose gia' fatte, o credere attiva una
+-- correzione che non c'e'.
+
+with controlli as (
+
+  select 1 as ordine,
+         '20260824_inviti' as migrazione,
+         'Si entra solo su invito' as a_cosa_serve,
+         exists (select 1 from information_schema.tables
+                 where table_schema = 'public' and table_name = 'invites') as applicata
+
+  union all
+  select 2, '20260825_notifiche',
+         'Pulsante "mandami una notifica di prova"',
+         exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname = 'public' and p.proname = 'send_test_push')
+
+  union all
+  select 3, '20260826_fix_feed',
+         'Feed e mappa (colonna updated_at nella vista)',
+         exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'open_requests'
+                   and column_name = 'updated_at')
+
+  union all
+  select 4, '20260827_economia_e_diagnostica',
+         'BeerCoin piu'' rari + registro delle notifiche',
+         exists (select 1 from information_schema.tables
+                 where table_schema = 'public' and table_name = 'push_log')
+
+  union all
+  select 5, '20260828_log_destinatari',
+         'Il registro dice A CHI e'' andata la notifica',
+         exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'push_log'
+                   and column_name = 'destinatari_nomi')
+
+  union all
+  -- Questa non si vede da una tabella: e' scritta dentro la regola di
+  -- scrittura della chat. Senza 'arrivato' la chat si blocca proprio quando
+  -- chi porta e' sotto casa e vorrebbe chiedere il citofono.
+  select 6, '20260829_chat_arrivato',
+         'La chat funziona anche quando chi porta e'' arrivato',
+         exists (select 1 from pg_policies
+                 where schemaname = 'public'
+                   and tablename = 'messages'
+                   and policyname = 'messages_insert_participants'
+                   and cmd = 'INSERT'
+                   and with_check like '%arrivato%')
+)
+
+select ordine as n,
+       migrazione,
+       case when applicata then 'APPLICATA' else '>>> DA APPLICARE <<<' end as stato,
+       a_cosa_serve
+from controlli
+order by ordine;
