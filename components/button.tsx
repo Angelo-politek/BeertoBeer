@@ -38,7 +38,10 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', style
     <PressableScale
       onPress={onPress}
       disabled={isDisabled}
-      pressedScale={0.96}
+      pressedScale={0.97}
+      // Un bottone è un'azione, non una navigazione: qui la vibrazione
+      // significa ancora qualcosa. Sulle righe e sulle card è spenta.
+      haptic
       style={[
         styles.button,
         size === 'md' ? styles.md : styles.lg,

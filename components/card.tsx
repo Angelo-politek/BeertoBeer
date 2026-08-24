@@ -1,7 +1,8 @@
 import { View, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 
 import { PressableScale } from '@/components/ui/pressable-scale';
+import { entraInLista } from '@/constants/motion';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors, useShadows } from '@/hooks/use-colors';
 
@@ -40,8 +41,14 @@ export function Card({ children, style, onPress, onLongPress, index, raised, unp
     style,
   ];
 
-  const entering =
-    index != null ? FadeInDown.delay(Math.min(index, 8) * 55).springify().damping(20).stiffness(180) : undefined;
+  /**
+   * Ingresso: una risalita breve, senza molla, presa da constants/motion.
+   *
+   * Prima era costruito qui: `.delay(min(index,8) * 55).springify().damping(20)`
+   * — fino a 440 ms di cascata e un rimbalzo che superava il punto d'arrivo.
+   * È la segnalazione «molleggiante e a rallentatore» del collaudo.
+   */
+  const entering = index != null ? entraInLista(index) : undefined;
 
   if (onPress || onLongPress) {
     return (

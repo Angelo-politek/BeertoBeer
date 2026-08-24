@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Modal, Pressable, StyleSheet } from 'react-native';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { apreFinestra, velo } from '@/constants/motion';
 
 import { ThemedText } from '@/components/themed-text';
 import { PressableScale } from '@/components/ui/pressable-scale';
@@ -38,9 +40,9 @@ export function CityPicker({ selectedKey, onSelect }: Props) {
       </PressableScale>
 
       <Modal visible={open} transparent animationType="none" onRequestClose={() => setOpen(false)}>
-        <Animated.View entering={FadeIn.duration(150)} style={[styles.backdrop, { backgroundColor: c.overlay }]}>
+        <Animated.View entering={velo} style={[styles.backdrop, { backgroundColor: c.overlay }]}>
           <Pressable style={styles.backdropPress} onPress={() => setOpen(false)}>
-            <Animated.View entering={ZoomIn.springify().damping(18).stiffness(240)}>
+            <Animated.View entering={apreFinestra}>
               <Pressable style={[styles.sheet, { backgroundColor: c.surface }, sh.raised]}>
                 <ThemedText type="subtitle" style={styles.title}>
                   Scegli la città

@@ -8,9 +8,14 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type Props = Omit<PressableProps, 'style'> & {
   style?: StyleProp<ViewStyle>;
-  /** quanto si "schiaccia" al tocco (default 0.97) */
+  /** quanto si "schiaccia" al tocco (default 0.98) */
   pressedScale?: number;
-  /** vibrazione leggera al tocco (default true) */
+  /**
+   * Vibrazione al tocco. Ora è SPENTA di default: quando ogni riga toccabile
+   * vibra, la vibrazione smette di significare «hai fatto qualcosa» e diventa
+   * rumore. Va accesa sulle azioni vere — pubblicare, accettare, confermare —
+   * non sulla navigazione.
+   */
   haptic?: boolean;
 };
 
@@ -21,8 +26,8 @@ type Props = Omit<PressableProps, 'style'> & {
  */
 export function PressableScale({
   style,
-  pressedScale = 0.97,
-  haptic = true,
+  pressedScale = 0.98,
+  haptic = false,
   onPressIn,
   onPress,
   disabled,

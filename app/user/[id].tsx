@@ -118,8 +118,6 @@ export default function UserProfileScreen() {
         <View style={styles.center}>
           <ActivityIndicator color={c.accent} size="large" />
         </View>
-
-        {customization ? <ProfileShowcase value={customization} /> : null}
       </ThemedView>
     );
   }
@@ -172,6 +170,11 @@ export default function UserProfileScreen() {
             <ThemedText type="caption">Karma</ThemedText>
           </View>
         </Card>
+
+        {/* La vetrina era renderizzata dentro il ramo `if (loading)`: compariva
+            solo mentre la schermata caricava, quando è ancora vuota. Nessuno
+            l'ha mai vista. Va qui, dove il profilo si guarda davvero. */}
+        {customization ? <ProfileShowcase value={customization} /> : null}
 
         {user.bio ? (
           <Card style={styles.section}>

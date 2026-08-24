@@ -13,6 +13,8 @@ import { Spacing } from '@/constants/theme';
 import { getEventById, joinEvent, leaveEvent } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
+import { messaggioServer } from '@/lib/errori';
+import { incontroInCorso } from '@/lib/events';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
 import type { BeerEvent } from '@/types';
 
@@ -67,8 +69,12 @@ export default function EventDetailScreen() {
         toast.show(result === 'waitlisted' ? 'Incontro pieno: sei in lista d’attesa.' : 'Partecipazione confermata.');
       }
       await load();
-    } catch {
-      Alert.alert('Errore', 'Operazione non riuscita. Riprova.');
+    } catch (e) {
+      // Il database spiega perché ha rifiutato («Questo incontro è finito»):
+      // sostituirlo con «operazione non riuscita» ha fatto arrivare al
+      // collaudo un difetto che nessuno poteva capire.
+      Alert.alert('Non è andata', messaggioServer(e, 'Operazione non riuscita. Riprova.'));
+      await load();
     } finally {
       setActing(false);
     }
@@ -102,6 +108,7 @@ export default function EventDetailScreen() {
       ? haversineKm(mieCoords, { lat: event.lat, lng: event.lng })
       : null;
   const pieno = (event.partecipanti ?? 0) >= event.posti;
+  const inCorso = incontroInCorso(event.quando);
 
   return (
     <ThemedView style={styles.container}>
@@ -110,7 +117,16 @@ export default function EventDetailScreen() {
         <ThemedText type="title">{event.titolo}</ThemedText>
 
         <Card style={styles.card} index={0}>
-          <Row label="Quando" value={formatDateTime(event.quando)} />
+          {/* Un incontro già cominciato resta raggiungibile per sei ore. Senza
+              dirlo sembra un annuncio vecchio rimasto lì per sbaglio. */}
+          <Row
+            label="Quando"
+            value={
+              inCorso
+                ? `${formatDateTime(event.quando)} · è già cominciato`
+                : formatDateTime(event.quando)
+            }
+          />
           {event.luogo ? <Row label="Dove" value={event.luogo} /> : null}
           {distanzaKm != null ? <Row label="Distanza" value={`${distanzaKm.toFixed(1)} km da te`} /> : null}
           <Row label="Posti" value={`${event.partecipanti ?? 0} / ${event.posti}`} />

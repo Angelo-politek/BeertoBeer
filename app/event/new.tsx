@@ -21,6 +21,18 @@ const DAYS = [
   { label: 'Dopodomani', offset: 2 },
 ];
 
+/**
+ * Un orario di partenza sensato: la prossima mezz'ora piena, almeno un'ora da
+ * adesso. Prima era fisso alle 21:00, quindi chi organizzava dopo cena creava
+ * un incontro già nel passato senza accorgersene — è così che il collaudo del
+ * 24/08 alle 23:22 ha prodotto un incontro a cui non ci si poteva unire.
+ */
+function prossimoOrarioSensato(adesso = new Date()): string {
+  const d = new Date(adesso.getTime() + 60 * 60 * 1000);
+  d.setMinutes(d.getMinutes() > 30 ? 60 : 30, 0, 0);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 /** Organizza un "giro di birra" di gruppo aperto alla città. */
 export default function NewEventScreen() {
   const c = useColors();
@@ -35,7 +47,7 @@ export default function NewEventScreen() {
   // l'incontro non compare sulla mappa e chi legge non sa dove sia.
   const [posizione, setPosizione] = useState<LocationValue>({ indirizzo: '', coords: null });
   const [dayOffset, setDayOffset] = useState(0);
-  const [ora, setOra] = useState('21:00');
+  const [ora, setOra] = useState(prossimoOrarioSensato);
   const [posti, setPosti] = useState('6');
   const [saving, setSaving] = useState(false);
 
@@ -60,6 +72,15 @@ export default function NewEventScreen() {
     const quando = buildQuando();
     if (!quando) {
       Alert.alert('Ora non valida', "Usa il formato 24h, es. 21:00.");
+      return;
+    }
+    // Un incontro nel passato si pubblica, poi non ci si può unire e sembra
+    // rotta l'app invece che sbagliato l'orario. Meglio dirlo subito.
+    if (new Date(quando).getTime() <= Date.now()) {
+      Alert.alert(
+        'Orario già passato',
+        'Questo momento è già trascorso. Scegli un altro giorno o sposta l’ora più avanti.',
+      );
       return;
     }
     const manca = mancanzaPosizione(posizione, "l'indirizzo del ritrovo");

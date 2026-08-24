@@ -97,16 +97,66 @@ export function shadows(_scheme: 'light' | 'dark') {
 }
 
 /**
- * Molle standard per le micro-interazioni (reanimated). Un solo linguaggio di
- * movimento in tutta l'app: reattivo sul press, morbido sugli ingressi.
+ * IL MOVIMENTO DELL'APP.
+ *
+ * COSA NON ANDAVA (segnalazione del collaudo: «le animazioni fanno davvero
+ * schifo, alcune sembrano a rallentatore»). Non era una questione di gusto,
+ * era misurabile: ogni card entrava con una cascata di 55 ms per posizione
+ * fino a otto posizioni — 440 ms prima che comparisse l'ultima — e con una
+ * molla che superava il punto d'arrivo e ci tornava sopra. In una lista, con
+ * l'animazione che ripartiva a ogni ritorno sulla schermata, l'effetto era
+ * un'app che ondeggia e arranca.
+ *
+ * LE REGOLE ORA
+ * 1. Il movimento serve a spiegare da dove arriva una cosa, non a far vedere
+ *    che c'è un'animazione.
+ * 2. Niente rimbalzi sugli ingressi: una molla che sfora comunica «elastico»,
+ *    e a leggere un elenco non serve.
+ * 3. Sotto i 200 ms si percepisce come istantaneo. È lì che deve stare quasi
+ *    tutto.
+ * 4. Le cascate costano attesa: al massimo tre elementi, e solo la prima volta.
+ */
+
+/** Durate in millisecondi. Sopra i 260 ms si comincia ad aspettare. */
+export const Durations = {
+  /** cambi di stato immediati: colore, opacità, comparsa di un'etichetta */
+  instant: 120,
+  /** il caso normale: ingressi, uscite, transizioni interne */
+  base: 180,
+  /** solo per superfici grandi che entrano da fuori (fogli, modali) */
+  large: 260,
+} as const;
+
+/**
+ * Cascata delle liste: prima erano 8 elementi × 55 ms = 440 ms di attesa.
+ * Tre elementi bastano a far leggere il movimento come «arrivano», e finisce
+ * in 75 ms.
+ */
+export const Stagger = {
+  step: 25,
+  maxItems: 3,
+} as const;
+
+/**
+ * Molle per le micro-interazioni (reanimated).
+ *
+ * `press` è l'unica che si usa spesso: è l'unico posto dove una molla ha senso,
+ * perché il dito è ancora sullo schermo e il rimbalzo è la risposta fisica al
+ * tocco. Gli ingressi NON usano molle.
  */
 export const Springs = {
-  /** feedback immediato al tocco */
-  press: { damping: 18, stiffness: 320, mass: 0.7 },
-  /** ingressi di card e sezioni */
-  gentle: { damping: 20, stiffness: 180, mass: 0.9 },
-  /** elementi che "rimbalzano" con personalità (badge, indicatori) */
-  bouncy: { damping: 12, stiffness: 200, mass: 0.8 },
+  /**
+   * Feedback al tocco: quasi criticamente smorzata. Va e torna, non oscilla.
+   * (damping 30 contro un valore critico di ~31,7: nessun sorpasso visibile.)
+   */
+  press: { damping: 30, stiffness: 420, mass: 0.6 },
+  /** trascinamenti e riposizionamenti: morbida, ma senza tornare indietro */
+  gentle: { damping: 30, stiffness: 260, mass: 0.9 },
+  /**
+   * Rimbalzo vero, per il singolo elemento che deve attirare l'occhio (un
+   * contatore che cambia, una conferma). Mai su liste, mai su ingressi.
+   */
+  bouncy: { damping: 14, stiffness: 300, mass: 0.8 },
 } as const;
 
 /**

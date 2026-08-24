@@ -2,7 +2,9 @@ import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { entraInLista, entraMarchio } from '@/constants/motion';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -50,21 +52,21 @@ export default function LoginScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-              <Animated.View entering={ZoomIn.springify().damping(14).stiffness(200)}>
+              <Animated.View entering={entraMarchio}>
                 <Image
                   source={require('../../assets/brand/wordmark.png')}
                   style={styles.wordmark}
                   contentFit="contain"
                 />
               </Animated.View>
-              <Animated.View entering={FadeInDown.delay(100).springify().damping(20).stiffness(180)} style={styles.headerText}>
+              <Animated.View entering={entraInLista(1)} style={styles.headerText}>
                 <ThemedText style={[styles.centered, { color: c.textSecondary }]}>
                   Ti manca una birra? Accedi.
                 </ThemedText>
               </Animated.View>
             </View>
 
-            <Animated.View entering={FadeInDown.delay(180).springify().damping(20).stiffness(180)} style={styles.form}>
+            <Animated.View entering={entraInLista(2)} style={styles.form}>
               <TextField
                 label="Email"
                 value={email}

@@ -1,5 +1,7 @@
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { entraDallAlto } from '@/constants/motion';
 
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
@@ -27,7 +29,7 @@ export function EmptyState({ title, message, icon, actionLabel, onAction }: Prop
   const name = icon ?? 'bottle';
 
   return (
-    <Animated.View entering={FadeInUp.springify().damping(20).stiffness(160)} style={styles.wrap}>
+    <Animated.View entering={entraDallAlto} style={styles.wrap}>
       <View style={[styles.sticker, { backgroundColor: c.surfaceAlt, borderColor: c.border }]}>
         <BrandIcon name={name} size={44} color={c.accent} />
       </View>

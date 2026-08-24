@@ -1,5 +1,7 @@
 import { Modal, StyleSheet, View } from 'react-native';
-import Animated, { FadeIn, ZoomIn } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { apreFinestra, velo } from '@/constants/motion';
 
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
@@ -47,9 +49,9 @@ export function ReportModal({
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-      <Animated.View entering={FadeIn.duration(150)} style={[styles.backdrop, { backgroundColor: c.overlay }]}>
+      <Animated.View entering={velo} style={[styles.backdrop, { backgroundColor: c.overlay }]}>
         <Animated.View
-          entering={ZoomIn.springify().damping(18).stiffness(240)}
+          entering={apreFinestra}
           style={[styles.sheet, { backgroundColor: c.background }, sh.raised]}>
           <ThemedText type="subtitle">{title}</ThemedText>
           <View style={styles.reasons}>

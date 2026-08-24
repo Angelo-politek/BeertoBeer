@@ -1,5 +1,7 @@
 import { StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { entraInLista } from '@/constants/motion';
 
 import { ThemedText } from '@/components/themed-text';
 import { BrandIcon } from '@/components/ui/brand-icon';
@@ -50,7 +52,7 @@ export function BadgeGrid({ unlocked, showLocked = true }: Props) {
         return (
           <Animated.View
             key={b.key}
-            entering={FadeInDown.delay(Math.min(i, 10) * 40).springify().damping(20).stiffness(180)}
+            entering={entraInLista(i)}
             style={[
               styles.cell,
               has

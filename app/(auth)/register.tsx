@@ -2,7 +2,9 @@ import * as Linking from 'expo-linking';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { entra, entraInLista } from '@/constants/motion';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -124,7 +126,7 @@ export default function RegisterScreen() {
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-            <Animated.View entering={FadeInDown.springify().damping(20).stiffness(180)} style={styles.header}>
+            <Animated.View entering={entra} style={styles.header}>
               <ThemedText type="label">BASTANO 30 SECONDI</ThemedText>
               <ThemedText type="title">Crea il tuo account</ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>
@@ -132,7 +134,7 @@ export default function RegisterScreen() {
               </ThemedText>
             </Animated.View>
 
-            <Animated.View entering={FadeInDown.delay(100).springify().damping(20).stiffness(180)} style={styles.form}>
+            <Animated.View entering={entraInLista(1)} style={styles.form}>
               <TextField
                 label="Nome"
                 value={nome}

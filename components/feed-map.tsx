@@ -1,7 +1,9 @@
 import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
 import { useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { appare, sparisce } from '@/constants/motion';
 
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
@@ -167,8 +169,8 @@ export function FeedMap({ city, requests, shops, events = [], userCoords, onOpen
       {/* Anteprima richiesta */}
       {selection?.kind === 'request' ? (
         <Animated.View
-          entering={FadeIn.duration(160)}
-          exiting={FadeOut.duration(120)}
+          entering={appare}
+          exiting={sparisce}
           style={[styles.preview, { backgroundColor: c.surface }, sh.raised]}>
           <View style={styles.previewHeader}>
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>
@@ -195,8 +197,8 @@ export function FeedMap({ city, requests, shops, events = [], userCoords, onOpen
           l'anteprima, il secondo apre la scheda. */}
       {selection?.kind === 'event' ? (
         <Animated.View
-          entering={FadeIn.duration(160)}
-          exiting={FadeOut.duration(120)}
+          entering={appare}
+          exiting={sparisce}
           style={[styles.preview, { backgroundColor: c.surface }, sh.raised]}>
           <View style={styles.previewHeader}>
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>
@@ -224,8 +226,8 @@ export function FeedMap({ city, requests, shops, events = [], userCoords, onOpen
       {/* Anteprima negozio */}
       {selection?.kind === 'shop' ? (
         <Animated.View
-          entering={FadeIn.duration(160)}
-          exiting={FadeOut.duration(120)}
+          entering={appare}
+          exiting={sparisce}
           style={[styles.preview, { backgroundColor: c.surface }, sh.raised]}>
           <View style={styles.previewHeader}>
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>

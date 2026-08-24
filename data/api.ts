@@ -11,6 +11,7 @@
  * Le transizioni di stato passano da funzioni RPC SECURITY DEFINER lato DB.
  */
 
+import { sogliaIncontriVisibili } from '@/lib/events';
 import type { Coords } from '@/lib/location';
 import { supabase } from '@/lib/supabase';
 import type {
@@ -1326,7 +1327,10 @@ export async function getEvents(citta: string): Promise<BeerEvent[]> {
     .select('id, host_id, citta, titolo, descrizione, quando, luogo, lat, lng, posti, stato, created_at')
     .eq('citta', citta)
     .eq('stato', 'aperto')
-    .gte('quando', new Date(Date.now() - 6 * 3600 * 1000).toISOString())
+    // La soglia è la STESSA che usa join_event_v21 per decidere se ci si può
+    // ancora unire. Quando le due divergevano, l'incontro restava in elenco e
+    // il database rifiutava di farci entrare.
+    .gte('quando', sogliaIncontriVisibili().toISOString())
     .order('quando', { ascending: true });
   if (error) throw error;
 

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -44,9 +44,21 @@ export default function HomeScreen() {
 
   useEffect(() => { getCurrentCoords().then(setCoords).catch(() => null); }, []);
 
+  /**
+   * Vero finché il feed non ha mai mostrato niente.
+   *
+   * Prima ogni ritorno sulla schermata faceva `setLoading(true)`: la lista si
+   * svuotava, poi si riempiva, e TUTTE le card rientravano in scena con la
+   * loro animazione. È metà della sensazione di lentezza segnalata al
+   * collaudo. Ora lo scheletro compare solo quando davvero non c'è niente da
+   * guardare; gli altri aggiornamenti avvengono sotto, senza far ballare
+   * quello che l'utente sta già leggendo.
+   */
+  const maiCaricato = useRef(true);
+
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
-    else setLoading(true);
+    else if (maiCaricato.current) setLoading(true);
     try {
       const [available, mine, nextEvents] = await Promise.all([
         getDiscoveryRequests(city.key, refresh),
@@ -61,10 +73,15 @@ export default function HomeScreen() {
     } catch {
       setError('La città non risponde. Riprova tra poco.');
     } finally {
+      maiCaricato.current = false;
       setLoading(false);
       setRefreshing(false);
     }
   }, [city.key]);
+
+  // Cambiare città cambia tutto il contenuto: lì lo scheletro ci vuole, o si
+  // resta a fissare i giri della città di prima mentre arrivano quelli nuovi.
+  useEffect(() => { maiCaricato.current = true; }, [city.key]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 

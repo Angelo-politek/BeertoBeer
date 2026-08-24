@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeOutDown, SlideInDown } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
+
+import { entraDalBasso, esceInBasso } from '@/constants/motion';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts, Radii } from '@/constants/theme';
@@ -64,8 +66,8 @@ function ToastBanner({ message, type }: { message: string; type: ToastType }) {
   return (
     <View pointerEvents="none" style={[styles.wrap, { bottom: insets.bottom + 84 }]}>
       <Animated.View
-        entering={SlideInDown.springify().damping(16).stiffness(220)}
-        exiting={FadeOutDown.duration(180)}
+        entering={entraDalBasso}
+        exiting={esceInBasso}
         style={[styles.pill, { backgroundColor: c.text }, sh.raised]}>
         <View style={[styles.iconCircle, { backgroundColor: success ? c.positive : c.danger }]}>
           <Text style={styles.icon}>{success ? '✓' : '✕'}</Text>
