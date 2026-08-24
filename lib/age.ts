@@ -42,3 +42,52 @@ export function toISODate(date: Date): string {
   const d = String(date.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+/**
+ * Mette le barre mentre si scrive: "24121999" diventa "24/12/1999".
+ *
+ * Prima il campo era testo libero con l'istruzione "GG/MM/AAAA" nel
+ * segnaposto: chi scriveva "24-12-1999" o "24 12 1999" si vedeva rifiutare
+ * una data giusta, e chi scriveva "1999" non capiva perché non andasse.
+ * Le barre le mette l'app, all'utente restano solo le cifre.
+ */
+export function formattaData(input: string): string {
+  const cifre = input.replace(/[^0-9]/g, '').slice(0, 8);
+  if (cifre.length <= 2) return cifre;
+  if (cifre.length <= 4) return `${cifre.slice(0, 2)}/${cifre.slice(2)}`;
+  return `${cifre.slice(0, 2)}/${cifre.slice(2, 4)}/${cifre.slice(4)}`;
+}
+
+/** Età minima per stare su Beer to Beer: si parla di alcolici. */
+export const ETA_MINIMA = 18;
+
+export type EsitoData =
+  | { stato: 'incompleta' }
+  | { stato: 'non-valida'; motivo: string }
+  | { stato: 'troppo-giovane'; anni: number }
+  | { stato: 'ok'; data: Date; anni: number };
+
+/**
+ * Che ne e' della data scritta finora. Serve a dare un riscontro MENTRE si
+ * scrive invece che dopo aver premuto "Crea account": un errore che arriva
+ * alla fine costringe a tornare indietro e a rileggere tutto il modulo.
+ */
+export function esaminaData(input: string, oggi = new Date()): EsitoData {
+  const cifre = input.replace(/[^0-9]/g, '');
+  if (cifre.length < 8) return { stato: 'incompleta' };
+
+  const data = parseBirthdate(formattaData(input));
+  if (!data) {
+    // Il giorno o il mese impossibili sono l'errore piu' comune (31/02, 45/12).
+    return { stato: 'non-valida', motivo: 'Questa data non esiste. Controlla giorno e mese.' };
+  }
+  if (data > oggi) {
+    return { stato: 'non-valida', motivo: 'Questa data è nel futuro.' };
+  }
+  const anni = computeAge(data);
+  if (anni > 120) {
+    return { stato: 'non-valida', motivo: "Controlla l'anno: sembra sbagliato." };
+  }
+  if (anni < ETA_MINIMA) return { stato: 'troppo-giovane', anni };
+  return { stato: 'ok', data, anni };
+}

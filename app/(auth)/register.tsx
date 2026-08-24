@@ -7,6 +7,7 @@ import Animated from 'react-native-reanimated';
 import { entra, entraInLista } from '@/constants/motion';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BirthdateField } from '@/components/birthdate-field';
 import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
@@ -142,14 +143,7 @@ export default function RegisterScreen() {
                 placeholder="Come ti chiami?"
                 autoCapitalize="words"
               />
-              <TextField
-                label="Data di nascita"
-                value={birthdate}
-                onChangeText={setBirthdate}
-                placeholder="GG/MM/AAAA"
-                keyboardType="numbers-and-punctuation"
-                autoCapitalize="none"
-              />
+              <BirthdateField value={birthdate} onChangeText={setBirthdate} />
               <TextField
                 label="Email"
                 value={email}
