@@ -13,6 +13,7 @@ import { SkeletonCard } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BrandIcon } from '@/components/ui/brand-icon';
+import { GLOSSARY } from '@/constants/branding';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Radii, Spacing } from '@/constants/theme';
 import { getEvents, getMyOrders, getNotifications } from '@/data/api';
@@ -100,20 +101,29 @@ export default function HomeScreen() {
 
               <View style={styles.hero}>
                 <ThemedText type="label">RADAR DELLA SERATA</ThemedText>
-                <ThemedText type="title" style={styles.heroTitle}>{visibleRequests.length} {visibleRequests.length === 1 ? 'GIRO' : 'GIRI'} IN ZONA</ThemedText>
-                <View style={styles.heroActions}>
-                  <Button label="Chiedi una birra" onPress={() => router.push('/create-request')} style={styles.flex} />
-                  <PressableScale onPress={() => router.push('/my-orders')} style={[styles.roundAction, { borderColor: c.text }]}>
-                    <BrandIcon name="scooter" size={26} color={c.text} />
-                  </PressableScale>
-                </View>
+                <ThemedText type="title" style={styles.heroTitle}>{`${visibleRequests.length} ${(visibleRequests.length === 1 ? GLOSSARY.delivery : GLOSSARY.deliveryPlural).toUpperCase()} IN ZONA`}</ThemedText>
+                {/* Azione principale isolata: prima era affiancata da un'icona
+                    tonda senza etichetta, di peso visivo simile, e non era
+                    chiaro quale delle due fosse "la cosa da fare". Sotto, una
+                    riga che dice cosa succede dopo averla premuta. */}
+                <Button
+                  label={GLOSSARY.createDeliveryAction}
+                  onPress={() => router.push('/create-request')}
+                />
+                <ThemedText type="caption">{GLOSSARY.createDeliveryHint}</ThemedText>
+                <PressableScale onPress={() => router.push('/my-orders')} style={styles.secondaryAction}>
+                  <BrandIcon name="scooter" size={20} color={c.textSecondary} />
+                  <ThemedText type="defaultSemiBold" style={{ color: c.textSecondary }}>
+                    {`I miei ${GLOSSARY.deliveryPlural}`}
+                  </ThemedText>
+                </PressableScale>
               </View>
 
               {activeOrder ? (
                 <PressableScale onPress={() => router.push({ pathname: '/request/[id]', params: { id: activeOrder.order.id } })} style={[styles.activeOrder, { backgroundColor: c.accent }]}>
                   <View style={styles.activeIcon}><BrandIcon name="bottle" size={24} color={c.accentText} /></View>
                   <View style={styles.flex}>
-                    <ThemedText type="label" style={{ color: c.accentText }}>GIRO ATTIVO</ThemedText>
+                    <ThemedText type="label" style={{ color: c.accentText }}>{`${GLOSSARY.delivery.toUpperCase()} ATTIVO`}</ThemedText>
                     <ThemedText type="subtitle" style={{ color: c.accentText }}>{activeOrder.action.label}</ThemedText>
                     <ThemedText style={{ color: c.accentText, opacity: 0.72 }}>{STATO_LABEL[activeOrder.order.stato]}{actionableOrders.length > 1 ? ` · altri ${actionableOrders.length - 1}` : ''}</ThemedText>
                   </View>
@@ -122,7 +132,7 @@ export default function HomeScreen() {
               ) : null}
 
               <View style={styles.sectionHead}>
-                <View><ThemedText type="label">VICINO A TE</ThemedText><ThemedText type="title">GIRI APERTI</ThemedText></View>
+                <View><ThemedText type="label">VICINO A TE</ThemedText><ThemedText type="title">{`${GLOSSARY.deliveryPlural.toUpperCase()} APERTI`}</ThemedText></View>
                 <PressableScale onPress={() => router.push('/(tabs)/map' as never)} style={styles.mapLink}>
                   <BrandIcon name="pin" size={18} color={c.accent} /><ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Mappa</ThemedText>
                 </PressableScale>
@@ -133,7 +143,7 @@ export default function HomeScreen() {
             </View>
           }
           renderItem={({ item }) => <RequestCard request={item} onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })} />}
-          ListEmptyComponent={!loading && !error ? <EmptyState icon="bottle" title="Strada libera" message="Non ci sono giri aperti. Puoi crearne uno o guardare cosa succede nella community." /> : null}
+          ListEmptyComponent={!loading && !error ? <EmptyState icon="bottle" title="Nessuno ha ancora chiesto niente" message={`Sii tu il primo: ${GLOSSARY.createDeliveryHint.toLowerCase()}`} actionLabel={GLOSSARY.createDeliveryAction} onAction={() => router.push('/create-request')} /> : null}
           ListFooterComponent={
             <PressableScale onPress={() => router.push('/(tabs)/community' as never)} style={[styles.community, { backgroundColor: c.surface }]}>
               <View style={styles.communityText}>
@@ -158,7 +168,7 @@ const styles = StyleSheet.create({
   container: { flex: 1 }, safe: { flex: 1 }, content: { padding: Spacing.md, paddingBottom: Spacing.xxl, gap: Spacing.md },
   headerContent: { gap: Spacing.md }, brandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   wordmark: { width: 104, height: 48 }, hero: { paddingVertical: 2, gap: Spacing.sm }, heroTitle: { fontSize: 36, lineHeight: 38, maxWidth: 320 },
-  heroActions: { flexDirection: 'row', gap: Spacing.sm }, flex: { flex: 1 }, roundAction: { width: 54, height: 54, borderWidth: 1.5, borderRadius: Radii.md, alignItems: 'center', justifyContent: 'center' },
+  secondaryAction: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.xs }, flex: { flex: 1 }, roundAction: { width: 54, height: 54, borderWidth: 1.5, borderRadius: Radii.md, alignItems: 'center', justifyContent: 'center' },
   activeOrder: { minHeight: 78, padding: Spacing.md, borderRadius: Radii.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, activeIcon: { width: 34, alignItems: 'center' },
   sectionHead: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: Spacing.sm }, mapLink: { flexDirection: 'row', alignItems: 'center', gap: 5, padding: Spacing.sm },
   filters: { flexDirection: 'row', gap: Spacing.sm }, loading: { gap: Spacing.md },

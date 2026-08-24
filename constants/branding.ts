@@ -5,7 +5,34 @@ export const TOKEN_SHORT = 'BC';
 export const TOKEN_EMOJI = '';
 export function formatTokens(n: number, short = false): string { return `${n} ${short ? TOKEN_SHORT : TOKEN_NAME}`; }
 
-export const GLOSSARY = { shopSingular: 'negozio', shopPlural: 'negozi', delivery: 'giro', deliveryPlural: 'giri' } as const;
+/**
+ * Le parole ufficiali dell'app. Fonte UNICA: se una parola chiave compare
+ * scritta a mano in una schermata, prima o poi diverge.
+ *
+ * È già successo, ed è costato la segnalazione più grave della beta: la
+ * schermata iniziale diceva «GIRI IN ZONA», «GIRI APERTI», «GIRO ATTIVO», ma
+ * il pulsante per crearne uno diceva «Chiedi una birra» e portava a una
+ * schermata intitolata «Nuova richiesta». Chi pensava "voglio lanciare un
+ * giro" cercava quella parola e non la trovava da nessuna parte fra le azioni.
+ *
+ * Questo glossario esisteva già da allora — semplicemente non era usato da
+ * nessuno. Ora lo è: le parole si cambiano qui, e cambiano ovunque.
+ */
+export const GLOSSARY = {
+  shopSingular: 'negozio',
+  shopPlural: 'negozi',
+  /** L'oggetto: una consegna di birre fra due persone. */
+  delivery: 'giro',
+  deliveryPlural: 'giri',
+  /** L'azione di pubblicarne uno. Le parole che Alessio ha usato spontaneamente. */
+  createDeliveryAction: 'Lancia un giro',
+  createDeliveryTitle: 'Nuovo giro',
+  /** Cosa succede dopo: si mette accanto all'azione, non dentro la schermata. */
+  createDeliveryHint: 'Dici cosa vuoi e dove: chi passa da un negozio te le porta.',
+  /** I due ruoli. Mai "utente", mai "driver". */
+  roleAsker: 'chi chiede',
+  roleCarrier: 'chi porta',
+} as const;
 export const PHILOSOPHY_TAGLINE = 'Non è un delivery. È uno scambio di favori tra persone della stessa città.';
 
 /** Compatibilità V1: livelli e badge non avanzano più e non sono mostrati nella V2. */

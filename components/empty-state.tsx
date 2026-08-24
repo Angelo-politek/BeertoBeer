@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 
+import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
 import { Spacing } from '@/constants/theme';
@@ -11,10 +12,17 @@ type Props = {
   message: string;
   /** icona brand nel riquadro (default: bottle) */
   icon?: BrandIconName;
+  /**
+   * Azione facoltativa. Uno schermo vuoto che dice solo "non c'è niente" è un
+   * vicolo cieco: all'inizio della beta, con poche persone, è anche lo stato
+   * NORMALE del feed. Meglio proporre la via d'uscita.
+   */
+  actionLabel?: string;
+  onAction?: () => void;
 };
 
 /** Stato vuoto stile sticker: quadrato storto con icona brand + copy diretto. */
-export function EmptyState({ title, message, icon }: Props) {
+export function EmptyState({ title, message, icon, actionLabel, onAction }: Props) {
   const c = useColors();
   const name = icon ?? 'bottle';
 
@@ -27,6 +35,7 @@ export function EmptyState({ title, message, icon }: Props) {
         {title}
       </ThemedText>
       <ThemedText style={[styles.message, { color: c.textSecondary }]}>{message}</ThemedText>
+      {actionLabel && onAction ? <Button label={actionLabel} onPress={onAction} /> : null}
     </Animated.View>
   );
 }

@@ -24,6 +24,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { BrandIcon } from '@/components/ui/brand-icon';
+import { GLOSSARY } from '@/constants/branding';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { createOrder, getAvailableCredits, getCurrentUser } from '@/data/api';
@@ -277,7 +278,7 @@ export default function CreateRequestScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Nuova richiesta' }} />
+      <Stack.Screen options={{ title: GLOSSARY.createDeliveryTitle }} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
