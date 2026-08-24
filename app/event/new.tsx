@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
+import { LocationField, mancanzaPosizione, type LocationValue } from '@/components/location-field';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -30,6 +31,9 @@ export default function NewEventScreen() {
   const [titolo, setTitolo] = useState('');
   const [descrizione, setDescrizione] = useState('');
   const [luogo, setLuogo] = useState('');
+  // Le coordinate valgono per un evento esattamente come per un giro: senza,
+  // l'incontro non compare sulla mappa e chi legge non sa dove sia.
+  const [posizione, setPosizione] = useState<LocationValue>({ indirizzo: '', coords: null });
   const [dayOffset, setDayOffset] = useState(0);
   const [ora, setOra] = useState('21:00');
   const [posti, setPosti] = useState('6');
@@ -58,6 +62,14 @@ export default function NewEventScreen() {
       Alert.alert('Ora non valida', "Usa il formato 24h, es. 21:00.");
       return;
     }
+    const manca = mancanzaPosizione(posizione, "l'indirizzo del ritrovo");
+    if (manca) {
+      Alert.alert(
+        'Manca il posto esatto',
+        `Serve ancora ${manca}. Senza il punto sulla mappa chi legge non sa dove presentarsi, e l'incontro non compare fra i segnaposto.`,
+      );
+      return;
+    }
     const nPosti = Math.max(2, Math.min(50, Number(posti) || 6));
 
     setSaving(true);
@@ -68,6 +80,8 @@ export default function NewEventScreen() {
         luogo,
         quando,
         citta: city.key,
+        lat: posizione.coords?.lat ?? null,
+        lng: posizione.coords?.lng ?? null,
         posti: nPosti,
       });
       toast.show('Incontro pubblicato.');
@@ -95,7 +109,26 @@ export default function NewEventScreen() {
           placeholder="Due parole sul ritrovo…"
           multiline
         />
-        <TextField label="Luogo" value={luogo} onChangeText={setLuogo} placeholder="Es. Panchine di Piazza Dante" />
+        <View style={styles.field}>
+          <ThemedText type="defaultSemiBold">Dove</ThemedText>
+          <LocationField
+            city={city}
+            value={posizione}
+            onChange={setPosizione}
+            label={`Indirizzo del ritrovo a ${city.label}`}
+            placeholder="Via, piazza o parco"
+            mapTitle="Tocca il punto del ritrovo"
+            mapHint={`${city.label} — sposta e zooma la mappa, poi tocca dove vi trovate.`}
+          />
+        </View>
+        {/* Il dettaglio umano resta: l'indirizzo dice la via, questo dice
+            in quale angolo cercarvi. */}
+        <TextField
+          label="Punto preciso (facoltativo)"
+          value={luogo}
+          onChangeText={setLuogo}
+          placeholder="Es. panchine dietro la fontana"
+        />
 
         <View style={styles.field}>
           <ThemedText type="defaultSemiBold">Quando</ThemedText>

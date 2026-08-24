@@ -13,17 +13,34 @@ import { useColors, useShadows } from '@/hooks/use-colors';
 import type { City } from '@/lib/cities';
 import type { Coords } from '@/lib/location';
 import type { Shop } from '@/data/api';
-import type { BeerRequest } from '@/types';
+import type { BeerEvent, BeerRequest } from '@/types';
 
-type Selection = { kind: 'request'; request: BeerRequest } | { kind: 'shop'; shop: Shop } | null;
+type Selection =
+  | { kind: 'request'; request: BeerRequest }
+  | { kind: 'shop'; shop: Shop }
+  | { kind: 'event'; event: BeerEvent }
+  | null;
+
+/** «Domenica 24, 21:00» — corto abbastanza per stare nell'anteprima. */
+function quandoBreve(iso: string): string {
+  return new Date(iso).toLocaleString('it-IT', {
+    weekday: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 type Props = {
   city: City;
   requests: BeerRequest[];
   shops: Shop[];
+  /** Incontri della città. Quelli senza coordinate non hanno un posto sulla mappa. */
+  events?: BeerEvent[];
   userCoords?: Coords | null;
   /** Apre il dettaglio richiesta (secondo tap, dal bottone dell'anteprima). */
   onOpenRequest: (id: string) => void;
+  onOpenEvent?: (id: string) => void;
   canDeleteShop: (shop: Shop) => boolean;
   onDeleteShop: (shop: Shop) => void;
   onAddShop: () => void;
@@ -35,7 +52,7 @@ type Props = {
  * della mappa a metà gesture); da lì un secondo tap apre il dettaglio o le
  * indicazioni Google Maps per i negozi.
  */
-export function FeedMap({ city, requests, shops, userCoords, onOpenRequest, canDeleteShop, onDeleteShop, onAddShop }: Props) {
+export function FeedMap({ city, requests, shops, events = [], userCoords, onOpenRequest, onOpenEvent, canDeleteShop, onDeleteShop, onAddShop }: Props) {
   const c = useColors();
   const sh = useShadows();
   const [selection, setSelection] = useState<Selection>(null);
@@ -89,6 +106,23 @@ export function FeedMap({ city, requests, shops, userCoords, onOpenRequest, canD
           );
         })}
 
+        {events.map((event) => {
+          if (event.lat == null || event.lng == null) return null;
+          const active = selection?.kind === 'event' && selection.event.id === event.id;
+          return (
+            <Marker key={`event-${event.id}`} lngLat={[event.lng, event.lat]}>
+              <Pressable
+                onPress={() => selectMarker({ kind: 'event', event })}
+                hitSlop={6}
+                style={[styles.eventMarker, active && styles.markerActive]}>
+                <View style={[styles.eventMarkerCore, { backgroundColor: c.surface, borderColor: c.accentStrong }]}>
+                  <BrandIcon name="cheers" size={20} color={c.accentStrong} />
+                </View>
+              </Pressable>
+            </Marker>
+          );
+        })}
+
         {requests.map((request) => {
           if (request.lat == null || request.lng == null) return null;
           const active = selection?.kind === 'request' && selection.request.id === request.id;
@@ -125,6 +159,7 @@ export function FeedMap({ city, requests, shops, userCoords, onOpenRequest, canD
           <View style={[styles.legend, { backgroundColor: c.surface }, sh.card]}>
             <View style={styles.legendItem}><BrandIcon name="bottle" size={14} color={c.accent} /><ThemedText type="caption">Giri</ThemedText></View>
             <View style={styles.legendItem}><BrandIcon name="cart" size={14} color={c.positive} /><ThemedText type="caption">Negozi</ThemedText></View>
+            <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.accentStrong} /><ThemedText type="caption">Incontri</ThemedText></View>
           </View>
         </>
       ) : null}
@@ -153,6 +188,36 @@ export function FeedMap({ city, requests, shops, userCoords, onOpenRequest, canD
             {selection.request.fascia ? ` · ${selection.request.fascia}` : ''}
           </ThemedText>
           <Button label="Apri il giro" onPress={() => onOpenRequest(selection.request.id)} />
+        </Animated.View>
+      ) : null}
+
+      {/* Anteprima incontro — stessa forma delle altre due: un tocco apre
+          l'anteprima, il secondo apre la scheda. */}
+      {selection?.kind === 'event' ? (
+        <Animated.View
+          entering={FadeIn.duration(160)}
+          exiting={FadeOut.duration(120)}
+          style={[styles.preview, { backgroundColor: c.surface }, sh.raised]}>
+          <View style={styles.previewHeader}>
+            <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>
+              {selection.event.titolo}
+            </ThemedText>
+            <Badge label="Incontro" tone="accent" />
+            <Pressable onPress={() => setSelection(null)} hitSlop={10}>
+              <BrandIcon name="x-mark" size={18} color={c.textSecondary} />
+            </Pressable>
+          </View>
+          <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+            {quandoBreve(selection.event.quando)}
+            {selection.event.luogo ? ` · ${selection.event.luogo}` : ''}
+          </ThemedText>
+          <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
+            {`${selection.event.partecipanti ?? 0} / ${selection.event.posti} posti`}
+            {selection.event.host ? ` · da ${selection.event.host.nome}` : ''}
+          </ThemedText>
+          {onOpenEvent ? (
+            <Button label="Apri l'incontro" onPress={() => onOpenEvent(selection.event.id)} />
+          ) : null}
         </Animated.View>
       ) : null}
 
@@ -210,6 +275,8 @@ const styles = StyleSheet.create({
   markerActive: { transform: [{ scale: 1.25 }] },
   shopMarker: { alignItems: 'center', justifyContent: 'center' },
   shopMarkerCore: { width: 38, height: 38, borderRadius: 8, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  eventMarker: { alignItems: 'center', justifyContent: 'center' },
+  eventMarkerCore: { width: 38, height: 38, borderRadius: 19, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   userMarker: { width: 30, height: 30, borderRadius: 15, borderWidth: 3, alignItems: 'center', justifyContent: 'center' },
   addShop: {
     position: 'absolute',

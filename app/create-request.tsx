@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -14,12 +13,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
-import { LocationPickerMap } from '@/components/location-picker-map';
-import { TextField } from '@/components/text-field';
+import { LocationField, mancanzaPosizione, type LocationValue } from '@/components/location-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
@@ -31,8 +27,8 @@ import { createOrder, getAvailableCredits, getCurrentUser } from '@/data/api';
 import { isWithinCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { CREDIT_CAP, DEFAULT_FORMAT, estimateCredits, FORMATS, maxDistanceBonus } from '@/lib/credits';
-import { geocodeAddress, reverseGeocode } from '@/lib/geocoding';
-import { getCurrentCoords, type Coords } from '@/lib/location';
+import { geocodeAddress } from '@/lib/geocoding';
+import { type Coords } from '@/lib/location';
 import type { BeerItem } from '@/types';
 
 type BeerInput = { nome: string; quantita: string; formato: string };
@@ -51,13 +47,18 @@ export default function CreateRequestScreen() {
   const [vibeMode, setVibeMode] = useState(false);
 
   const [coords, setCoords] = useState<Coords | null>(null);
-  const [geocoding, setGeocoding] = useState(false);
-  const [locating, setLocating] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [sospesoFino, setSospesoFino] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [mapOpen, setMapOpen] = useState(false);
-  const [mapPick, setMapPick] = useState<Coords | null>(null);
+
+  // Indirizzo e coordinate restano due stati separati perché la bozza salvata
+  // su disco ha sempre avuto questa forma; qui vengono solo affacciati al
+  // componente condiviso, che li tratta come una cosa sola.
+  const posizione: LocationValue = { indirizzo, coords };
+  function setPosizione(next: LocationValue) {
+    setIndirizzo(next.indirizzo);
+    setCoords(next.coords);
+  }
 
   useEffect(() => {
     let active = true;
@@ -122,99 +123,8 @@ export default function CreateRequestScreen() {
   // il bottone e di scoprire il problema con un avviso a schermo intero.
   const mancanze = [
     cleanBirre.length === 0 ? 'almeno una birra' : null,
-    indirizzo.trim().length === 0 ? "l'indirizzo di consegna" : null,
-    indirizzo.trim().length > 0 && !coords ? "la conferma dell'indirizzo sulla mappa" : null,
+    mancanzaPosizione({ indirizzo, coords }, "l'indirizzo di consegna"),
   ].filter((x): x is string => x !== null);
-
-  /**
-   * Rilevamento automatico: prende la posizione del telefono, controlla che sia
-   * dentro la città scelta e prova a ricavarne la via. Se la via non si ricava,
-   * il punto resta comunque salvato: l'indirizzo scritto serve solo al driver
-   * per orientarsi, la consegna segue le coordinate.
-   */
-  async function handleUseMyPosition() {
-    setLocating(true);
-    try {
-      const here = await getCurrentCoords();
-      if (!here) {
-        Alert.alert(
-          'Posizione non disponibile',
-          'Attiva il GPS e concedi il permesso di localizzazione, oppure scegli il punto sulla mappa.',
-        );
-        return;
-      }
-      if (!isWithinCity(here, city)) {
-        Alert.alert(
-          'Sei fuori città',
-          `La tua posizione non risulta dentro ${city.label}. Cambia città dal feed, oppure scegli il punto sulla mappa.`,
-        );
-        return;
-      }
-      setCoords(here);
-      const label = await reverseGeocode(here);
-      if (label) {
-        setIndirizzo(label);
-      } else {
-        Alert.alert(
-          'Punto salvato',
-          'Non sono riuscito a ricavare la via: scrivila tu, il punto di consegna è già a posto.',
-        );
-      }
-    } finally {
-      setLocating(false);
-    }
-  }
-
-  async function handleFindAddress() {
-    if (indirizzo.trim().length === 0) {
-      Alert.alert('Manca l’indirizzo', 'Scrivi prima l’indirizzo di consegna.');
-      return;
-    }
-    setGeocoding(true);
-    const esito = await geocodeAddress(indirizzo, city);
-    setGeocoding(false);
-    // "Non esiste" e "non riesco a chiedere" sono due cose diverse: dire la
-    // prima quando è vera la seconda manda l'utente a correggere un indirizzo
-    // che era già giusto.
-    if (!esito.ok) {
-      setCoords(null);
-      Alert.alert(
-        esito.motivo === 'servizio' ? 'Ricerca non disponibile' : 'Indirizzo non trovato',
-        esito.motivo === 'servizio'
-          ? 'Il servizio mappe non risponde in questo momento. Riprova fra poco, oppure scegli subito il punto sulla mappa.'
-          : `Nessun risultato a ${city.label}. Scrivilo in modo più preciso (via e numero) oppure scegli il punto sulla mappa.`,
-      );
-      return;
-    }
-    const found = esito.coords;
-    if (!isWithinCity(found, city)) {
-      setCoords(null);
-      Alert.alert(
-        'Indirizzo fuori città',
-        `Il punto trovato è fuori da ${city.label}. Controlla l'indirizzo o scegli il punto sulla mappa.`,
-      );
-      return;
-    }
-    setCoords(found);
-  }
-
-  // Geocoding automatico (vincolato alla città) quando l'indirizzo perde il focus.
-  async function geocodeSilently() {
-    if (indirizzo.trim().length === 0 || coords) return;
-    setGeocoding(true);
-    const esito = await geocodeAddress(indirizzo, city);
-    setGeocoding(false);
-    if (esito.ok && isWithinCity(esito.coords, city)) setCoords(esito.coords);
-  }
-
-  async function handleMapConfirm() {
-    if (!mapPick) return;
-    setCoords(mapPick);
-    setMapOpen(false);
-    // Precompila l'indirizzo dal punto scelto (poi resta modificabile).
-    const label = await reverseGeocode(mapPick);
-    if (label) setIndirizzo(label);
-  }
 
   function errorMessage(e: unknown): string {
     return (e as { message?: string })?.message ?? 'Non è stato possibile pubblicare la richiesta.';
@@ -366,40 +276,14 @@ export default function CreateRequestScreen() {
           {/* 2 — DOVE (ricerca vincolata alla città selezionata nel feed) */}
           <Card style={styles.section}>
             <ThemedText type="label">DOVE CONSEGNARE</ThemedText>
-            <TextField
+            <LocationField
+              city={city}
+              value={posizione}
+              onChange={setPosizione}
               label={`Indirizzo di consegna a ${city.label}`}
-              value={indirizzo}
-              onChangeText={(t) => {
-                setIndirizzo(t);
-                setCoords(null); // l'indirizzo è cambiato: va ri-cercato
-              }}
-              onBlur={geocodeSilently}
-              placeholder="Via e numero civico"
+              mapTitle="Tocca il punto di consegna"
+              mapHint={`${city.label} — sposta e zooma la mappa, poi tocca dove consegnare.`}
             />
-            <Button
-              label={locating ? 'Rilevamento…' : '📍 Usa la mia posizione'}
-              variant="secondary"
-              onPress={handleUseMyPosition}
-              loading={locating}
-            />
-            <View style={styles.addressButtons}>
-              <Button
-                label={coords ? 'Posizione trovata' : 'Trova indirizzo'}
-                variant="secondary"
-                onPress={handleFindAddress}
-                loading={geocoding}
-                style={styles.addressButton}
-              />
-              <Button
-                label="Scegli sulla mappa"
-                variant="secondary"
-                onPress={() => {
-                  setMapPick(coords);
-                  setMapOpen(true);
-                }}
-                style={styles.addressButton}
-              />
-            </View>
           </Card>
 
           {/* 3 — QUANDO */}
@@ -460,24 +344,6 @@ export default function CreateRequestScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Picker del punto di consegna sulla mappa (centrata sulla città) */}
-      <Modal visible={mapOpen} animationType="slide" onRequestClose={() => setMapOpen(false)}>
-        <ThemedView style={styles.container}>
-          <SafeAreaView style={styles.flex} edges={['top', 'bottom']}>
-            <View style={styles.mapHeader}>
-              <ThemedText type="subtitle">Tocca il punto di consegna</ThemedText>
-              <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-                {city.label} — sposta e zooma la mappa, poi tocca dove consegnare.
-              </ThemedText>
-            </View>
-            <LocationPickerMap center={coords ?? city.center} value={mapPick} onPick={setMapPick} />
-            <View style={styles.mapFooter}>
-              <Button label="Annulla" variant="secondary" onPress={() => setMapOpen(false)} style={styles.addressButton} />
-              <Button label="Conferma punto" onPress={handleMapConfirm} disabled={!mapPick} style={styles.addressButton} />
-            </View>
-          </SafeAreaView>
-        </ThemedView>
-      </Modal>
     </ThemedView>
   );
 }
@@ -522,9 +388,5 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   suspendedBanner: { borderRadius: Radii.md, padding: Spacing.md, gap: Spacing.xs },
-  addressButtons: { flexDirection: 'row', gap: Spacing.sm },
-  addressButton: { flex: 1 },
-  mapHeader: { padding: Spacing.md, gap: 2 },
-  mapFooter: { flexDirection: 'row', gap: Spacing.sm, padding: Spacing.md },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
 });

@@ -1,10 +1,11 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
+import { DeliveryMap } from '@/components/delivery-map';
 import { useToast } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -12,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { getEventById, joinEvent, leaveEvent } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
+import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
 import type { BeerEvent } from '@/types';
 
 function formatDateTime(iso: string): string {
@@ -31,6 +33,10 @@ export default function EventDetailScreen() {
   const router = useRouter();
   const toast = useToast();
   const { session } = useSession();
+  // Posizione di chi guarda, solo per dire quanto dista. Se il GPS non
+  // risponde la scheda funziona lo stesso: la distanza semplicemente non compare.
+  const [mieCoords, setMieCoords] = useState<Coords | null>(null);
+  useEffect(() => { getCurrentCoords().then(setMieCoords).catch(() => null); }, []);
 
   const [event, setEvent] = useState<BeerEvent | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,6 +97,10 @@ export default function EventDetailScreen() {
   }
 
   const isHost = session?.user.id === event.hostId;
+  const distanzaKm =
+    mieCoords && event.lat != null && event.lng != null
+      ? haversineKm(mieCoords, { lat: event.lat, lng: event.lng })
+      : null;
   const pieno = (event.partecipanti ?? 0) >= event.posti;
 
   return (
@@ -102,8 +112,16 @@ export default function EventDetailScreen() {
         <Card style={styles.card} index={0}>
           <Row label="Quando" value={formatDateTime(event.quando)} />
           {event.luogo ? <Row label="Dove" value={event.luogo} /> : null}
+          {distanzaKm != null ? <Row label="Distanza" value={`${distanzaKm.toFixed(1)} km da te`} /> : null}
           <Row label="Posti" value={`${event.partecipanti ?? 0} / ${event.posti}`} />
         </Card>
+
+        {/* Un incontro senza mappa costringe a chiedere «ma dove esattamente?».
+            Gli eventi pubblicati prima di questa versione non hanno coordinate:
+            per loro la scheda resta com'era. */}
+        {event.lat != null && event.lng != null ? (
+          <DeliveryMap lat={event.lat} lng={event.lng} height={180} />
+        ) : null}
 
         {event.descrizione ? (
           <Card style={styles.card} index={1}>
