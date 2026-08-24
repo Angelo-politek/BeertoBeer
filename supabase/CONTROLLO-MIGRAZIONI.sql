@@ -54,6 +54,21 @@ with controlli as (
                    and policyname = 'messages_insert_participants'
                    and cmd = 'INSERT'
                    and with_check like '%arrivato%')
+
+  union all
+  -- Non si vede da una tabella: la tolleranza sta dentro la funzione che
+  -- decide se ci si puo' ancora unire a un incontro gia' cominciato.
+  select 7, '20260830_tolleranza_incontri',
+         'Ci si puo'' unire a un incontro appena cominciato',
+         exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname = 'public' and p.proname = 'join_event_v21'
+                   and pg_get_functiondef(p.oid) like '%6 hours%')
+
+  union all
+  select 8, '20260831_regole_e_limiti',
+         'Limiti anti-spam, tetto birre, confini citta'' nel database',
+         exists (select 1 from information_schema.tables
+                 where table_schema = 'public' and table_name = 'city_bounds')
 )
 
 select ordine as n,

@@ -57,6 +57,36 @@ type Props = {
   mapHint?: string;
 };
 
+/**
+ * Perche' la ricerca non ha funzionato, detto in modo utile.
+ *
+ * Le tre cause sono diverse e vanno dette diverse: se a chi ha scritto un
+ * indirizzo giusto si dice che non esiste, va a correggerlo e peggiora. E se
+ * l'indirizzo e' in un altro comune, dirgli QUALE comune e' l'informazione che
+ * risolve il problema in un secondo.
+ */
+function spiegazione(
+  esito: { ok: false; motivo: 'non-trovato' | 'servizio' } | { ok: false; motivo: 'altra-citta'; comune: string },
+  citta: string,
+): [string, string] {
+  if (esito.motivo === 'servizio') {
+    return [
+      'Ricerca non disponibile',
+      'Il servizio mappe non risponde in questo momento. Riprova fra poco, oppure scegli subito il punto sulla mappa.',
+    ];
+  }
+  if (esito.motivo === 'altra-citta') {
+    return [
+      `Quell'indirizzo è a ${esito.comune}`,
+      `Beer to Beer funziona dentro ${citta}: chi porta si muove a piedi o in bici, e ${esito.comune} è un altro comune. Cerca un indirizzo in ${citta}, oppure cambia città dal feed.`,
+    ];
+  }
+  return [
+    'Indirizzo non trovato',
+    `Nessun risultato a ${citta}. Scrivilo in modo più preciso (via e numero civico) oppure scegli il punto sulla mappa.`,
+  ];
+}
+
 export function LocationField({ city, value, onChange, label, placeholder, mapTitle, mapHint }: Props) {
   const c = useColors();
   const [locating, setLocating] = useState(false);
@@ -118,12 +148,8 @@ export function LocationField({ city, value, onChange, label, placeholder, mapTi
     // già giusto.
     if (!esito.ok) {
       onChange({ indirizzo, coords: null });
-      Alert.alert(
-        esito.motivo === 'servizio' ? 'Ricerca non disponibile' : 'Indirizzo non trovato',
-        esito.motivo === 'servizio'
-          ? 'Il servizio mappe non risponde in questo momento. Riprova fra poco, oppure scegli subito il punto sulla mappa.'
-          : `Nessun risultato a ${city.label}. Scrivilo in modo più preciso (via e numero) oppure scegli il punto sulla mappa.`,
-      );
+      const [titolo, testo] = spiegazione(esito, city.label);
+      Alert.alert(titolo, testo);
       return;
     }
     if (!isWithinCity(esito.coords, city)) {

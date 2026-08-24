@@ -27,6 +27,8 @@ import { createOrder, getAvailableCredits, getCurrentUser } from '@/data/api';
 import { isWithinCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { CREDIT_CAP, DEFAULT_FORMAT, estimateCredits, FORMATS, maxDistanceBonus } from '@/lib/credits';
+import { messaggioServer } from '@/lib/errori';
+import { birreTotali, MAX_BIRRE_PER_GIRO } from '@/lib/limiti';
 import { geocodeAddress } from '@/lib/geocoding';
 import { type Coords } from '@/lib/location';
 import type { BeerItem } from '@/types';
@@ -119,6 +121,11 @@ export default function CreateRequestScreen() {
   const bonusMax = maxDistanceBonus(cleanBirre);
   const nonCopribile = balance != null && stima > balance;
 
+  // Il tetto vero lo applica il database: qui si dice prima, mentre si scrive,
+  // invece di far premere «Pubblica» e rispondere con un errore.
+  const totaleBirre = birreTotali(cleanBirre);
+  const troppeBirre = totaleBirre > MAX_BIRRE_PER_GIRO;
+
   // Cosa manca davvero per pubblicare: dirlo qui evita di far premere a vuoto
   // il bottone e di scoprire il problema con un avviso a schermo intero.
   const mancanze = [
@@ -126,9 +133,6 @@ export default function CreateRequestScreen() {
     mancanzaPosizione({ indirizzo, coords }, "l'indirizzo di consegna"),
   ].filter((x): x is string => x !== null);
 
-  function errorMessage(e: unknown): string {
-    return (e as { message?: string })?.message ?? 'Non è stato possibile pubblicare la richiesta.';
-  }
 
   async function handleSubmit() {
     if (cleanBirre.length === 0) {
@@ -182,7 +186,10 @@ export default function CreateRequestScreen() {
       router.replace({ pathname: '/request/[id]', params: { id: newId } });
     } catch (e) {
       setSubmitting(false);
-      Alert.alert('Errore', errorMessage(e));
+      // I limiti nuovi (troppe birre, troppi giri aperti, indirizzo fuori
+      // città) arrivano come messaggio dal database: vanno mostrati come sono,
+      // perché dicono esattamente cosa fare.
+      Alert.alert('Non pubblicato', messaggioServer(e, 'Non è stato possibile pubblicare il giro.'));
     }
   }
 
@@ -266,6 +273,11 @@ export default function CreateRequestScreen() {
             <Pressable onPress={addBeer} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
               <View style={styles.addRow}><BrandIcon name="plus" size={17} color={c.accent} /><Text style={[styles.addBeer, { color: c.accent }]}>Aggiungi un&apos;altra birra</Text></View>
             </Pressable>
+            {troppeBirre ? (
+              <ThemedText style={{ color: c.danger, fontSize: 13 }}>
+                {`${totaleBirre} birre sono troppe: il massimo per un giro è ${MAX_BIRRE_PER_GIRO}. Oltre non è più un favore fra vicini.`}
+              </ThemedText>
+            ) : null}
             {righeIncomplete > 0 ? (
               <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
                 {righeIncomplete === 1 ? 'Una riga è senza nome e non verrà pubblicata.' : `${righeIncomplete} righe sono senza nome e non verranno pubblicate.`}
@@ -339,7 +351,7 @@ export default function CreateRequestScreen() {
             label="Pubblica il giro"
             onPress={handleSubmit}
             loading={submitting}
-            disabled={nonCopribile || suspended}
+            disabled={nonCopribile || suspended || troppeBirre}
           />
         </ScrollView>
       </KeyboardAvoidingView>

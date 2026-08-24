@@ -48,7 +48,17 @@ function conLimite<T>(fn: () => Promise<T>): Promise<T> {
 export type GeocodeResult =
   | { ok: true; coords: Coords }
   | { ok: false; motivo: 'non-trovato' }
-  | { ok: false; motivo: 'servizio' };
+  | { ok: false; motivo: 'servizio' }
+  /**
+   * L'indirizzo esiste, ma è in un altro comune. `comune` è il nome trovato,
+   * così si può dire «quello è a Moncalieri» invece del generico «fuori città».
+   *
+   * Serve perché il controllo per raggio non basta: dal centro di Torino,
+   * Moncalieri e Collegno stanno alla stessa distanza dei quartieri più
+   * esterni di Torino stessa. Un cerchio non li può separare — il nome del
+   * comune sì, e il geocoder ce l'ha già.
+   */
+  | { ok: false; motivo: 'altra-citta'; comune: string };
 
 /** Bounding box `left,top,right,bottom` (lng/lat) attorno al centro città. */
 function cityViewbox(city: City): string {
@@ -73,7 +83,12 @@ export async function geocodeAddress(address: string, city?: City): Promise<Geoc
   const query = city ? `${q}, ${city.label}` : q;
   let url =
     'https://nominatim.openstreetmap.org/search' +
-    `?format=json&limit=1&addressdetails=0&q=${encodeURIComponent(query)}`;
+    // addressdetails=1 costa zero (stessa richiesta) e restituisce il comune:
+    // è l'unico modo preciso di sapere che un indirizzo è in provincia.
+    // accept-language=it è obbligatorio, non cosmetico: senza, Nominatim può
+    // rispondere "Turin" e il confronto con "Torino" fallirebbe, rifiutando
+    // indirizzi validi.
+    `?format=json&limit=1&addressdetails=1&accept-language=it&q=${encodeURIComponent(query)}`;
   if (city) {
     url += `&viewbox=${cityViewbox(city)}&bounded=1`;
   }
@@ -82,12 +97,52 @@ export async function geocodeAddress(address: string, city?: City): Promise<Geoc
     const res = await conLimite(() => fetch(url, { headers: NOMINATIM_HEADERS }));
     // 429 = troppe richieste, 403 = bloccati: è un problema nostro, non dell'indirizzo.
     if (!res.ok) return { ok: false, motivo: 'servizio' };
-    const data = (await res.json()) as { lat: string; lon: string }[];
+    const data = (await res.json()) as { lat: string; lon: string; address?: Localita }[];
     if (!Array.isArray(data) || data.length === 0) return { ok: false, motivo: 'non-trovato' };
-    return { ok: true, coords: { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } };
+
+    const trovato = data[0];
+    const comune = nomeComune(trovato.address);
+    if (city && comune && !stessoComune(comune, city.label)) {
+      return { ok: false, motivo: 'altra-citta', comune };
+    }
+    return { ok: true, coords: { lat: parseFloat(trovato.lat), lng: parseFloat(trovato.lon) } };
   } catch {
     return { ok: false, motivo: 'servizio' };
   }
+}
+
+export type Localita = {
+  city?: string;
+  town?: string;
+  village?: string;
+  municipality?: string;
+  suburb?: string;
+};
+
+/**
+ * Il comune, se Nominatim lo dichiara. `suburb` è escluso di proposito: è il
+ * quartiere, e per un indirizzo di Torino direbbe "San Salvario", che
+ * verrebbe scambiato per un altro comune.
+ */
+export function nomeComune(a?: Localita): string | null {
+  return a?.city || a?.town || a?.village || a?.municipality || null;
+}
+
+/**
+ * Confronto fra nomi di comune: maiuscole, accenti e spazi non devono contare.
+ * L'intervallo \u0300-\u036f sono i segni diacritici che NFD separa dalla
+ * lettera: scritto come sequenza di escape e non come carattere grezzo, cosi'
+ * resta leggibile e non dipende da come il file viene codificato.
+ */
+export function stessoComune(a: string, b: string): boolean {
+  const normalizza = (s: string) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+  return normalizza(a) === normalizza(b);
 }
 
 type ReverseResult = {
