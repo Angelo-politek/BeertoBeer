@@ -30,13 +30,37 @@ import {
  */
 
 const RADICE = path.join(__dirname, '..', '..');
-const schema = fs.readFileSync(path.join(RADICE, 'supabase/schema.sql'), 'utf8');
+
+/**
+ * Tutto lo SQL del progetto, nell'ordine in cui viene eseguito: prima lo
+ * schema, poi le migrazioni in ordine di data.
+ *
+ * Leggere solo schema.sql sarebbe un errore sottile: una migrazione successiva
+ * puo' ridefinire la stessa funzione, e il test finirebbe per confrontare
+ * l'app con una formula che sul database non esiste piu'. Vale l'ULTIMA
+ * definizione, come per Postgres.
+ */
+function sqlNellOrdineDiEsecuzione(): string {
+  const migrazioni = fs
+    .readdirSync(path.join(RADICE, 'supabase/migrations'))
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+  return [
+    fs.readFileSync(path.join(RADICE, 'supabase/schema.sql'), 'utf8'),
+    ...migrazioni.map((f) => fs.readFileSync(path.join(RADICE, 'supabase/migrations', f), 'utf8')),
+  ].join('\n');
+}
+
+const schema = sqlNellOrdineDiEsecuzione();
 
 describe('la formula del peso è la stessa nei due posti', () => {
   /** `select least(10, ceil(1 + public.order_weight_kg(p_lista) * 0.5))::int;` */
-  const riga = schema
+  // Serve l'ULTIMA: la migrazione del 01/09 ridefinisce la funzione, e la
+  // definizione che conta e' quella che Postgres esegue per ultima.
+  const righe = schema
     .split('\n')
-    .find((l) => l.includes('least(') && l.includes('order_weight_kg'));
+    .filter((l) => l.includes('least(') && l.includes('order_weight_kg'));
+  const riga = righe[righe.length - 1];
 
   it('la formula esiste nello schema', () => {
     expect(riga).toBeDefined();
@@ -57,7 +81,7 @@ describe('la formula del peso è la stessa nei due posti', () => {
 
 describe('i pesi dei formati sono gli stessi nei due posti', () => {
   /** Le righe `when '33cl' then 0.55` di public.format_weight(). */
-  const inizio = schema.indexOf('function public.format_weight');
+  const inizio = schema.lastIndexOf('function public.format_weight');
   const corpo = schema.slice(inizio, schema.indexOf('$$;', inizio));
   const pesiSql = Object.fromEntries(
     [...corpo.matchAll(/when\s+'([^']+)'\s+then\s+([\d.]+)/g)].map((m) => [m[1], Number(m[2])]),
@@ -74,14 +98,30 @@ describe('i pesi dei formati sono gli stessi nei due posti', () => {
 
 describe('il bonus distanza è lo stesso nei due posti', () => {
   it('i BeerCoin per km coincidono', () => {
-    // In accept_order: `v_d constant numeric := 0.5;`
-    const migrazione = fs.readFileSync(
-      path.join(RADICE, 'supabase/migrations/20260822_beta_hardening.sql'),
-      'utf8',
-    );
-    const trovato = migrazione.match(/v_d\s+constant\s+numeric\s*:=\s*([\d.]+)/);
-    expect(trovato).not.toBeNull();
-    expect(Number(trovato![1])).toBe(CREDIT_PER_KM);
+    // In accept_order: `v_d constant numeric := 1.0;`
+    const tutte = [...schema.matchAll(/v_d\s+constant\s+numeric\s*:=\s*([\d.]+)/g)];
+    expect(tutte.length).toBeGreaterThan(0);
+    expect(Number(tutte[tutte.length - 1][1])).toBe(CREDIT_PER_KM);
+  });
+
+  it('il tetto dentro accept_order e lo stesso della parte peso', () => {
+    // Sono due numeri diversi nello stesso file: se se ne cambia uno solo, i
+    // giri lunghi vengono tagliati a un valore che l'app non si aspetta.
+    const tetti = [...schema.matchAll(/v_total := least\((\d+),/g)];
+    expect(tetti.length).toBeGreaterThan(0);
+    expect(Number(tetti[tetti.length - 1][1])).toBe(CREDIT_CAP);
+  });
+
+  it('accept_order non ha perso nessuna protezione nella ritaratura', () => {
+    // Ridefinire una funzione intera per cambiare due numeri e' il momento in
+    // cui e' facilissimo perdere per strada un controllo: e' gia' successo
+    // scrivendo questa migrazione.
+    const inizio = schema.lastIndexOf('create or replace function public.accept_order');
+    const corpo = schema.slice(inizio, schema.indexOf('end; $$;', inizio));
+    expect(corpo).toContain('if v_dist <= 50 then');          // GPS falsificato
+    expect(corpo).toContain('pair_blocked(v_host, auth.uid())'); // blocco fra utenti
+    expect(corpo).toContain('Non comprare nulla');            // copertura persa
+    expect(corpo).toContain('for update');                    // riga bloccata
   });
 });
 
@@ -94,7 +134,14 @@ describe('quanto costa davvero un giro', () => {
   });
 
   it('un giro piccolo sotto casa resta a buon mercato', () => {
+    // La taratura del 01/09 non doveva toccare i giri piccoli: 3 come prima.
     expect(estimateCredits(birre(6))).toBe(3);
+  });
+
+  it('il giro pesante e lontano ora vale davvero di piu', () => {
+    // 24 birre = 8 di peso; 5 km = 5 di distanza. Prima faceva 8 + 3 = 11,
+    // tagliato a 10 dal vecchio tetto: quanto un giro medio.
+    expect(estimateCredits(birre(24)) + estimateBonus(5)).toBe(13);
   });
 
   it('il tetto non si supera mai, comunque si carichi', () => {

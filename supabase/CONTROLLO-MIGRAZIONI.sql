@@ -69,6 +69,14 @@ with controlli as (
          'Limiti anti-spam, tetto birre, confini citta'' nel database',
          exists (select 1 from information_schema.tables
                  where table_schema = 'public' and table_name = 'city_bounds')
+
+  union all
+  -- Il tetto dei BeerCoin dentro la formula del peso: 10 era il vecchio, 14 il nuovo.
+  select 9, '20260901_taratura_crediti',
+         'La distanza vale 1 BeerCoin al km, tetto a 14',
+         exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname = 'public' and p.proname = 'credits_for_weight'
+                   and pg_get_functiondef(p.oid) like '%least(14%')
 )
 
 select ordine as n,

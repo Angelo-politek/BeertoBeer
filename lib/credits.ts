@@ -42,10 +42,22 @@ export function orderWeightKg(birre: BeerItem[]): number {
   return birre.reduce((sum, b) => sum + (Number(b.quantita) || 0) * formatWeight(b.formato), 0);
 }
 
+/**
+ * TARATURA DEL 01/09/2026 (segnalazione: «rivedere il calcolatore delle
+ * distanze e peso»). Chi si faceva 5 km a piedi con 13 kg di birra guadagnava
+ * 2 BeerCoin in piu' di chi attraversava la strada, e il tetto a 10 tagliava
+ * proprio i giri piu' faticosi: 24 birre a 5 km valevano 11 e venivano pagati
+ * 10, come un giro medio. Lo sforzo in piu' era gratis.
+ *
+ * Km: 0.5 -> 1.0 (un chilometro, una moneta). Tetto: 10 -> 14.
+ *
+ * I BeerCoin non si creano qui: chi chiede paga, chi porta incassa. Alzare il
+ * tetto non gonfia l'economia, ridistribuisce la fatica.
+ */
 export const CREDIT_BASE = 1;
 export const CREDIT_PER_KG = 0.5;
-export const CREDIT_PER_KM = 0.5;
-export const CREDIT_CAP = 10;
+export const CREDIT_PER_KM = 1.0;
+export const CREDIT_CAP = 14;
 
 /** Parte peso dei crediti: min(CAP, ceil(BASE + peso·W)). Mirror di credits_for_weight(). */
 export function estimateCredits(birre: BeerItem[]): number {

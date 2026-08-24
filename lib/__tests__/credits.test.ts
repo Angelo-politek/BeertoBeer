@@ -17,8 +17,8 @@ import type { BeerItem } from '@/types';
  * FONTE DI VERITÀ: supabase/schema.sql →
  *   format_weight(formato)        pesi per formato
  *   order_weight_kg(lista)        somma quantita * peso
- *   credits_for_weight(lista)     least(10, ceil(1 + peso * 0.5))
- *   accept_order                  bonus = round(km * 0.5), totale <= 10
+ *   credits_for_weight(lista)     least(14, ceil(1 + peso * 0.5))
+ *   accept_order                  bonus = round(km * 1.0), totale <= 14
  *
  * Se un giorno cambiano lì, questi test devono fallire: è il loro scopo.
  */
@@ -60,7 +60,7 @@ describe('costo del giro (mirror di credits_for_weight in SQL)', () => {
     expect(estimateCredits([birra('75cl', 10)])).toBe(8);
   });
 
-  it('non supera mai il tetto di 10, per quanto grande sia l ordine', () => {
+  it('non supera mai il tetto, per quanto grande sia l ordine', () => {
     expect(estimateCredits([birra('75cl', 100)])).toBe(CREDIT_CAP);
     expect(estimateCredits([birra('75cl', 10_000)])).toBe(CREDIT_CAP);
   });
@@ -79,11 +79,14 @@ describe('costo del giro (mirror di credits_for_weight in SQL)', () => {
 });
 
 describe('bonus distanza (mirror di accept_order in SQL)', () => {
-  it('vale round(km * 0.5)', () => {
+  // Taratura del 01/09/2026: da 0.5 a 1.0 BeerCoin al km. Prima chi si faceva
+  // 5 km a piedi con la spesa guadagnava 3 monete; ora ne guadagna 5.
+  it('vale round(km * 1.0)', () => {
     expect(estimateBonus(0)).toBe(0);
-    expect(estimateBonus(4)).toBe(2);
-    expect(estimateBonus(4.4)).toBe(2); // round(2.2)
-    expect(estimateBonus(5)).toBe(3); // round(2.5) → 3
+    expect(estimateBonus(4)).toBe(4);
+    expect(estimateBonus(4.4)).toBe(4); // round(4.4)
+    expect(estimateBonus(5)).toBe(5);
+    expect(estimateBonus(2.5)).toBe(3); // round(2.5) → 3
   });
 
   it('il margine residuo prima del tetto non è mai negativo', () => {
