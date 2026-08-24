@@ -4,7 +4,6 @@ import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/avatar';
-import { BadgeGrid } from '@/components/badge-grid';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
@@ -16,12 +15,12 @@ import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { ProfileShowcase } from '@/components/profile-showcase';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
-import { getAvailableCredits, getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions, getUserBadges } from '@/data/api';
+import { getAvailableCredits, getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
 import { failureCounter, PARTIAL_LOAD_MESSAGE, withFallback } from '@/lib/load';
 import { formatShortDate } from '@/lib/format';
-import type { CityGoal, CreditTransaction, ProfileCustomization, ReciprocitySummary, Review, UrbanMission, User, UserBadge } from '@/types';
+import type { CityGoal, CreditTransaction, ProfileCustomization, ReciprocitySummary, Review, UrbanMission, User } from '@/types';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -38,7 +37,6 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [customization, setCustomization] = useState<ProfileCustomization | null>(null);
   const [available, setAvailable] = useState<number | null>(null);
-  const [badges, setBadges] = useState<UserBadge[]>([]);
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true);
@@ -49,7 +47,7 @@ export default function ProfileScreen() {
       // ma i guasti si contano: una sezione vuota per errore non deve sembrare
       // una sezione vuota per davvero.
       const guasti = failureCounter();
-      const [ratio, nextMissions, cityGoal, txs, latestReviews, custom, disponibili, myBadges] = await Promise.all([
+      const [ratio, nextMissions, cityGoal, txs, latestReviews, custom, disponibili] = await Promise.all([
         withFallback(getReciprocitySummary(), { given: 0, received: 0 }, guasti.segnala),
         withFallback(getUrbanMissions(), [], guasti.segnala),
         withFallback(getCityGoal(city.key), null, guasti.segnala),
@@ -57,10 +55,9 @@ export default function ProfileScreen() {
         withFallback(getReviewsForUser(current.id), [], guasti.segnala),
         withFallback(getProfileCustomization(current.id), null, guasti.segnala),
         withFallback(getAvailableCredits(), null, guasti.segnala),
-        withFallback(getUserBadges(current.id), [], guasti.segnala),
       ]);
       if (guasti.quanti > 0) toast.show(PARTIAL_LOAD_MESSAGE, 'error');
-      setUser(current); setReciprocity(ratio); setMissions(nextMissions); setGoal(cityGoal); setTransactions(txs.slice(0, 5)); setReviews(latestReviews.slice(0, 3)); setCustomization(custom); setAvailable(disponibili); setBadges(myBadges);
+      setUser(current); setReciprocity(ratio); setMissions(nextMissions); setGoal(cityGoal); setTransactions(txs.slice(0, 5)); setReviews(latestReviews.slice(0, 3)); setCustomization(custom); setAvailable(disponibili);
     } finally { setLoading(false); setRefreshing(false); }
   }, [city.key, toast]);
 
@@ -99,9 +96,6 @@ export default function ProfileScreen() {
             <BrandIcon name="wallet" size={52} color={c.accentText} />
             {impegnati > 0 ? <ThemedText style={{ color: c.accentText }}>{impegnati} impegnati in giri aperti · {available} disponibili</ThemedText> : null}<ThemedText style={{ color: c.accentText }}>Si guadagnano contribuendo. Non si comprano. Non si trasferiscono.</ThemedText>
           </Card>
-
-          <SectionTitle label="TRAGUARDI" title="I TUOI BADGE" />
-          <BadgeGrid unlocked={badges} />
 
           {/* L'invito ha una card sua: e' il modo in cui la community cresce e
               l'unico posto in cui una persona sceglie chi entra. Come quarta

@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Avatar } from '@/components/avatar';
-import { BadgeGrid } from '@/components/badge-grid';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
@@ -21,7 +20,6 @@ import {
   getCompliments,
   getProfileCustomization,
   getReviewsForUser,
-  getUserBadges,
   getUserById,
   isUserBlocked,
   reportUser,
@@ -30,7 +28,7 @@ import {
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
 import { formatShortDate } from '@/lib/format';
-import type { ComplimentCount, ProfileCustomization, ReportReason, Review, User, UserBadge } from '@/types';
+import type { ComplimentCount, ProfileCustomization, ReportReason, Review, User } from '@/types';
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,7 +40,6 @@ export default function UserProfileScreen() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [badges, setBadges] = useState<UserBadge[]>([]);
   const [compliments, setCompliments] = useState<ComplimentCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [blocked, setBlocked] = useState(false);
@@ -59,16 +56,14 @@ export default function UserProfileScreen() {
       getUserById(id),
       getReviewsForUser(id),
       isMe ? Promise.resolve(false) : isUserBlocked(id),
-      getUserBadges(id).catch(() => []),
       getCompliments(id).catch(() => []),
       getProfileCustomization(id).catch(() => null),
     ])
-      .then(([profile, profileReviews, isBlocked, userBadges, userCompliments, custom]) => {
+      .then(([profile, profileReviews, isBlocked, userCompliments, custom]) => {
         if (!active) return;
         setUser(profile);
         setReviews(profileReviews);
         setBlocked(isBlocked);
-        setBadges(userBadges);
         setCompliments(userCompliments);
         setCustomization(custom);
       })
@@ -205,10 +200,6 @@ export default function UserProfileScreen() {
           </Card>
         ) : null}
 
-        <Card style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>Badge</ThemedText>
-          <BadgeGrid unlocked={badges} showLocked={false} />
-        </Card>
 
         {compliments.length > 0 ? (
           <Card style={styles.section}>
