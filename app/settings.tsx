@@ -24,7 +24,11 @@ export default function SettingsScreen() {
         <Card>
           <ThemedText type="subtitle">Sicurezza</ThemedText>
           <ThemedText style={{ color: c.textSecondary }}>Contatti fidati, connessioni e preferenze notifiche saranno raccolti qui.</ThemedText>
-          <Button label="Le mie connessioni" variant="secondary" onPress={() => router.push('/connections' as never)} />
+          {/* «Amici» sostituisce «Le mie connessioni» come porta d'ingresso:
+              le connessioni erano un elenco implicito di chi avevi incrociato,
+              gli amici sono un legame che le due persone hanno scelto. Chi
+              conoscevi gia' resta, come suggerimento, dentro la schermata. */}
+          <Button label="I miei amici" variant="secondary" onPress={() => router.push('/amici' as never)} />
         </Card>
         <Card>
           <ThemedText type="subtitle">Notifiche</ThemedText>

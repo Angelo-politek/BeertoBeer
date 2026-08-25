@@ -98,6 +98,12 @@ with controlli as (
          'Scheda utente, statistiche, notifiche di sicurezza prioritarie',
          exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                  where n.nspname = 'public' and p.proname = 'admin_scheda_utente')
+
+  union all
+  select 13, '20260905_persone',
+         'Incontri/eventi con locandina, chat di gruppo, amici',
+         exists (select 1 from information_schema.tables
+                 where table_schema = 'public' and table_name = 'amicizie')
 )
 
 select ordine as n,

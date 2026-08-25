@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
@@ -10,9 +11,11 @@ import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { useToast } from '@/components/toast';
 import { Spacing } from '@/constants/theme';
-import { createEvent } from '@/data/api';
+import { createEvent, getCurrentUser } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
+import { messaggioServer } from '@/lib/errori';
+import { scegliECaricaLocandina } from '@/lib/locandina-upload';
 
 /** Giorni selezionabili per il ritrovo (label → offset in giorni da oggi). */
 const DAYS = [
@@ -40,6 +43,14 @@ export default function NewEventScreen() {
   const toast = useToast();
   const { city } = useCity();
 
+  /**
+   * Incontro o evento. Deciso con Alessio: INCONTRO e' spontaneo e lo crea
+   * chiunque (due birre al parco); EVENTO succede in un locale, ha una
+   * locandina ed e' aperto a piu' gente.
+   */
+  const [tipo, setTipo] = useState<'incontro' | 'evento'>('incontro');
+  const [locandina, setLocandina] = useState<string | null>(null);
+  const [caricando, setCaricando] = useState(false);
   const [titolo, setTitolo] = useState('');
   const [descrizione, setDescrizione] = useState('');
   const [luogo, setLuogo] = useState('');
@@ -50,6 +61,19 @@ export default function NewEventScreen() {
   const [ora, setOra] = useState(prossimoOrarioSensato);
   const [posti, setPosti] = useState('6');
   const [saving, setSaving] = useState(false);
+
+  async function caricaLocandina() {
+    setCaricando(true);
+    try {
+      const me = await getCurrentUser();
+      const url = await scegliECaricaLocandina(me.id);
+      if (url) setLocandina(url);
+    } catch (e) {
+      Alert.alert('Locandina non caricata', messaggioServer(e, 'Riprova fra poco.'));
+    } finally {
+      setCaricando(false);
+    }
+  }
 
   function buildQuando(): string | null {
     const m = ora.trim().match(/^(\d{1,2}):(\d{2})$/);
@@ -66,7 +90,7 @@ export default function NewEventScreen() {
   async function handleCreate() {
     const cleanTitle = titolo.trim();
     if (cleanTitle.length < 3) {
-      Alert.alert('Titolo troppo corto', 'Dai un nome al tuo giro (almeno 3 caratteri).');
+      Alert.alert('Titolo troppo corto', 'Dagli un nome (almeno 3 caratteri).');
       return;
     }
     const quando = buildQuando();
@@ -97,6 +121,8 @@ export default function NewEventScreen() {
     try {
       const id = await createEvent({
         titolo: cleanTitle,
+        tipo,
+        locandinaUrl: locandina,
         descrizione,
         luogo,
         quando,
@@ -105,10 +131,10 @@ export default function NewEventScreen() {
         lng: posizione.coords?.lng ?? null,
         posti: nPosti,
       });
-      toast.show('Incontro pubblicato.');
+      toast.show(tipo === 'evento' ? 'Evento pubblicato.' : 'Incontro pubblicato.');
       router.replace({ pathname: '/event/[id]', params: { id } } as never);
-    } catch {
-      Alert.alert('Errore', 'Non è stato possibile creare il giro. Riprova.');
+    } catch (e) {
+      Alert.alert('Non pubblicato', messaggioServer(e, 'Riprova fra poco.'));
     } finally {
       setSaving(false);
     }
@@ -116,11 +142,37 @@ export default function NewEventScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Organizza un giro' }} />
+      <Stack.Screen options={{ title: tipo === 'evento' ? 'Nuovo evento' : 'Nuovo incontro' }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText style={{ color: c.textSecondary }}>
-          Proponi un ritrovo aperto alla community di {city.label}. Chi vuole si unisce e vi conoscete di persona.
-        </ThemedText>
+        {/* La scelta per prima: cambia il senso di tutto quello che viene dopo. */}
+        <View style={styles.field}>
+          <ThemedText type="defaultSemiBold">Che cos e</ThemedText>
+          <View style={styles.chips}>
+            <Chip label="Incontro" active={tipo === 'incontro'} onPress={() => setTipo('incontro')} />
+            <Chip label="Evento" active={tipo === 'evento'} onPress={() => setTipo('evento')} />
+          </View>
+          <ThemedText type="caption" style={{ color: c.textSecondary }}>
+            {tipo === 'incontro'
+              ? `Due birre in compagnia, lo organizzi tu. Aperto a chi vuole unirsi a ${city.label}.`
+              : `Qualcosa che succede in un locale: un concerto, una serata, una degustazione. Puoi metterci la locandina.`}
+          </ThemedText>
+        </View>
+
+        {tipo === 'evento' ? (
+          <View style={styles.field}>
+            <ThemedText type="defaultSemiBold">Locandina (facoltativa)</ThemedText>
+            {locandina ? (
+              <Image source={{ uri: locandina }} style={styles.locandina} contentFit="cover" />
+            ) : null}
+            <Button
+              label={caricando ? 'Carico...' : locandina ? 'Cambia locandina' : 'Aggiungi la locandina'}
+              variant="secondary"
+              size="md"
+              loading={caricando}
+              onPress={caricaLocandina}
+            />
+          </View>
+        ) : null}
 
         <TextField label="Titolo" value={titolo} onChangeText={setTitolo} placeholder="Es. Aperitivo al parco" />
         <TextField
@@ -168,7 +220,7 @@ export default function NewEventScreen() {
         <TextField label="Ora (24h)" value={ora} onChangeText={setOra} placeholder="21:00" keyboardType="numbers-and-punctuation" />
         <TextField label="Posti" value={posti} onChangeText={setPosti} placeholder="6" keyboardType="number-pad" />
 
-        <Button label="Pubblica l’incontro" onPress={handleCreate} loading={saving} />
+        <Button label={tipo === 'evento' ? 'Pubblica l evento' : 'Pubblica l incontro'} onPress={handleCreate} loading={saving} />
       </ScrollView>
     </ThemedView>
   );
@@ -179,4 +231,5 @@ const styles = StyleSheet.create({
   content: { padding: Spacing.md, gap: Spacing.md },
   field: { gap: Spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  locandina: { width: '100%', aspectRatio: 3 / 4, borderRadius: 12 },
 });

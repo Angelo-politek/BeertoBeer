@@ -6,6 +6,7 @@ import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
+import { FotoIntera } from '@/components/foto-intera';
 import { LevelBadge } from '@/components/level-badge';
 import { ReportModal } from '@/components/report-modal';
 import { StarRating } from '@/components/star-rating';
@@ -13,10 +14,17 @@ import { useToast } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { ProfileShowcase } from '@/components/profile-showcase';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { COMPLIMENT_LABELS } from '@/constants/compliments';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import {
   blockUser,
+  chiediAmicizia,
+  getProfiloExtra,
+  getRelazione,
+  togliAmicizia,
+  type ProfiloExtra,
+  type Relazione,
   getCompliments,
   getProfileCustomization,
   getReviewsForUser,
@@ -28,6 +36,7 @@ import {
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
 import { formatShortDate } from '@/lib/format';
+import { messaggioServer } from '@/lib/errori';
 import type { ComplimentCount, ProfileCustomization, ReportReason, Review, User } from '@/types';
 
 export default function UserProfileScreen() {
@@ -48,6 +57,9 @@ export default function UserProfileScreen() {
   const [reportReason, setReportReason] = useState<ReportReason>('comportamento_scorretto');
   const [reportDetails, setReportDetails] = useState('');
   const [customization, setCustomization] = useState<ProfileCustomization | null>(null);
+  const [extra, setExtra] = useState<ProfiloExtra | null>(null);
+  const [relazione, setRelazione] = useState<Relazione>('nessuna');
+  const [fotoAperta, setFotoAperta] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -58,14 +70,18 @@ export default function UserProfileScreen() {
       isMe ? Promise.resolve(false) : isUserBlocked(id),
       getCompliments(id).catch(() => []),
       getProfileCustomization(id).catch(() => null),
+      getProfiloExtra(id).catch(() => null),
+      isMe ? Promise.resolve<Relazione>('nessuna') : getRelazione(id).catch((): Relazione => 'nessuna'),
     ])
-      .then(([profile, profileReviews, isBlocked, userCompliments, custom]) => {
+      .then(([profile, profileReviews, isBlocked, userCompliments, custom, profExtra, rel]) => {
         if (!active) return;
         setUser(profile);
         setReviews(profileReviews);
         setBlocked(isBlocked);
         setCompliments(userCompliments);
         setCustomization(custom);
+        setExtra(profExtra);
+        setRelazione(rel);
       })
       .catch(() => {
         if (active) setUser(null);
@@ -87,6 +103,31 @@ export default function UserProfileScreen() {
       toast.show('Segnalazione inviata, grazie');
     } catch {
       Alert.alert('Errore', 'Segnalazione non inviata.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  /**
+   * Il pulsante dell'amicizia cambia significato a seconda di dove si e':
+   * chiedere, accettare (se l'altro ha gia' chiesto), o togliere.
+   */
+  async function gestisciAmicizia() {
+    setActionLoading(true);
+    try {
+      if (relazione === 'amico') {
+        await togliAmicizia(id);
+        setRelazione('nessuna');
+        toast.show('Non siete piu amici.');
+      } else {
+        // Se l'altro aveva gia' chiesto, chiedere equivale ad accettare: il
+        // database lo sa e risponde «accettata».
+        const esito = await chiediAmicizia(id);
+        setRelazione(esito === 'accettata' ? 'amico' : 'in_attesa');
+        toast.show(esito === 'accettata' ? 'Ora siete amici.' : 'Richiesta inviata.');
+      }
+    } catch (e) {
+      Alert.alert('Non riuscita', messaggioServer(e, 'Riprova fra poco.'));
     } finally {
       setActionLoading(false);
     }
@@ -146,10 +187,57 @@ export default function UserProfileScreen() {
             <LevelBadge level={user.livello ?? 0} size="md" />
             <ThemedText style={{ color: c.textSecondary }}>· {user.eta} anni</ThemedText>
           </View>
+          {/* Founder e amministratore si vedono: chi apre un profilo deve
+              sapere se sta parlando con chi il progetto lo manda avanti. */}
+          {extra?.founder || extra?.isAdmin ? (
+            <View style={styles.etichette}>
+              {extra.founder ? (
+                <View style={[styles.etichetta, { backgroundColor: c.accent }]}>
+                  <ThemedText type="caption" style={{ color: c.accentText }}>FONDATORE</ThemedText>
+                </View>
+              ) : null}
+              {extra.isAdmin ? (
+                <View style={[styles.etichetta, { borderWidth: 1, borderColor: c.accent }]}>
+                  <ThemedText type="caption" style={{ color: c.accent }}>AMMINISTRAZIONE</ThemedText>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+          {extra?.invitanteNome && extra.invitanteId ? (
+            <PressableScale
+              onPress={() => router.push({ pathname: '/user/[id]', params: { id: extra.invitanteId as string } })}>
+              <ThemedText type="caption" style={{ color: c.textSecondary }}>
+                {`Invitato da ${extra.invitanteNome}`}
+              </ThemedText>
+            </PressableScale>
+          ) : null}
         </View>
 
         {!isMe ? (
-          <Button label="Scrivi" variant="secondary" onPress={() => router.push({ pathname: '/chat/direct/[userId]', params: { userId: id } } as never)} />
+          <View style={styles.azioniAlte}>
+            <Button
+              label="Scrivi"
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/chat/direct/[userId]', params: { userId: id } } as never)}
+              style={styles.meta}
+            />
+            <Button
+              label={
+                relazione === 'amico'
+                  ? 'Siete amici'
+                  : relazione === 'in_attesa'
+                    ? 'Richiesta inviata'
+                    : relazione === 'in_arrivo'
+                      ? 'Accetta'
+                      : 'Aggiungi'
+              }
+              variant={relazione === 'amico' ? 'secondary' : 'primary'}
+              disabled={relazione === 'in_attesa'}
+              loading={actionLoading}
+              onPress={gestisciAmicizia}
+              style={styles.meta}
+            />
+          </View>
         ) : null}
 
         <Card style={styles.statsCard}>
@@ -174,7 +262,7 @@ export default function UserProfileScreen() {
         {/* La vetrina era renderizzata dentro il ramo `if (loading)`: compariva
             solo mentre la schermata caricava, quando è ancora vuota. Nessuno
             l'ha mai vista. Va qui, dove il profilo si guarda davvero. */}
-        {customization ? <ProfileShowcase value={customization} /> : null}
+        {customization ? <ProfileShowcase value={customization} onApriFoto={setFotoAperta} /> : null}
 
         {user.bio ? (
           <Card style={styles.section}>
@@ -249,6 +337,22 @@ export default function UserProfileScreen() {
           </View>
         ) : null}
       </ScrollView>
+      {customization && fotoAperta != null ? (
+        <FotoIntera
+          uri={customization.photos[fotoAperta]?.url ?? null}
+          indice={fotoAperta}
+          totale={customization.photos.length}
+          onClose={() => setFotoAperta(null)}
+          onScorri={(avanti) =>
+            setFotoAperta((i) => {
+              const n = customization.photos.length;
+              if (i == null || n === 0) return i;
+              return (i + (avanti ? 1 : -1) + n) % n;
+            })
+          }
+        />
+      ) : null}
+
       <ReportModal
         visible={reportOpen}
         reason={reportReason}
@@ -270,6 +374,10 @@ const styles = StyleSheet.create({
   header: { alignItems: 'center', gap: Spacing.xs, paddingVertical: Spacing.md },
   name: { marginTop: Spacing.sm },
   headerMeta: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, marginTop: 2 },
+  etichette: { flexDirection: 'row', gap: Spacing.xs, marginTop: Spacing.xs },
+  etichetta: { borderRadius: Radii.pill, paddingHorizontal: 10, paddingVertical: 3 },
+  azioniAlte: { flexDirection: 'row', gap: Spacing.sm },
+  meta: { flex: 1 },
   statsCard: {
     flexDirection: 'row',
     paddingVertical: Spacing.lg,

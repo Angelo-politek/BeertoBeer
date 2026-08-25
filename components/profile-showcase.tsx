@@ -1,13 +1,23 @@
 import { Image } from 'expo-image';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card } from '@/components/card';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { ProfileStickerImage } from '@/components/profile-sticker';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { ProfileCustomization } from '@/types';
 
-export function ProfileShowcase({ value }: { value: ProfileCustomization }) {
+export function ProfileShowcase({
+  value,
+  onApriFoto,
+}: {
+  value: ProfileCustomization;
+  /** Se passata, le foto si aprono a schermo intero: erano visibili ma grandi
+   *  come un francobollo, e su un profilo che si guarda per decidere se far
+   *  entrare qualcuno in casa e' proprio quello che si vuole guardare bene. */
+  onApriFoto?: (indice: number) => void;
+}) {
   const c = useColors();
   // slot != null e non !== undefined: il database restituisce null per gli
   // sticker NON messi in vetrina, e col confronto stretto passavano tutti —
@@ -15,7 +25,7 @@ export function ProfileShowcase({ value }: { value: ProfileCustomization }) {
   const shown = value.stickers.filter((s) => s.unlocked && s.slot != null).sort((a,b) => (a.slot ?? 0)-(b.slot ?? 0));
   if (!value.photos.length && !value.statusPhrase && !shown.length && !value.beerTastes.length && !value.availability.length) return null;
   return <Card style={styles.card}>
-    {value.photos.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>{value.photos.map((p) => <Image key={p.id} source={{ uri: p.url }} contentFit="cover" style={styles.photo} />)}</ScrollView> : null}
+    {value.photos.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>{value.photos.map((p, i) => <PressableScale key={p.id} onPress={() => onApriFoto?.(i)}><Image source={{ uri: p.url }} contentFit="cover" style={styles.photo} /></PressableScale>)}</ScrollView> : null}
     {value.statusPhrase ? <ThemedText type="subtitle">“{value.statusPhrase}”</ThemedText> : null}
     {shown.length ? <View style={[styles.board,{backgroundColor:c.surfaceAlt}]}>{shown.map((s) => <ProfileStickerImage key={s.key} assetKey={s.assetKey} size={76*(s.scale ?? 1)} style={{ transform:[{rotate:`${s.rotation ?? 0}deg`}] }} />)}</View> : null}
     {value.beerTastes.length ? <View><ThemedText type="label">GUSTI</ThemedText><ThemedText>{value.beerTastes.join(' · ')}</ThemedText></View> : null}

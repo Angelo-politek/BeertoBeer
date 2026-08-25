@@ -1,3 +1,4 @@
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
@@ -84,8 +85,17 @@ export default function CommunityScreen() {
               onRefresh={() => load(true)}
               renderItem={({ item }) => (
                 <Card onPress={() => router.push({ pathname: '/event/[id]', params: { id: item.id } } as never)} style={styles.eventCard}>
-                  <View style={[styles.eventIcon, { backgroundColor: c.accentSoft }]}><BrandIcon name="cheers" size={26} color={c.accent} /></View>
+                  {/* La locandina al posto dell'icona quando c'e': si capisce
+                      in un secondo di che serata si tratta. */}
+                  {item.locandinaUrl ? (
+                    <Image source={{ uri: item.locandinaUrl }} style={styles.eventLocandina} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.eventIcon, { backgroundColor: c.accentSoft }]}><BrandIcon name="cheers" size={26} color={c.accent} /></View>
+                  )}
                   <View style={styles.flex}>
+                    <ThemedText type="caption" style={{ color: c.accent }}>
+                      {item.tipo === 'evento' ? 'EVENTO' : 'INCONTRO'}
+                    </ThemedText>
                     <ThemedText type="subtitle">{item.titolo}</ThemedText>
                     <ThemedText type="caption">{formatShortDate(item.quando)}{item.luogo ? ` · ${item.luogo}` : ''}</ThemedText>
                     <ThemedText type="caption">{item.partecipanti ?? 0} su {item.posti} partecipanti</ThemedText>
@@ -122,7 +132,7 @@ export default function CommunityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 }, safe: { flex: 1 }, flex: { flex: 1 }, header: { flexDirection: 'row', alignItems: 'center', padding: Spacing.md, gap: Spacing.sm }, back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, headerText: { flex: 1 },
-  tabs: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm }, loading: { padding: Spacing.md, gap: Spacing.md }, list: { padding: Spacing.md, paddingBottom: 100, gap: Spacing.md }, eventCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, eventIcon: { width: 48, height: 48, borderRadius: Radii.sm, alignItems: 'center', justifyContent: 'center' },
+  tabs: { flexDirection: 'row', paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm, gap: Spacing.sm }, loading: { padding: Spacing.md, gap: Spacing.md }, list: { padding: Spacing.md, paddingBottom: 100, gap: Spacing.md }, eventCard: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, eventIcon: { width: 48, height: 48, borderRadius: Radii.sm, alignItems: 'center', justifyContent: 'center' }, eventLocandina: { width: 54, height: 72, borderRadius: Radii.sm },
   eventFilters: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Spacing.md, paddingTop: Spacing.sm },
   fab: { position: 'absolute', right: Spacing.md, bottom: Spacing.md, minHeight: 50, borderRadius: Radii.md, paddingHorizontal: Spacing.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }, fabLabel: { fontFamily: Fonts.display, fontSize: 18, letterSpacing: 1 },
   feedRow: { flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start' }, feedIcon: { width: 42, height: 42, borderRadius: Radii.sm, alignItems: 'center', justifyContent: 'center' },

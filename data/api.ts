@@ -1453,6 +1453,8 @@ export async function sendCompliment(orderId: string, toUserId: string, tipo: st
 type EventRow = {
   id: string;
   host_id: string;
+  tipo: 'incontro' | 'evento';
+  locandina_url: string | null;
   citta: string | null;
   titolo: string;
   descrizione: string | null;
@@ -1470,6 +1472,8 @@ function mapEvent(row: EventRow, host?: User): BeerEvent {
     id: row.id,
     hostId: row.host_id,
     host,
+    tipo: row.tipo ?? 'incontro',
+    locandinaUrl: row.locandina_url,
     citta: row.citta,
     titolo: row.titolo,
     descrizione: row.descrizione,
@@ -1488,7 +1492,7 @@ export async function getEvents(citta: string): Promise<BeerEvent[]> {
   const myId = await requireUserId();
   const { data, error } = await supabase
     .from('events')
-    .select('id, host_id, citta, titolo, descrizione, quando, luogo, lat, lng, posti, stato, created_at')
+    .select('id, host_id, citta, titolo, descrizione, quando, luogo, lat, lng, posti, stato, created_at, tipo, locandina_url')
     .eq('citta', citta)
     .eq('stato', 'aperto')
     // La soglia è la STESSA che usa join_event_v21 per decidere se ci si può
@@ -1528,7 +1532,7 @@ export async function getEventById(id: string): Promise<BeerEvent | null> {
   const myId = await requireUserId();
   const { data, error } = await supabase
     .from('events')
-    .select('id, host_id, citta, titolo, descrizione, quando, luogo, lat, lng, posti, stato, created_at')
+    .select('id, host_id, citta, titolo, descrizione, quando, luogo, lat, lng, posti, stato, created_at, tipo, locandina_url')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
@@ -1548,8 +1552,130 @@ export async function getEventById(id: string): Promise<BeerEvent | null> {
   };
 }
 
+/** Quello che di una persona si puo' mostrare a chiunque apra il suo profilo. */
+export type ProfiloExtra = {
+  isAdmin: boolean;
+  founder: boolean;
+  invitanteId: string | null;
+  invitanteNome: string | null;
+};
+
+export async function getProfiloExtra(userId: string): Promise<ProfiloExtra> {
+  const { data, error } = await supabase.rpc('profilo_pubblico_extra', { p_user_id: userId });
+  if (error) throw error;
+  const r = (data ?? {}) as Record<string, unknown>;
+  return {
+    isAdmin: Boolean(r.is_admin),
+    founder: Boolean(r.founder),
+    invitanteId: (r.invitante_id as string) ?? null,
+    invitanteNome: (r.invitante_nome as string) ?? null,
+  };
+}
+
+/** Chi partecipa a un incontro, organizzatore compreso. */
+export type Partecipante = { id: string; nome: string; fotoUrl: string | null; eOrganizzatore: boolean };
+
+export async function getPartecipanti(eventId: string): Promise<Partecipante[]> {
+  const { data, error } = await supabase.rpc('partecipanti_evento', { p_event_id: eventId });
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    nome: r.nome as string,
+    fotoUrl: (r.foto_url as string) ?? null,
+    eOrganizzatore: Boolean(r.e_organizzatore),
+  }));
+}
+
+// ---------- Chat di gruppo dell'incontro ----------
+
+export async function getEventMessages(eventId: string): Promise<Message[]> {
+  const { data, error } = await supabase
+    .from('event_messages')
+    .select('id, event_id, sender_id, testo, created_at')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: true })
+    .limit(300);
+  if (error) throw error;
+  const rows = (data ?? []) as { id: string; sender_id: string; testo: string; created_at: string }[];
+  const autori = await fetchProfiles(rows.map((r) => r.sender_id));
+  return rows.map((r) => ({
+    id: r.id,
+    orderId: eventId,
+    senderId: r.sender_id,
+    testo: r.testo,
+    createdAt: r.created_at,
+    sender: autori.get(r.sender_id),
+  }));
+}
+
+export async function sendEventMessage(eventId: string, testo: string): Promise<void> {
+  const myId = await requireUserId();
+  const { error } = await supabase
+    .from('event_messages')
+    .insert({ event_id: eventId, sender_id: myId, testo: testo.trim() });
+  if (error) throw error;
+}
+
+// ---------- Amici ----------
+
+/**
+ * «amico» = accettata. «in_arrivo» = deve rispondere l'utente corrente.
+ * «in_attesa» = ha chiesto lui e aspetta. «nessuna» = mai chiesto.
+ */
+export type Relazione = 'amico' | 'in_arrivo' | 'in_attesa' | 'nessuna';
+
+export type Amico = {
+  id: string;
+  nome: string;
+  fotoUrl: string | null;
+  citta: string | null;
+  relazione: Exclude<Relazione, 'nessuna'>;
+  richiestaId: string;
+  da: string;
+};
+
+export async function getAmici(): Promise<Amico[]> {
+  const { data, error } = await supabase.rpc('miei_amici');
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    nome: r.nome as string,
+    fotoUrl: (r.foto_url as string) ?? null,
+    citta: (r.citta as string) ?? null,
+    relazione: r.relazione as Exclude<Relazione, 'nessuna'>,
+    richiestaId: r.richiesta_id as string,
+    da: r.da as string,
+  }));
+}
+
+export async function getRelazione(userId: string): Promise<Relazione> {
+  const { data, error } = await supabase.rpc('relazione_con', { p_user_id: userId });
+  if (error) throw error;
+  return (data as Relazione) ?? 'nessuna';
+}
+
+/** Ritorna cosa e successo: inviata, accettata (se l altro aveva gia chiesto), gia_amici, gia_richiesta. */
+export async function chiediAmicizia(userId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('chiedi_amicizia', { p_user_id: userId });
+  if (error) throw error;
+  return (data as string) ?? 'inviata';
+}
+
+export async function rispondiAmicizia(richiestaId: string, accetta: boolean): Promise<void> {
+  const { error } = await supabase.rpc('rispondi_amicizia', { p_id: richiestaId, p_accetta: accetta });
+  if (error) throw error;
+}
+
+export async function togliAmicizia(userId: string): Promise<void> {
+  const { error } = await supabase.rpc('togli_amicizia', { p_user_id: userId });
+  if (error) throw error;
+}
+
 export type CreateEventInput = {
   titolo: string;
+  /** «incontro» = spontaneo, lo crea chiunque. «evento» = in un locale, con locandina. */
+  tipo?: 'incontro' | 'evento';
+  locandinaUrl?: string | null;
   descrizione?: string;
   quando: string;
   luogo?: string;
@@ -1567,6 +1693,8 @@ export async function createEvent(input: CreateEventInput): Promise<string> {
     .insert({
       host_id: id,
       titolo: input.titolo.trim(),
+      tipo: input.tipo ?? 'incontro',
+      locandina_url: input.locandinaUrl ?? null,
       descrizione: input.descrizione?.trim() || null,
       quando: input.quando,
       luogo: input.luogo?.trim() || null,

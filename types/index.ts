@@ -269,6 +269,13 @@ export type BeerEvent = {
   id: string;
   hostId: string;
   host?: User;
+  /**
+   * «incontro» = spontaneo, lo crea chiunque, due birre al parco.
+   * «evento» = in un locale, con locandina, aperto a piu' gente.
+   * Gli incontri creati prima di questa distinzione restano «incontro».
+   */
+  tipo: 'incontro' | 'evento';
+  locandinaUrl?: string | null;
   citta?: string | null;
   titolo: string;
   descrizione?: string | null;
