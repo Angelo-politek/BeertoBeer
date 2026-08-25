@@ -304,3 +304,51 @@ describe('la versione si legge dentro l app', () => {
     expect(appJson.expo.version).toBe('1.1.0');
   });
 });
+
+describe('le push parlano la lingua dell app', () => {
+  // Le notifiche sono l'unica voce che raggiunge una persona che non ha l'app
+  // aperta, ed erano l'unica parte mai riscritta dai tempi della gamification.
+  const PAROLE = leggi('supabase/migrations/20260910_le_parole_delle_push.sql');
+  const codice = PAROLE.replace(/^\s*--.*$/gm, '');
+
+  it('nessuna emoji nei testi delle notifiche', () => {
+    // La bible impone icone «outline, bianco, 2-3px, disegnate a mano»: un
+    // emoji di sistema e' un glifo glossy multicolore disegnato da altri.
+    expect(codice).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+  });
+
+  it('nessun punto esclamativo', () => {
+    // Nessuno degli esempi ufficiali del marchio ne ha uno. E' il rumore di
+    // fondo di ogni app di delivery.
+    const frasi = codice.match(/'[^']{15,}'/g) ?? [];
+    for (const f of frasi) expect(f).not.toContain('!');
+  });
+
+  it('non si dice piu «driver» ne «richiesta» a chi legge', () => {
+    const frasi = (codice.match(/'[^']{15,}'/g) ?? []).join(' ');
+    expect(frasi).not.toMatch(/\bdriver\b/i);
+    expect(frasi).not.toMatch(/\brichiesta\b/i);
+  });
+
+  it('il titolo dice chi parla, quando c e una persona', () => {
+    expect(codice).toContain("coalesce(v_driver, 'Qualcuno') || ' porta le tue birre'");
+    expect(codice).toContain("coalesce(v_sender, 'Messaggio')");
+  });
+
+  it('un giro annullato adesso avvisa: prima non lo faceva nessuno', () => {
+    expect(codice).toContain("'Giro annullato'");
+  });
+
+  it('le firme delle funzioni rigenerate sono quelle originali', () => {
+    // Sbagliare un parametro non darebbe un errore: creerebbe un OVERLOAD, e
+    // la versione vecchia continuerebbe a mandare notifiche su badge che
+    // l'app non ha nessuna schermata per mostrare.
+    expect(codice).toContain('unlock_badge(p_user uuid, p_badge_key text)');
+    expect(codice).toMatch(/bump_zone_score\(\s*p_user uuid, p_citta text, p_lat double precision, p_lng double precision\)/);
+  });
+
+  it('nessun marchio commerciale nei nomi dei badge', () => {
+    expect(codice).toMatch(/update public\.badges set nome/);
+    expect(codice).not.toMatch(/peroni/i);
+  });
+});

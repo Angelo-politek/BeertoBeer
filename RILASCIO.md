@@ -34,7 +34,7 @@ aggiornamento e c'era anche prima.
 > connessione**. È già successo il 26 agosto, ed è raccontato nell'intestazione
 > di `supabase/migrations/20260826_fix_feed.sql`.
 
-Nel **SQL Editor di Supabase**, apri ed esegui questi quattro file **in questo
+Nel **SQL Editor di Supabase**, apri ed esegui questi cinque file **in questo
 ordine**, uno alla volta, aspettando che ciascuno finisca:
 
 | # | File | Cosa fa |
@@ -43,6 +43,7 @@ ordine**, uno alla volta, aspettando che ciascuno finisca:
 | 2 | `supabase/migrations/20260907_scadenza_e_feed.sql` | `scade_il`, `ttl_giro()`, e la vista del feed ricostruita |
 | 3 | `supabase/migrations/20260908_uscite.sql` | La tabella `uscite` e le sue guardie |
 | 4 | `supabase/migrations/20260909_giro_da_uscita.sql` | Il ponte fra un'uscita e un giro |
+| 5 | `supabase/migrations/20260910_le_parole_delle_push.sql` | Le notifiche riscritte (nessuna schermata cambia) |
 
 Tutte e quattro sono **sicure da rieseguire**: se hai un dubbio su quale hai
 già lanciato, rilanciala. Non cancellano niente.
