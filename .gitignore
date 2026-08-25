@@ -51,3 +51,4 @@ app-example
 
 # log temporanei delle esportazioni
 *.out
+supabase/.temp/
