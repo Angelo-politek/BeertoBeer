@@ -40,6 +40,7 @@ export const NOVITA: Novita[] = [
       'Se hai un amico, puoi scrivergli anche senza aver mai fatto un giro insieme.',
       'Gli amici stanno nel profilo, e chi hai bloccato si può sbloccare.',
       'Il feed non dice più «per te»: si ordina per chi finisce prima, e si può cambiare.',
+      'In Impostazioni c’è la versione che stai usando, e il link al codice: è tutto pubblico.',
     ],
   },
 ];
