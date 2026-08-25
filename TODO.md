@@ -23,11 +23,11 @@
 - [x] **B8** scheda admin «Giri» + safety-map centrata sulla città
 
 ### Ondata 1 (mese 1) — Tempo, parole, una sola porta
-- [ ] **C1** APK nuovo + `app_release` + ponte di runtime + Sentry source map
+- [ ] **C1** *(rinviato: dipende dalle 3 decisioni in RILASCIO.md §5)* APK nuovo + `app_release` + ponte di runtime + Sentry source map
 - [x] **C2** `ttl_giro()` + `orders.scade_il` + **un solo** `drop view` di `open_requests`
 - [x] **C3** tabella `uscite` + vista redatta + RPC + trigger guardia (nessuna UI)
 - [ ] **C4** inbox unificata (vista `conversazioni`, `letture`, contatori)
-- [ ] **C5** pulizia codice morto
+- [x] **C5** pulizia codice morto
 - [ ] **C6** `constants/testi/` + glossario esteso + migrazione delle parole
 
 ### Ondata 2 (mese 2) — Chi è fuori

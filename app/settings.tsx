@@ -28,7 +28,7 @@ export default function SettingsScreen() {
               le connessioni erano un elenco implicito di chi avevi incrociato,
               gli amici sono un legame che le due persone hanno scelto. Chi
               conoscevi gia' resta, come suggerimento, dentro la schermata. */}
-          <Button label="I miei amici" variant="secondary" onPress={() => router.push('/amici' as never)} />
+          <Button label="Persone bloccate" variant="secondary" onPress={() => router.push('/bloccati' as never)} />
         </Card>
         <Card>
           <ThemedText type="subtitle">Notifiche</ThemedText>

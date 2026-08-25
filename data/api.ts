@@ -24,7 +24,6 @@ import type {
     ComplimentCount,
     CreditTransaction,
     CityGoal,
-    LeaderboardEntry,
     Message,
     OrderStatus,
     OrderSafetyEvent,
@@ -39,11 +38,9 @@ import type {
     ReportReason,
     Review,
     User,
-    UserBadge,
     ProfileCustomization,
     ProfilePhotoVisibility,
     ProfileSticker,
-    ZoneHolder,
 } from '@/types';
 
 const PROFILE_COLUMNS =
@@ -691,11 +688,6 @@ export async function getUrbanMissions(): Promise<UrbanMission[]> {
       claimed: Boolean(state?.claimed_at),
     };
   });
-}
-
-export async function claimUrbanMission(key: string): Promise<void> {
-  const { error } = await supabase.rpc('claim_urban_mission', { p_mission_key: key });
-  if (error) throw error;
 }
 
 export async function getCityGoal(city: string): Promise<CityGoal> {
@@ -1370,16 +1362,6 @@ export async function completeOnboarding(): Promise<void> {
 
 // ---------- Badge ----------
 
-/** Badge sbloccati da un utente (chiave + data), via RPC badges_for_user. */
-export async function getUserBadges(userId: string): Promise<UserBadge[]> {
-  const { data, error } = await supabase.rpc('badges_for_user', { p_user: userId });
-  if (error) throw error;
-  return ((data ?? []) as { badge_key: string; unlocked_at: string }[]).map((r) => ({
-    key: r.badge_key,
-    unlockedAt: r.unlocked_at,
-  }));
-}
-
 // ---------- Referral ----------
 
 /**
@@ -1417,60 +1399,9 @@ export async function checkInviteCode(code: string): Promise<boolean> {
   return Boolean(data);
 }
 
-/** @deprecated Gli inviti si registrano all'ingresso: questa non fa più nulla. */
-export async function applyReferral(inviterId: string): Promise<void> {
-  const { error } = await supabase.rpc('apply_referral', { p_inviter: inviterId });
-  if (error) throw error;
-}
-
 // ---------- Leaderboard ----------
 
-/** Classifica dei più attivi in una città (per consegne). Vista leaderboard_citta. */
-export async function getLeaderboard(citta: string, limit = 20): Promise<LeaderboardEntry[]> {
-  const { data, error } = await supabase
-    .from('leaderboard_citta')
-    .select('id, nome, foto_url, consegne, livello')
-    .eq('citta', citta)
-    .order('consegne', { ascending: false })
-    .limit(limit);
-  if (error) throw error;
-  return ((data ?? []) as {
-    id: string;
-    nome: string;
-    foto_url: string | null;
-    consegne: number;
-    livello: number;
-  }[]).map((r) => ({
-    id: r.id,
-    nome: r.nome,
-    fotoUrl: r.foto_url ?? undefined,
-    consegne: r.consegne,
-    livello: r.livello,
-  }));
-}
-
 // ---------- Zone (conquista quartieri) ----------
-
-/** Zone conquistate in una città, con il rispettivo holder. */
-export async function getZoneHolders(citta: string): Promise<ZoneHolder[]> {
-  const { data, error } = await supabase
-    .from('zone_holders')
-    .select('citta, zona, holder_user_id, punteggio')
-    .eq('citta', citta)
-    .order('punteggio', { ascending: false });
-  if (error) throw error;
-  return ((data ?? []) as {
-    citta: string;
-    zona: string;
-    holder_user_id: string | null;
-    punteggio: number;
-  }[]).map((r) => ({
-    citta: r.citta,
-    zona: r.zona,
-    holderUserId: r.holder_user_id,
-    punteggio: r.punteggio,
-  }));
-}
 
 // ---------- Complimenti ----------
 

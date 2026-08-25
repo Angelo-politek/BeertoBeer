@@ -7,7 +7,6 @@ import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
 import { FotoIntera } from '@/components/foto-intera';
-import { LevelBadge } from '@/components/level-badge';
 import { ReportModal } from '@/components/report-modal';
 import { StarRating } from '@/components/star-rating';
 import { useToast } from '@/components/toast';
@@ -184,7 +183,6 @@ export default function UserProfileScreen() {
             {user.nome}
           </ThemedText>
           <View style={styles.headerMeta}>
-            <LevelBadge level={user.livello ?? 0} size="md" />
             <ThemedText style={{ color: c.textSecondary }}>· {user.eta} anni</ThemedText>
           </View>
           {/* Founder e amministratore si vedono: chi apre un profilo deve
