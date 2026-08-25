@@ -156,6 +156,8 @@ export type BeerRequest = {
   statoModerazione?: string;
   /** fermato da una segnalazione di sicurezza: nessuna transizione e' permessa */
   congelato?: boolean;
+  /** quando esce dal feed. La decide il server: orders.scade_il */
+  scadeIl?: string;
   /** distanza dall'utente in km — opzionale finché non c'è la geolocalizzazione */
   distanzaKm?: number;
   stato: OrderStatus;

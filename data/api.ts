@@ -48,7 +48,7 @@ import type {
 const PROFILE_COLUMNS =
   'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati, livello, karma, interessi, cerco_compagnia, citta';
 const ORDER_COLUMNS =
-  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, updated_at, citta, stato_moderazione, congelato';
+  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, updated_at, citta, stato_moderazione, congelato, scade_il';
 // I tre voti di dettaglio esistevano nel database dalla V2.1 e non venivano
 // mai letti: sul profilo compariva solo la media. Sono proprio quelli che
 // dicono se una persona e' puntuale o se si fa capire.
@@ -206,6 +206,7 @@ type OrderRow = {
   citta: string | null;
   stato_moderazione: string;
   congelato: boolean | null;
+  scade_il: string | null;
 };
 
 /** Riga ordine (+ profilo host) → BeerRequest per la UI. */
@@ -229,6 +230,7 @@ function mapOrder(row: OrderRow, host: User | undefined, driver?: User): BeerReq
     citta: row.citta,
     statoModerazione: row.stato_moderazione,
     congelato: row.congelato ?? false,
+    scadeIl: row.scade_il ?? undefined,
     driver,
   };
 }

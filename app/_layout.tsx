@@ -9,7 +9,6 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
-import { NovitaBanner } from '@/components/novita-banner';
 import { ToastProvider, useToast } from '@/components/toast';
 import { Colors, Fonts } from '@/constants/theme';
 import { getOnboardingCompleted, updateUserCity } from '@/data/api';

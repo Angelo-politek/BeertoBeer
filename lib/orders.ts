@@ -22,6 +22,10 @@ export const REQUEST_TTL_HOURS = 12;
 /** True se una richiesta aperta è scaduta (non più visibile nel feed). */
 export function isExpired(request: BeerRequest): boolean {
   if (request.stato !== 'richiesto') return false;
+  // La scadenza la decide il server (orders.scade_il, fonte: ttl_giro()).
+  // Il calcolo su createdAt resta per le righe lette da un bundle che non
+  // conosce ancora la colonna, e per gli ordini storici.
+  if (request.scadeIl) return Date.now() > new Date(request.scadeIl).getTime();
   return Date.now() - new Date(request.createdAt).getTime() > REQUEST_TTL_HOURS * 60 * 60 * 1000;
 }
 
