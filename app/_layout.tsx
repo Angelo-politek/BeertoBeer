@@ -21,11 +21,24 @@ import { segnaAggiornamentoInArrivo } from '@/lib/preferences';
 import { registerForPushNotifications } from '@/lib/push-notifications';
 import { supabaseConfigError } from '@/lib/supabase';
 
-// Crash & error monitoring (solo build release: in dev gli errori si vedono
-// già in console). Il DSN non è un segreto.
+/**
+ * DIAGNOSTICA DEI CRASH — spenta finché non c'è qualcuno che la legge.
+ *
+ * Il DSN era scritto qui in chiaro e mandava i crash di tutti i tester a un
+ * progetto Sentry a cui nessuno del team ha accesso. E `app/terms.tsx` — la
+ * pagina che promette di dire «chi vede cosa» — non nominava né la
+ * diagnostica né una terza parte.
+ *
+ * Un'app che sta per aprire un registro pubblico della moderazione non può
+ * mandare dati a un servizio che non dichiara e che nessuno guarda. Quindi:
+ * si accende solo se esiste `EXPO_PUBLIC_SENTRY_DSN`, e il giorno in cui la si
+ * accende va aggiunta una riga ai termini. Senza la variabile, Sentry.init()
+ * non riceve nessun DSN e non spedisce niente.
+ */
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 Sentry.init({
-  dsn: 'https://a68771bbdcf8ffd303f083cf35279982@o4511671935959040.ingest.de.sentry.io/4511671940808784',
-  enabled: !__DEV__,
+  dsn: SENTRY_DSN,
+  enabled: !__DEV__ && !!SENTRY_DSN,
   tracesSampleRate: 0.2,
 });
 

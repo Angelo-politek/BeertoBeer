@@ -14,6 +14,9 @@ import type { BeerRequest } from '@/types';
  */
 
 const RADICE = path.join(__dirname, '..', '..');
+/** I commenti citano di proposito cio che e stato tolto: le asserzioni guardano il codice. */
+const senzaCommentiFile = (t: string) =>
+  t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const leggi = (rel: string) => fs.readFileSync(path.join(RADICE, rel), 'utf8');
 
 function giro(extra: Partial<BeerRequest> = {}): BeerRequest {
@@ -244,5 +247,60 @@ describe('più community, meno algoritmi', () => {
     // Il merge con i default riporterebbe "smart", che cadrebbe nel ramo di
     // riserva senza che nessuno se ne accorga.
     expect(leggi('lib/discovery-context.tsx')).toContain('btb.discovery.filters.v3');
+  });
+});
+
+describe('il repository è pubblico, e si comporta di conseguenza', () => {
+  it('nessun file vietato è tracciato', () => {
+    // Da qui in avanti ogni commit è irreversibile: quello che finisce nella
+    // storia ci resta anche dopo la cancellazione.
+    const { execSync } = require('child_process') as typeof import('child_process');
+    const tracciati = execSync('git ls-files', { cwd: path.join(__dirname, '..', '..') }).toString();
+    for (const vietato of [/^\.env$/m, /adminsdk.*\.json$/m, /\.apk$/m, /_expo\/static/m]) {
+      expect(tracciati).not.toMatch(vietato);
+    }
+  });
+
+  it('la diagnostica non parte senza che qualcuno la legga', () => {
+    // Il DSN era in chiaro e mandava i crash a un progetto Sentry a cui
+    // nessuno del team ha accesso, mentre i termini non lo nominavano.
+    const layout = senzaCommentiFile(leggi('app/_layout.tsx'));
+    expect(layout).not.toMatch(/ingest\.[a-z]*\.?sentry\.io/);
+    expect(layout).toContain('EXPO_PUBLIC_SENTRY_DSN');
+  });
+
+  it('il link di download segue sempre l ultima release', () => {
+    // Puntava a un tag fisso perché il repository era privato e gli allegati
+    // delle release private non si scaricano senza account.
+    const branding = leggi('constants/branding.ts');
+    expect(branding).toContain('/releases/latest/download/');
+    expect(branding).not.toMatch(/releases\/download\/v/);
+  });
+
+  it('la porta d ingresso non è più il template di un altra azienda', () => {
+    const readme = leggi('README.md');
+    expect(readme).not.toContain('Welcome to your Expo app');
+    expect(readme).toContain('PORTA. BEVI. RIPETI.');
+  });
+
+  it('esistono i file che rendono l apertura leggibile', () => {
+    expect(fs.existsSync(path.join(RADICE, 'SECURITY.md'))).toBe(true);
+    expect(fs.existsSync(path.join(RADICE, 'Brand/CORREZIONI.md'))).toBe(true);
+  });
+});
+
+describe('la versione si legge dentro l app', () => {
+  it('esiste un numero che le persone possono citare', () => {
+    // Prima non compariva in nessun punto: chi segnalava un difetto non sapeva
+    // cosa stesse usando, e ogni feedback arrivava etichettato «V2.1».
+    expect(leggi('constants/versione.ts')).toMatch(/VERSIONE = '\d+\.\d+\.\d+/);
+    expect(leggi('app/settings.tsx')).toContain('VERSIONE_ESTESA');
+  });
+
+  it('app.json resta fermo: è la chiave del canale, non una versione', () => {
+    // Cambiarla rende invisibili tutti gli aggiornamenti successivi ai
+    // telefoni già installati, in silenzio.
+    const appJson = JSON.parse(leggi('app.json')) as { expo: { version: string } };
+    expect(appJson.expo.version).toBe('1.1.0');
   });
 });

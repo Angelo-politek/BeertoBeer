@@ -33,6 +33,32 @@ export const GLOSSARY = {
   roleAsker: 'chi chiede',
   roleCarrier: 'chi porta',
 } as const;
+/**
+ * LE FRASI DEL MARCHIO.
+ *
+ * Vengono dalla brand bible. Una e' stata corretta, ed e' registrata in
+ * `Brand/CORREZIONI.md` con il perche'.
+ */
+export const SLOGAN = {
+  /**
+   * La bible diceva «CONSEGNA. BEVI. RIPETI.».
+   *
+   * Ma la sua stessa VISION, due paragrafi sopra, dice «non e' un servizio di
+   * delivery» — e poi il manifesto usava il verbo del delivery. Non era l'app
+   * a contraddire il marchio: era il marchio a contraddire se stesso.
+   *
+   * «Porta» e' anche piu' forte: «consegna» e' un ordine che si da' a un
+   * fattorino, «porta» e' quello che chiedi a un amico.
+   */
+  ritmo: 'PORTA. BEVI. RIPETI.',
+  /** Invariata: e' gia' del glossario, e dice due cose in quattro parole. */
+  apertura: 'OPEN SOURCE. OPEN BEER.',
+  /** Invariata. E' la frase che ha battezzato «FUORI». */
+  strada: 'TI MANCA UNA BIRRA? QUALCUNO È GIÀ IN STRADA.',
+  /** Dentro l'app «crediti» non si dice: evoca un conto in banca. */
+  moneta: 'SOLO BEERCOIN, MAI SOLDI',
+} as const;
+
 export const PHILOSOPHY_TAGLINE = 'Non è un delivery. È uno scambio di favori tra persone della stessa città.';
 
 /** Compatibilità V1: livelli e badge non avanzano più e non sono mostrati nella V2. */
@@ -82,11 +108,24 @@ export const ONBOARDING_SLIDES: OnboardingSlide[] = [
  * nuovo basta cambiare questa riga e mandare l'aggiornamento.
  * Lascia stringa vuota per non mettere il link nel messaggio.
  */
+/**
+ * Dove si scarica l'app, per il messaggio d'invito.
+ *
+ * Chi riceve un invito NON ha ancora l'app: senza questo link deve chiedere
+ * dove prenderla, e meta' delle persone si ferma li'.
+ *
+ * Punta a `releases/latest`, che segue sempre l'ultima release pubblicata e
+ * non va piu' aggiornato a mano. Funziona perche' il repository e' pubblico:
+ * gli allegati delle release di un repository privato danno una pagina di
+ * errore a chi non e' collaboratore — ed e' il motivo per cui prima qui c'era
+ * un link fissato su un tag.
+ *
+ * ⚠️ Perche' regga, la release non deve essere marcata «pre-release» e
+ *    l'allegato deve chiamarsi esattamente `beer-to-beer.apk`.
+ */
 export const APK_URL =
-  'https://github.com/Angelo-politek/BeertoBeer/releases/download/v1.1.0-beta1/beer-to-beer.apk';
+  'https://github.com/Angelo-politek/BeertoBeer/releases/latest/download/beer-to-beer.apk';
 
-// NB: questo link punta a una versione PRECISA. Pubblicando una release nuova
-// va aggiornato qui e mandato con `eas update` (nessuna ricompilazione).
-// In alternativa, togliendo la spunta "pre-release" su GitHub diventa valido
-// anche l'indirizzo .../releases/latest/download/beer-to-beer.apk, che punta
-// sempre all'ultima versione e non va piu' toccato.
+/** Il codice e' pubblico, ed e' il punto: AGPLv3, chiunque puo' leggerlo. */
+export const REPO_URL = 'https://github.com/Angelo-politek/BeertoBeer';
+export const ISSUES_URL = 'https://github.com/Angelo-politek/BeertoBeer/issues';

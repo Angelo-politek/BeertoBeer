@@ -52,3 +52,11 @@ app-example
 # log temporanei delle esportazioni
 *.out
 supabase/.temp/
+
+# Esportazioni di controllo: artefatti di build, non codice.
+# Erano tracciate, e in un repository pubblico 12 MB di bundle Hermes con
+# dentro l'URL del progetto SEMBRANO una chiave committata — che il primo
+# giorno è la stessa cosa. (L'anon key è pubblica per costruzione: sta dentro
+# ogni APK distribuito ed è protetta dalla RLS. Vedi SECURITY.md.)
+dist-v2-check/
+dist-v21-check/
