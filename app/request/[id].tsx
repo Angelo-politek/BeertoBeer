@@ -22,7 +22,7 @@ import { acceptOrder, advanceOrder, arriveOrder, cancelActiveOrder, cancelOrder,
 import { useSession } from '@/lib/auth-context';
 import { CREDIT_CAP, estimateBonus, FORMATS } from '@/lib/credits';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
-import { ORDER_TIMELINE, STATO_LABEL } from '@/lib/orders';
+import { motivoNonAgibile, ORDER_TIMELINE, STATO_LABEL } from '@/lib/orders';
 import { nextOrderAction } from '@/lib/discovery';
 import type { BeerRequest, DeliveryCodeState, OrderIssueType, OrderSafetyEvent, ReportReason } from '@/types';
 
@@ -39,6 +39,7 @@ export default function RequestDetailScreen() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [driverCoords, setDriverCoords] = useState<Coords | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
+  const [annullaOpen, setAnnullaOpen] = useState(false);
   const [reportReason, setReportReason] = useState<ReportReason>('ordine_falso');
   const [reportDetails, setReportDetails] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
@@ -120,8 +121,12 @@ export default function RequestDetailScreen() {
     }
   }, [id]);
 
+  // Il messaggio del database non si butta via: i limiti e le guardie sono
+  // scritti per essere letti da chi usa l'app («Hai gia' 3 giri aperti»,
+  // «Non comprare nulla»). messaggioServer lo mostra, e mette una frase di
+  // riserva solo quando davvero non c'e' niente da dire.
   function errorMessage(e: unknown): string {
-    return (e as { message?: string })?.message ?? 'Operazione non riuscita. Riprova.';
+    return messaggioServer(e, 'Operazione non riuscita. Riprova.');
   }
 
   async function runAction(fn: () => Promise<void>) {
@@ -137,16 +142,38 @@ export default function RequestDetailScreen() {
     }
   }
 
-  async function handleCancel() {
+  async function eseguiAnnullamento(motivo: string) {
     setActing(true);
     setActionError(null);
     try {
-      await cancelOrder(id);
+      await cancelOrder(id, motivo);
       router.back();
     } catch (e) {
       setActionError(errorMessage(e));
       setActing(false);
     }
+  }
+
+  /**
+   * Annullare non era mai stato una decisione: un tocco, e il giro spariva.
+   * Ora si conferma — e se qualcuno ha gia' accettato si scrive il perche',
+   * perche' quella persona potrebbe essere gia' uscita di casa o aver gia'
+   * comprato le birre. Le due parole che scrivi sono l'unica cosa che glielo
+   * spiega.
+   */
+  function handleCancel() {
+    if (request?.driverId) {
+      setAnnullaOpen(true);
+      return;
+    }
+    Alert.alert(
+      'Annulli il giro?',
+      'Sparisce dal feed e i BeerCoin impegnati tornano tuoi. Nessuna penalità.',
+      [
+        { text: 'Lascio aperto', style: 'cancel' },
+        { text: 'Annulla il giro', style: 'destructive', onPress: () => eseguiAnnullamento('') },
+      ],
+    );
   }
 
   async function handleReport() {
@@ -289,10 +316,14 @@ export default function RequestDetailScreen() {
   }
 
   const { host } = request;
+  // Chi porta si mostra a chi ha lanciato il giro e a chiunque altro guardi la
+  // scheda: e sempre chi PORTA che va identificato, mai chi riceve.
+  const chiPorta = request.driver;
   const myId = session?.user.id;
   const isHost = host.id === myId;
   const isDriver = request.driverId != null && request.driverId === myId;
   const nextAction = nextOrderAction(request, myId);
+  const fermo = motivoNonAgibile(request);
   const canSeeAddress = isHost || isDriver;
   // 24h dall'ULTIMO aggiornamento, non dalla creazione: è la regola che applica
   // cancel_stale_order lato server. Con createdAt il pulsante compariva anche su
@@ -309,6 +340,10 @@ export default function RequestDetailScreen() {
 
   function renderFooter() {
     if (!request) return null;
+    // Un giro congelato, rimosso o scaduto non ha azioni: il server le rifiuta
+    // tutte, e un pulsante che fallisce e' peggio di nessun pulsante. La banda
+    // in cima alla schermata dice gia' perche'.
+    if (motivoNonAgibile(request)) return null;
     const stato = request.stato;
 
     if (stato === 'richiesto') {
@@ -333,7 +368,12 @@ export default function RequestDetailScreen() {
           </View>
         );
       }
-      return <StatusNote text="Un driver ha accettato e si sta organizzando." />;
+      return (
+        <View style={styles.footerActions}>
+          <StatusNote text={`${chiPorta?.nome ?? 'Chi porta'} ha accettato e si sta organizzando.`} />
+          <Button label="Annulla il giro" variant="secondary" onPress={handleCancel} loading={acting} />
+        </View>
+      );
     }
 
     if (stato === 'in_consegna') {
@@ -412,6 +452,16 @@ export default function RequestDetailScreen() {
           <ThemedText type="title" style={{ color: c.accentText }}>{nextAction.label}</ThemedText>
           <ThemedText style={{ color: c.accentText, opacity: 0.72 }}>{STATO_LABEL[request.stato]}{etaMinutes ? ` · ${etaMinutes} min` : ''}</ThemedText>
         </View>
+        {fermo ? (
+          <View style={[styles.fermoRow, { backgroundColor: c.dangerSoft, borderColor: c.danger }]}>
+            <ThemedText type="label" style={{ color: c.danger }}>{fermo.toUpperCase()}</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>
+              Finche resta cosi non si puo fare niente su questo giro. Se pensi sia un errore,
+              scrivilo dal profilo: lo legge chi modera.
+            </ThemedText>
+          </View>
+        ) : null}
+
         {/* Stato corrente + segnalazione */}
         <View style={styles.statusRow}>
           <Badge label={STATO_LABEL[request.stato]} tone="accent" />
@@ -437,6 +487,28 @@ export default function RequestDetailScreen() {
         </Pressable>
         {host.bio ? (
           <ThemedText style={[styles.bio, { color: c.textSecondary }]}>{host.bio}</ThemedText>
+        ) : null}
+
+        {/*
+          CHI PORTA. Prima non compariva da nessuna parte: chi aveva lanciato
+          il giro leggeva soltanto «un driver ha accettato», e non sapeva chi
+          stesse per suonare al suo portone. In un'app che fa incontrare due
+          sconosciuti a un citofono era il buco piu' grave che ci fosse.
+        */}
+        {chiPorta ? (
+          <Pressable
+            onPress={() => router.push({ pathname: '/user/[id]', params: { id: chiPorta.id } })}
+            style={({ pressed }) => [styles.hostRow, { opacity: pressed ? 0.6 : 1 }]}>
+            <Avatar name={chiPorta.nome} size={56} uri={chiPorta.fotoUrl} />
+            <View style={styles.hostInfo}>
+              <ThemedText type="label" style={{ color: c.textSecondary }}>PORTA LE BIRRE</ThemedText>
+              <ThemedText type="subtitle">{chiPorta.nome}</ThemedText>
+              <ThemedText style={{ color: c.textSecondary }}>
+                {chiPorta.eta} anni · {chiPorta.scambiCompletati} giri
+              </ThemedText>
+            </View>
+            <BrandIcon name="arrow-right" size={20} color={c.textSecondary} />
+          </Pressable>
         ) : null}
 
         {/* Banner vibe mode */}
@@ -630,6 +702,22 @@ export default function RequestDetailScreen() {
         {renderFooter()}
       </SafeAreaView>
 
+      <TestoModal
+        visible={annullaOpen}
+        titolo="Perché annulli?"
+        spiegazione={`${chiPorta?.nome ?? 'Chi porta'} ha già accettato e potrebbe essere già uscito. Due parole bastano: le legge solo lui.`}
+        placeholder="Es. mi si sono presentati degli amici con le birre"
+        etichettaConferma="Annulla il giro"
+        minimo={3}
+        pericolo
+        loading={acting}
+        onClose={() => setAnnullaOpen(false)}
+        onSubmit={(testo) => {
+          setAnnullaOpen(false);
+          void eseguiAnnullamento(testo);
+        }}
+      />
+
       <ReportModal
         visible={reportOpen}
         title="Segnala richiesta"
@@ -704,6 +792,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  fermoRow: { borderWidth: 1, borderRadius: 10, padding: Spacing.md, gap: 4 },
   hostRow: {
     flexDirection: 'row',
     alignItems: 'center',

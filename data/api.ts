@@ -699,8 +699,18 @@ export async function confirmOrder(orderId: string): Promise<void> {
 }
 
 /** L'host cancella una propria richiesta ancora aperta. */
-export async function cancelOrder(orderId: string): Promise<void> {
-  const { error } = await supabase.from('orders').delete().eq('id', orderId);
+export async function cancelOrder(orderId: string, motivo = ''): Promise<void> {
+  // Era una DELETE fisica dal client. Conseguenza: il giro non finiva mai in
+  // 'annullato', quindi spariva dalle statistiche e dalla scheda della persona,
+  // e le segnalazioni collegate perdevano il riferimento — chi aveva lanciato
+  // un giro segnalato poteva far sparire le prove finche' era 'richiesto'.
+  //
+  // La RPC scrive lo stato, tiene la traccia, e avvisa chi porta se aveva gia'
+  // accettato: potrebbe essere gia' uscito di casa.
+  const { error } = await supabase.rpc('annulla_giro_mio', {
+    p_order_id: orderId,
+    p_motivo: motivo,
+  });
   if (error) throw error;
 }
 

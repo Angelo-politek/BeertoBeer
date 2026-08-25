@@ -9,6 +9,7 @@ import { ThemedView } from '@/components/themed-view';
 import { BEER_TO_BEER_MAP_STYLE } from '@/constants/map-style';
 import { Spacing } from '@/constants/theme';
 import { adminGetActiveOrders, type AdminActiveOrder } from '@/data/api';
+import { relative } from '@/lib/format';
 import { useColors } from '@/hooks/use-colors';
 
 export default function SafetyMapScreen(){
@@ -25,5 +26,4 @@ export default function SafetyMapScreen(){
     </View>
   </ThemedView>;
 }
-function relative(value:string){const sec=Math.max(0,Math.round((Date.now()-new Date(value).getTime())/1000));return sec<60?`${sec}s fa`:`${Math.round(sec/60)} min fa`}
 const styles=StyleSheet.create({container:{flex:1},map:{flex:1},marker:{width:42,height:42,borderRadius:21,borderWidth:2,alignItems:'center',justifyContent:'center'},panel:{position:'absolute',left:12,right:12,bottom:18,padding:Spacing.md,borderRadius:10,gap:6},person:{flexDirection:'row',alignItems:'center',gap:Spacing.sm,marginTop:Spacing.sm},flex:{flex:1},list:{gap:Spacing.sm,marginTop:Spacing.xs},pill:{paddingHorizontal:12,paddingVertical:8,borderRadius:20}});
