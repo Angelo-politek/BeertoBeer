@@ -1,8 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Chip } from '@/components/ui/chip';
-import { BrandIcon } from '@/components/ui/brand-icon';
-import { PressableScale } from '@/components/ui/pressable-scale';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
