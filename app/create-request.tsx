@@ -1,4 +1,4 @@
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import {
@@ -23,7 +23,8 @@ import { BrandIcon } from '@/components/ui/brand-icon';
 import { GLOSSARY } from '@/constants/branding';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { createOrder, getAvailableCredits, getCurrentUser } from '@/data/api';
+import { createOrder, getAvailableCredits, getCurrentUser, getUscita } from '@/data/api';
+import { finoAlle, formaDi } from '@/lib/uscite';
 import { isWithinCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { CREDIT_CAP, DEFAULT_FORMAT, estimateCredits, FORMATS, maxDistanceBonus } from '@/lib/credits';
@@ -31,7 +32,7 @@ import { messaggioServer } from '@/lib/errori';
 import { birreTotali, MAX_BIRRE_PER_GIRO } from '@/lib/limiti';
 import { geocodeAddress } from '@/lib/geocoding';
 import { type Coords } from '@/lib/location';
-import type { BeerItem } from '@/types';
+import type { BeerItem, Uscita } from '@/types';
 
 type BeerInput = { nome: string; quantita: string; formato: string };
 
@@ -46,6 +47,17 @@ export default function CreateRequestScreen() {
   const [birre, setBirre] = useState<BeerInput[]>([{ nome: '', quantita: '', formato: DEFAULT_FORMAT }]);
   const [indirizzo, setIndirizzo] = useState('');
   const [fascia, setFascia] = useState(FASCE[0]);
+  /**
+   * Se arrivo da un'uscita, la schermata lo dice in cima e il giro se lo
+   * ricorda. Le due cose che la macchina non puo' sapere — dove consegnare e
+   * cosa vuoi — restano da compilare: precompilarle sarebbe indovinare.
+   */
+  const { a: daUscitaId } = useLocalSearchParams<{ a?: string }>();
+  const [uscita, setUscita] = useState<Uscita | null>(null);
+  useEffect(() => {
+    if (!daUscitaId) return;
+    getUscita(daUscitaId).then(setUscita).catch(() => null);
+  }, [daUscitaId]);
   const [vibeMode, setVibeMode] = useState(false);
 
   const [coords, setCoords] = useState<Coords | null>(null);
@@ -181,6 +193,7 @@ export default function CreateRequestScreen() {
         citta: city.key,
         lat: point?.lat ?? null,
         lng: point?.lng ?? null,
+        daUscitaId: daUscitaId ?? null,
       });
       await AsyncStorage.removeItem(DRAFT_KEY).catch(() => null);
       router.replace({ pathname: '/request/[id]', params: { id: newId } });
@@ -220,6 +233,24 @@ export default function CreateRequestScreen() {
                 , o prima se la moderazione approva la richiesta.
               </ThemedText>
             </View>
+          ) : null}
+
+          {/*
+            Da chi stai rispondendo. Sta in cima, prima di qualunque campo,
+            perche' e' il contesto che rende il resto comprensibile — e perche'
+            dice subito una cosa vera: il giro non e' riservato a quella
+            persona. Meglio saperlo adesso che scoprirlo dopo.
+          */}
+          {uscita ? (
+            <Card style={[styles.section, { borderColor: c.accent, borderWidth: 1 }]}>
+              <ThemedText type="label" style={{ color: c.accent }}>STAI RISPONDENDO A</ThemedText>
+              <ThemedText type="subtitle">{uscita.persona.nome}</ThemedText>
+              <ThemedText style={{ color: c.textSecondary }}>
+                {formaDi(uscita.tipo).titolo.toLowerCase()}
+                {uscita.zona ? ` a ${uscita.zona}` : ''}, {finoAlle(uscita.finisceAlle)}.
+                Riceve un avviso, ma il giro resta aperto a tutti: chi passa per primo lo prende.
+              </ThemedText>
+            </Card>
           ) : null}
 
           {/* 1 — COSA */}

@@ -359,6 +359,14 @@ export type NewOrder = {
   /** coordinate di consegna (geocodate dall'indirizzo). */
   lat?: number | null;
   lng?: number | null;
+  /**
+   * Da quale uscita nasce questo giro, se nasce da una.
+   * E' una PROVENIENZA, non un diritto: il giro resta nel feed di tutti, con
+   * lo stesso costo e le stesse regole. Serve ad avvisare chi si era reso
+   * disponibile, e a raccontare piu' avanti quante volte una persona ha
+   * risposto davvero.
+   */
+  daUscitaId?: string | null;
 };
 
 /**
@@ -379,6 +387,7 @@ export async function createOrder(input: NewOrder): Promise<string> {
       lng: input.lng ?? null,
       fascia: input.fascia ?? null,
       vibe_mode: input.vibeMode,
+      da_uscita_id: input.daUscitaId ?? null,
     })
     .select('id')
     .single();
@@ -2164,4 +2173,18 @@ export async function chiudiUscita(id: string): Promise<void> {
 export async function prorogaUscita(id: string, finisceAlle: string): Promise<void> {
   const { error } = await supabase.rpc('proroga_uscita', { p_id: id, p_finisce_alle: finisceAlle });
   if (error) throw error;
+}
+
+/** Una singola uscita, per precompilare il giro che le risponde. */
+export async function getUscita(id: string): Promise<Uscita | null> {
+  const { data, error } = await supabase
+    .from('uscite_aperte')
+    .select(USCITA_COLUMNS)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as UscitaRow;
+  const persone = await fetchProfiles([row.autore_id]);
+  return mapUscita(row, persone.get(row.autore_id));
 }

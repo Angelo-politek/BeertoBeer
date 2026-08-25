@@ -198,6 +198,18 @@ export default function HomeScreen() {
                       {u.zona ? (
                         <ThemedText type="caption" style={{ color: c.textSecondary }} numberOfLines={1}>{u.zona}</ThemedText>
                       ) : null}
+                      {/*
+                        Solo su chi passa da un negozio: e' l'unica forma che
+                        promette qualcosa di preciso. A chi sta bevendo una
+                        birra non si "prenota" un giro — semmai gli si scrive.
+                      */}
+                      {u.tipo === 'negozio' && u.persona.id !== session?.user.id ? (
+                        <Pressable
+                          onPress={() => router.push({ pathname: '/create-request', params: { a: u.id } })}
+                          hitSlop={6}>
+                          <ThemedText type="caption" style={{ color: c.accent }}>Chiedi un giro</ThemedText>
+                        </Pressable>
+                      ) : null}
                     </Pressable>
                   ))}
                 </ScrollView>

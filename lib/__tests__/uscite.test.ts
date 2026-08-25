@@ -168,3 +168,45 @@ describe('la barra ha quattro voci, e la terza non e una schermata', () => {
     expect(barra).not.toContain('TAB_ICONS');
   });
 });
+
+describe('il ponte fra un uscita e un giro', () => {
+  const PONTE = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'supabase/migrations/20260909_giro_da_uscita.sql'), 'utf8');
+  const api = fs.readFileSync(path.join(__dirname, '..', '..', 'data/api.ts'), 'utf8');
+
+  it('il giro ricorda da dove viene', () => {
+    expect(api).toContain('da_uscita_id: input.daUscitaId ?? null');
+  });
+
+  it('chi si era reso disponibile viene avvisato', () => {
+    // Si e' esposta dicendo dove sarebbe stata: la cosa minima e' che sappia
+    // che qualcuno le ha risposto.
+    expect(PONTE).toContain('avvisa_uscita_risposta');
+    expect(PONTE).toContain('perform public.avvisa(');
+  });
+
+  it('il blocco non si aggira da qui', () => {
+    // La vista filtra pair_blocked, ma la vista non copre l'insert.
+    expect(PONTE).toContain('pair_blocked(v_autore, new.host_id)');
+  });
+
+  it('un giro nato da un uscita costa come tutti gli altri', () => {
+    // Premiare economicamente una forma sarebbe un algoritmo travestito da
+    // gentilezza — e cambierebbe la formula in due posti.
+    // Solo il codice: i commenti del file citano di proposito le funzioni che
+    // NON tocca, ed e' giusto che restino a dirlo.
+    const codice = PONTE.replace(/^\s*--.*$/gm, '');
+    expect(codice).not.toContain('crediti_offerti');
+    expect(codice).not.toContain('set_order_credits');
+    expect(codice).not.toContain('accept_order');
+  });
+
+  it('si contano le richieste ricevute, mai le uscite dichiarate', () => {
+    // Contando le dichiarazioni, chi si rende disponibile cinque volte senza
+    // ricevere richieste risulterebbe «0 su 5»: sembrerebbe inaffidabile senza
+    // colpa, e smetterebbe di dichiararsi. L'app punirebbe esattamente il
+    // comportamento che vuole incoraggiare.
+    expect(PONTE).toContain("'ricevute'");
+    expect(PONTE).toContain('da_uscita_id');
+  });
+});
