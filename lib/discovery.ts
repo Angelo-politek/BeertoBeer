@@ -1,3 +1,5 @@
+import { motivoNonAgibile } from '@/lib/orders';
+
 import type { BeerRequest, DiscoveryFilters, OrderNextAction } from '@/types';
 
 function hourFromFascia(fascia?: string): number | null {
@@ -40,6 +42,12 @@ export function whyThisRequest(request: BeerRequest): string {
 
 export function nextOrderAction(request: BeerRequest, myId?: string): OrderNextAction {
   if (request.stato === 'annullato') return { key: 'open', label: 'Giro annullato', priority: 0 };
+  // Prima di chiedersi «a che punto siamo», chiedersi «si puo' ancora fare
+  // qualcosa». Un giro fermo per sicurezza o tolto dal feed non ha una
+  // prossima azione: il server rifiuta ogni transizione, e un pulsante che
+  // fallisce con un'eccezione grezza e' peggio di nessun pulsante.
+  const fermo = motivoNonAgibile(request);
+  if (fermo) return { key: 'open', label: fermo, priority: 0 };
   const host = request.host.id === myId;
   const driver = request.driverId === myId;
   if (request.stato === 'richiesto') return host ? { key: 'wait', label: 'Aspetta chi porta', priority: 35 } : { key: 'accept', label: 'Puoi accettare', priority: 90 };

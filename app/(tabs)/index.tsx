@@ -24,7 +24,7 @@ import { nextOrderAction, requestMatchesFilters, sortDiscovery } from '@/lib/dis
 import { useSession } from '@/lib/auth-context';
 import { getDiscoveryRequests } from '@/lib/discovery-cache';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
-import { STATO_LABEL } from '@/lib/orders';
+import { STATO_LABEL, giroChiuso } from '@/lib/orders';
 import type { BeerEvent, BeerRequest } from '@/types';
 
 export default function HomeScreen() {
@@ -86,7 +86,7 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const actionableOrders = useMemo(() => myOrders
-    .filter((order) => !['confermato', 'annullato'].includes(order.stato))
+    .filter((order) => !giroChiuso(order))
     .map((order) => ({ order, action: nextOrderAction(order, session?.user.id) }))
     .sort((a, b) => b.action.priority - a.action.priority), [myOrders, session?.user.id]);
   const activeOrder = actionableOrders[0];

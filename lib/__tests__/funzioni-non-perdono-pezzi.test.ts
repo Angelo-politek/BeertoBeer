@@ -108,6 +108,10 @@ const DA_NON_PERDERE: { funzione: string; pezzi: { testo: string; perche: string
       { testo: 'available_credits', perche: 'si potrebbero promettere BeerCoin che non si hanno' },
       { testo: 'punto_in_citta', perche: 'tornerebbero gli indirizzi in provincia' },
       { testo: 'v_max_aperti', perche: 'sparirebbe il limite ai giri aperti' },
+      {
+        testo: "interval '12 hours'",
+        perche: 'i giri scaduti tornerebbero a occupare uno dei tre posti per sempre',
+      },
     ],
   },
   {
@@ -123,6 +127,64 @@ const DA_NON_PERDERE: { funzione: string; pezzi: { testo: string; perche: string
     pezzi: [
       { testo: 'sospeso_fino', perche: 'un escluso potrebbe accettare giri e presentarsi a casa di qualcuno' },
       { testo: 'congelato', perche: 'un giro fermato per sicurezza ripartirebbe' },
+    ],
+  },
+  {
+    funzione: 'committed_credits',
+    pezzi: [
+      {
+        testo: "stato not in ('confermato', 'annullato')",
+        perche: 'un giro in corso smetterebbe di impegnare i BeerCoin, e si potrebbero promettere due volte',
+      },
+      {
+        testo: "interval '12 hours'",
+        perche: 'tre giri scaduti e ignorati terrebbero i BeerCoin congelati per sempre, senza spiegazione',
+      },
+    ],
+  },
+  {
+    funzione: 'pair_allowed',
+    pezzi: [
+      { testo: 'pair_blocked', perche: 'chi e bloccato potrebbe scrivere lo stesso' },
+      {
+        testo: 'sono_amici',
+        perche: 'due amici che non hanno mai fatto un giro insieme non riuscirebbero a scriversi',
+      },
+    ],
+  },
+  {
+    funzione: 'verify_delivery_code',
+    pezzi: [
+      { testo: 'failed_attempts', perche: 'si potrebbe tirare a indovinare il codice all infinito' },
+      {
+        testo: 'expires_at',
+        perche: 'la schermata promette che il codice scade: senza questo controllo e una bugia',
+      },
+      { testo: 'crediti_saldo', perche: 'si chiuderebbe un giro che chi ha chiesto non puo pagare' },
+      { testo: 'credit_transactions', perche: 'il movimento sparirebbe dal registro' },
+    ],
+  },
+  {
+    funzione: 'admin_cancel_order',
+    pezzi: [
+      { testo: 'is_admin_user', perche: 'chiunque potrebbe chiudere il giro di chiunque' },
+      { testo: 'admin_audit', perche: 'una chiusura d autorita senza traccia' },
+      { testo: 'congelato', perche: 'il giro resterebbe fermo e nessuno potrebbe piu toccarlo' },
+      {
+        testo: 'avvisa',
+        perche: 'le due persone continuerebbero ad aspettarsi sotto un portone senza sapere che il giro e chiuso',
+      },
+    ],
+  },
+  {
+    funzione: 'annulla_giro_mio',
+    pezzi: [
+      { testo: 'for update', perche: 'si potrebbe annullare un giro mentre qualcuno lo sta accettando' },
+      {
+        testo: 'avvisa',
+        perche: 'chi porta potrebbe aver gia comprato le birre e non lo saprebbe',
+      },
+      { testo: 'order_safety_events', perche: 'si perderebbe la traccia di chi ha chiuso e perche' },
     ],
   },
   {

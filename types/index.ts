@@ -136,6 +136,12 @@ export type BeerRequest = {
   host: User;
   /** id del driver che ha accettato (null finché l'ordine è 'richiesto') */
   driverId: string | null;
+  /**
+   * Profilo di chi porta, risolto insieme a quello di chi chiede.
+   * Chi lancia un giro deve sapere chi sta per suonare al suo portone: era il
+   * buco piu' grave dell'esperienza, e chiuderlo costa zero query in piu'.
+   */
+  driver?: User;
   birre: BeerItem[];
   /** indirizzo di consegna (visibile per intero solo dopo l'accettazione) */
   indirizzo: string;
@@ -148,6 +154,8 @@ export type BeerRequest = {
   citta?: string | null;
   /** moderazione: 'ok' | 'oscurato' (in verifica) | 'rimosso' */
   statoModerazione?: string;
+  /** fermato da una segnalazione di sicurezza: nessuna transizione e' permessa */
+  congelato?: boolean;
   /** distanza dall'utente in km — opzionale finché non c'è la geolocalizzazione */
   distanzaKm?: number;
   stato: OrderStatus;

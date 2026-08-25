@@ -47,7 +47,7 @@ import type {
 const PROFILE_COLUMNS =
   'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati, livello, karma, interessi, cerco_compagnia, citta';
 const ORDER_COLUMNS =
-  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, updated_at, citta, stato_moderazione';
+  'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, updated_at, citta, stato_moderazione, congelato';
 // I tre voti di dettaglio esistevano nel database dalla V2.1 e non venivano
 // mai letti: sul profilo compariva solo la media. Sono proprio quelli che
 // dicono se una persona e' puntuale o se si fa capire.
@@ -204,10 +204,11 @@ type OrderRow = {
   updated_at: string | null;
   citta: string | null;
   stato_moderazione: string;
+  congelato: boolean | null;
 };
 
 /** Riga ordine (+ profilo host) → BeerRequest per la UI. */
-function mapOrder(row: OrderRow, host: User | undefined): BeerRequest {
+function mapOrder(row: OrderRow, host: User | undefined, driver?: User): BeerRequest {
   return {
     id: row.id,
     host: host ?? UNKNOWN_USER,
@@ -226,13 +227,21 @@ function mapOrder(row: OrderRow, host: User | undefined): BeerRequest {
     updatedAt: row.updated_at ?? undefined,
     citta: row.citta,
     statoModerazione: row.stato_moderazione,
+    congelato: row.congelato ?? false,
+    driver,
   };
 }
 
 /** Carica gli ordini dati + i profili host, e li mappa in BeerRequest[]. */
 async function withHosts(rows: OrderRow[]): Promise<BeerRequest[]> {
-  const hosts = await fetchProfiles(rows.map((r) => r.host_id));
-  return rows.map((r) => mapOrder(r, hosts.get(r.host_id)));
+  // Risolve i profili di ENTRAMBE le persone. Prima caricava solo chi chiede,
+  // e chi lanciava un giro non ha mai saputo chi stesse arrivando a casa sua:
+  // leggeva soltanto «un driver ha accettato». fetchProfiles fa gia' una query
+  // batch sola su public_profiles, quindi aggiungere gli id di chi porta allo
+  // stesso elenco non costa nessuna query in piu'.
+  const persone = await fetchProfiles(rows.flatMap((r) => [r.host_id, r.driver_id ?? '']));
+  return rows.map((r) =>
+    mapOrder(r, persone.get(r.host_id), r.driver_id ? persone.get(r.driver_id) : undefined));
 }
 
 type ReviewRow = {

@@ -14,7 +14,7 @@ import { useColors } from '@/hooks/use-colors';
 import { getMyOrders, getReviewedOrderIds } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
 import { nextOrderAction } from '@/lib/discovery';
-import { isExpired, STATO_LABEL } from '@/lib/orders';
+import { isExpired, STATO_LABEL, giroChiuso } from '@/lib/orders';
 import type { BeerRequest } from '@/types';
 
 export default function MyOrdersScreen() {
@@ -62,8 +62,7 @@ export default function MyOrdersScreen() {
    * fra i conclusi sia fra quelli in attesa, perché la sezione "in attesa"
    * escludeva solo lo stato 'confermato'. Un unico criterio evita il doppione.
    */
-  const isClosed = (order: BeerRequest) =>
-    ['confermato', 'annullato'].includes(order.stato) || isExpired(order);
+  const isClosed = giroChiuso;
 
   const visibleOrders = orders.filter((order) => {
     const action = nextOrderAction(order, myId);
