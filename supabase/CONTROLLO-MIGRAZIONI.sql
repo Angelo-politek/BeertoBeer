@@ -90,6 +90,14 @@ with controlli as (
          'Link del giro apribile da chiunque, anche senza app',
          exists (select 1 from information_schema.tables
                  where table_schema = 'public' and table_name = 'order_share_links')
+
+  union all
+  -- Si riconosce dal canale prioritario: e' l'unica cosa nuova che si vede
+  -- dall'esterno, il resto sono funzioni di sola lettura.
+  select 12, '20260904_pannello_admin',
+         'Scheda utente, statistiche, notifiche di sicurezza prioritarie',
+         exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname = 'public' and p.proname = 'admin_scheda_utente')
 )
 
 select ordine as n,

@@ -1,9 +1,10 @@
-import { Stack, useFocusEffect } from 'expo-router';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl, StyleSheet, TextInput, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
+import { PressableScale } from '@/components/ui/pressable-scale';
 import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -16,6 +17,7 @@ import { getCity } from '@/lib/cities';
 
 /** Pannello admin: tutti gli utenti registrati, con sospensione ed eliminazione. */
 export default function AdminUsersScreen() {
+  const router = useRouter();
   const c = useColors();
   const toast = useToast();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -172,7 +174,12 @@ export default function AdminUsersScreen() {
           }
           ListEmptyComponent={<EmptyState title="Nessun utente" message="Nessun risultato per questa ricerca." />}
           renderItem={({ item }) => (
-            <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
+            // La riga si apre: era la segnalazione piu' veloce da chiudere del
+            // collaudo, «devo poter aprire il profilo dell'utente cliccandolo».
+            // I pulsanti sotto restano toccabili per conto loro.
+            <PressableScale
+              onPress={() => router.push({ pathname: '/admin/utente/[id]', params: { id: item.id } } as never)}
+              style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
               <View style={styles.cardHeader}>
                 <ThemedText type="defaultSemiBold">{item.nome}</ThemedText>
                 {item.isAdmin ? <Badge label="Admin" tone="accent" /> : null}
@@ -214,7 +221,7 @@ export default function AdminUsersScreen() {
                   </>
                 ) : null}
               </View>
-            </View>
+            </PressableScale>
           )}
         />
       )}

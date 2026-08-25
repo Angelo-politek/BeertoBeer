@@ -1752,6 +1752,124 @@ export async function adminAdjustCredits(userId: string, delta: number, motivo?:
   if (error) throw error;
 }
 
+/** Tutto quello che serve per decidere su una persona, in una chiamata sola. */
+export type AdminSchedaUtente = {
+  id: string;
+  nome: string;
+  email: string;
+  citta: string | null;
+  iscrittoIl: string;
+  sospesoFino: string | null;
+  isAdmin: boolean;
+  crediti: number;
+  rating: number;
+  invitatoDa: string | null;
+  giriChiesti: number;
+  giriPortati: number;
+  giriAnnullati: number;
+  segnalazioniRicevute: number;
+  segnalazioniFatte: number;
+  provvedimenti: { tipo: string; motivo: string; finoA: string | null; quando: string }[];
+  segnalazioni: { id: string; motivo: string | null; gravita: string; stato: string; quando: string }[];
+  movimentiCrediti: { delta: number; motivo: string; quando: string }[];
+};
+
+export async function adminSchedaUtente(userId: string): Promise<AdminSchedaUtente> {
+  const { data, error } = await supabase.rpc('admin_scheda_utente', { p_user_id: userId });
+  if (error) throw error;
+  const r = data as Record<string, unknown>;
+  const lista = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+  return {
+    id: r.id as string,
+    nome: r.nome as string,
+    email: r.email as string,
+    citta: (r.citta as string) ?? null,
+    iscrittoIl: r.iscritto_il as string,
+    sospesoFino: (r.sospeso_fino as string) ?? null,
+    isAdmin: Boolean(r.is_admin),
+    crediti: Number(r.crediti ?? 0),
+    rating: Number(r.rating ?? 0),
+    invitatoDa: (r.invitato_da as string) ?? null,
+    giriChiesti: Number(r.giri_chiesti ?? 0),
+    giriPortati: Number(r.giri_portati ?? 0),
+    giriAnnullati: Number(r.giri_annullati ?? 0),
+    segnalazioniRicevute: Number(r.segnalazioni_ricevute ?? 0),
+    segnalazioniFatte: Number(r.segnalazioni_fatte ?? 0),
+    provvedimenti: lista<Record<string, unknown>>(r.provvedimenti).map((p) => ({
+      tipo: p.tipo as string,
+      motivo: p.motivo as string,
+      finoA: (p.fino_a as string) ?? null,
+      quando: p.quando as string,
+    })),
+    segnalazioni: lista<Record<string, unknown>>(r.segnalazioni).map((x) => ({
+      id: x.id as string,
+      motivo: (x.motivo as string) ?? null,
+      gravita: x.gravita as string,
+      stato: x.stato as string,
+      quando: x.quando as string,
+    })),
+    movimentiCrediti: lista<Record<string, unknown>>(r.movimenti_crediti).map((m) => ({
+      delta: Number(m.delta ?? 0),
+      motivo: m.motivo as string,
+      quando: m.quando as string,
+    })),
+  };
+}
+
+/** Un giorno per riga, ANCHE quelli in cui non e' successo niente. */
+export type GiornoAndamento = {
+  giorno: string;
+  iscritti: number;
+  giriCreati: number;
+  giriConclusi: number;
+  giriAnnullati: number;
+  creditiScambiati: number;
+};
+
+export async function adminAndamento(giorni = 30): Promise<GiornoAndamento[]> {
+  const { data, error } = await supabase.rpc('admin_andamento', { p_giorni: giorni });
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    giorno: r.giorno as string,
+    iscritti: Number(r.iscritti ?? 0),
+    giriCreati: Number(r.giri_creati ?? 0),
+    giriConclusi: Number(r.giri_conclusi ?? 0),
+    giriAnnullati: Number(r.giri_annullati ?? 0),
+    creditiScambiati: Number(r.crediti_scambiati ?? 0),
+  }));
+}
+
+export async function adminPerFasciaOraria(): Promise<{ ora: number; giri: number }[]> {
+  const { data, error } = await supabase.rpc('admin_per_fascia_oraria');
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    ora: Number(r.ora ?? 0),
+    giri: Number(r.giri ?? 0),
+  }));
+}
+
+/** L'imbuto della beta: invito, iscrizione, primo giro. La misura vera. */
+export type Imbuto = {
+  invitiCreati: number;
+  invitiUsati: number;
+  iscritti: number;
+  hannoChiesto: number;
+  hannoPortato: number;
+};
+
+export async function adminImbuto(): Promise<Imbuto> {
+  const { data, error } = await supabase.rpc('admin_imbuto');
+  if (error) throw error;
+  const r = data as Record<string, unknown>;
+  return {
+    invitiCreati: Number(r.inviti_creati ?? 0),
+    invitiUsati: Number(r.inviti_usati ?? 0),
+    iscritti: Number(r.iscritti ?? 0),
+    hannoChiesto: Number(r.hanno_chiesto ?? 0),
+    hannoPortato: Number(r.hanno_portato ?? 0),
+  };
+}
+
 export type AdminStats = {
   utentiTotali: number;
   utentiSospesi: number;

@@ -38,6 +38,31 @@ export async function registerForPushNotifications(): Promise<PushRegistration> 
         name: 'Messaggi',
         importance: Notifications.AndroidImportance.MAX,
       });
+
+      /**
+       * Canale separato per le segnalazioni di sicurezza.
+       *
+       * Segnalazione del collaudo: «gli admin devono ricevere una notifica
+       * prioritaria per le segnalazioni in modo da vederle subito».
+       *
+       * Su Android il canale non e' un dettaglio estetico: decide suono,
+       * vibrazione e se la notifica compare sopra le altre. Con un canale solo
+       * un «non mi sento al sicuro» suonava esattamente come «hai un nuovo
+       * messaggio», e in mezzo a venti notifiche uguali si perde.
+       *
+       * Sta separato anche perche' chi riceve possa silenziare i messaggi
+       * SENZA silenziare gli allarmi.
+       */
+      await Notifications.setNotificationChannelAsync('sicurezza', {
+        name: 'Sicurezza e segnalazioni',
+        description: 'Allarmi durante un giro e segnalazioni da verificare.',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 400, 200, 400],
+        lightColor: '#C4472F',
+        sound: 'default',
+        enableVibrate: true,
+        bypassDnd: true,
+      });
     }
 
     const existing = await Notifications.getPermissionsAsync();

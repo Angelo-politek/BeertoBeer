@@ -96,6 +96,9 @@ export default function AdminDashboardScreen() {
         <View style={styles.grid}>
           <NavCard icon="chat" label="Feedback" onPress={() => router.push('/admin/feedback' as never)} />
           <NavCard icon="pin" label="Safety map" onPress={() => router.push('/admin/safety-map' as never)} />
+          {/* I numeri singoli qui sotto dicono come stanno le cose ADESSO;
+              le statistiche dicono se stanno migliorando o peggiorando. */}
+          <NavCard icon="star" label="Statistiche" onPress={() => router.push('/admin/statistiche' as never)} />
         </View>
 
         {/* Ecosistema */}

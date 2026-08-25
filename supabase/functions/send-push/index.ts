@@ -27,6 +27,13 @@ type NewPayload = {
   title?: string;
   body?: string;
   url?: string;
+  /**
+   * Canale Android. Su Android il canale decide suono, vibrazione e se la
+   * notifica compare sopra le altre: con un canale solo, un «non mi sento al
+   * sicuro» suonava identico a «hai un nuovo messaggio».
+   * I canali vengono creati dall'app (lib/push-notifications.ts).
+   */
+  channel?: string;
 };
 
 type LegacyPayload = {
@@ -77,6 +84,9 @@ Deno.serve(async (req) => {
   const body =
     raw.body ?? raw.message?.slice(0, 120) ?? 'Hai una novità su Beer to Beer.';
   const url = raw.url ?? (raw.orderId ? `/chat/${raw.orderId}` : '/');
+  // Solo i canali che l'app crea davvero: un canale inesistente farebbe
+  // ricadere Android sul comportamento predefinito, senza dirlo a nessuno.
+  const channel = raw.channel === 'sicurezza' ? 'sicurezza' : 'messages';
 
   if (userIds.length === 0) {
     return new Response('Missing userIds', { status: 400 });
@@ -99,7 +109,10 @@ Deno.serve(async (req) => {
   const messages = tokens.map((token) => ({
     to: token,
     sound: 'default',
-    channelId: 'messages',
+    // Le segnalazioni di sicurezza scavalcano la coda: e' il senso di avere
+    // un canale a parte.
+    priority: channel === 'sicurezza' ? 'high' : 'default',
+    channelId: channel,
     title,
     body: body.slice(0, 160),
     data: { url },
