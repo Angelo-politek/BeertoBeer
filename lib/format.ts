@@ -27,3 +27,10 @@ export function relative(iso: string): string {
   if (giorni === 1) return 'ieri';
   return `${giorni} giorni fa`;
 }
+
+/** «23» o «23:30». Dove c'e' spazio per due caratteri, non per una frase. */
+export function oraBreve(iso: string): string {
+  const d = new Date(iso);
+  const min = d.getMinutes();
+  return `${d.getHours()}${min ? `:${String(min).padStart(2, '0')}` : ''}`;
+}

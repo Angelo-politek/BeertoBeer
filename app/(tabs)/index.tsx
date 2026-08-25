@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
@@ -17,16 +17,19 @@ import { BrandIcon } from '@/components/ui/brand-icon';
 import { GLOSSARY } from '@/constants/branding';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Radii, Spacing } from '@/constants/theme';
-import { getEvents, getMyOrders, getNotifications } from '@/data/api';
+import { getEvents, getMyOrders, getNotifications, getUscite } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
 import { useDiscoveryFilters } from '@/lib/discovery-context';
 import { nextOrderAction, requestMatchesFilters, sortDiscovery } from '@/lib/discovery';
 import { useSession } from '@/lib/auth-context';
 import { getDiscoveryRequests } from '@/lib/discovery-cache';
+import { Avatar } from '@/components/avatar';
+import { useFoglioUscita } from '@/lib/foglio-uscita-context';
+import { finoAlle, formaDi } from '@/lib/uscite';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
 import { STATO_LABEL, giroChiuso } from '@/lib/orders';
-import type { BeerEvent, BeerRequest } from '@/types';
+import type { BeerEvent, BeerRequest, Uscita } from '@/types';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -39,8 +42,10 @@ export default function HomeScreen() {
   const [coords, setCoords] = useState<Coords | null>(null);
   const { filters } = useDiscoveryFilters();
   const { session } = useSession();
+  const { apri, mia } = useFoglioUscita();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [uscite, setUscite] = useState<Uscita[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { getCurrentCoords().then(setCoords).catch(() => null); }, []);
@@ -61,14 +66,18 @@ export default function HomeScreen() {
     if (refresh) setRefreshing(true);
     else if (maiCaricato.current) setLoading(true);
     try {
-      const [available, mine, nextEvents] = await Promise.all([
+      const [available, mine, nextEvents, fuori] = await Promise.all([
         getDiscoveryRequests(city.key, refresh),
         getMyOrders(),
         getEvents(city.key).catch(() => []),
+        // Chi e' fuori puo' non caricare senza portarsi dietro tutto il feed:
+        // e' una sezione, non la schermata.
+        getUscite(city.key).catch(() => [] as Uscita[]),
       ]);
       setRequests(available);
       setMyOrders(mine);
       setEvents(nextEvents);
+      setUscite(fuori);
       getNotifications().then((items) => setUnread(items.filter((item) => !item.readAt).length)).catch(() => setUnread(0));
       setError(null);
     } catch {
@@ -151,6 +160,49 @@ export default function HomeScreen() {
                 </PressableScale>
               ) : null}
 
+              {/*
+                CHI E' FUORI ADESSO.
+                Sta SOPRA i giri, e non e' un vezzo: e' la tesi della V3 messa
+                in ordine di lettura. Una citta' in cui non c'e' scritto niente
+                sembra rotta; una citta' in cui qualcuno ha detto «passo dal
+                negozio» sembra viva, anche se nessuno ha ancora chiesto nulla.
+              */}
+              <View style={styles.sectionHead}>
+                <View><ThemedText type="label">ADESSO</ThemedText><ThemedText type="title">CHI È FUORI</ThemedText></View>
+                {mia ? null : (
+                  <PressableScale onPress={() => apri()} style={styles.mapLink}>
+                    <BrandIcon name="cheers" size={18} color={c.accent} />
+                    <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Ci sono anch’io</ThemedText>
+                  </PressableScale>
+                )}
+              </View>
+              {uscite.length === 0 ? (
+                <Pressable onPress={() => apri()} style={[styles.vuotoFuori, { borderColor: c.border }]}>
+                  <ThemedText style={{ color: c.textSecondary }}>
+                    A {city.label} in questo momento non è fuori nessuno. Ci vogliono quindici secondi.
+                  </ThemedText>
+                  <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Sono fuori</ThemedText>
+                </Pressable>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.fuoriRiga}>
+                  {uscite.map((u) => (
+                    <Pressable
+                      key={u.id}
+                      onPress={() => router.push({ pathname: '/user/[id]', params: { id: u.persona.id } })}
+                      style={[styles.fuoriCard, { backgroundColor: c.surface }]}>
+                      <Avatar name={u.persona.nome} uri={u.persona.fotoUrl} size={40} />
+                      <ThemedText type="defaultSemiBold" numberOfLines={1}>{u.persona.nome}</ThemedText>
+                      <ThemedText type="caption" style={{ color: c.textSecondary }} numberOfLines={1}>
+                        {formaDi(u.tipo).breve} · {finoAlle(u.finisceAlle)}
+                      </ThemedText>
+                      {u.zona ? (
+                        <ThemedText type="caption" style={{ color: c.textSecondary }} numberOfLines={1}>{u.zona}</ThemedText>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
+
               <View style={styles.sectionHead}>
                 <View><ThemedText type="label">VICINO A TE</ThemedText><ThemedText type="title">{`${GLOSSARY.deliveryPlural.toUpperCase()} APERTI`}</ThemedText></View>
                 <PressableScale onPress={() => router.push('/(tabs)/map' as never)} style={styles.mapLink}>
@@ -192,6 +244,9 @@ const styles = StyleSheet.create({
   activeOrder: { minHeight: 78, padding: Spacing.md, borderRadius: Radii.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, activeIcon: { width: 34, alignItems: 'center' },
   sectionHead: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: Spacing.sm }, mapLink: { flexDirection: 'row', alignItems: 'center', gap: 5, padding: Spacing.sm },
   filters: { flexDirection: 'row', gap: Spacing.sm }, loading: { gap: Spacing.md },
+  fuoriRiga: { gap: Spacing.sm, paddingVertical: 2 },
+  fuoriCard: { width: 132, borderRadius: 12, padding: Spacing.sm, gap: 3 },
+  vuotoFuori: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: Spacing.md, gap: 6 },
   community: { marginTop: Spacing.xl, minHeight: 150, padding: Spacing.md, borderRadius: Radii.lg, flexDirection: 'row', alignItems: 'center', overflow: 'hidden' },
   communityText: { flex: 1, gap: 4, zIndex: 1 }, sticker: { width: 86, height: 70, opacity: 0.9 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }, bell: { width: 44, height: 44, borderWidth: 1, borderRadius: 10, alignItems: 'center', justifyContent: 'center' }, unread: { position: 'absolute', right: -3, top: -3, minWidth: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center' }, unreadText: { color: '#F4F1EA', fontSize: 10 },

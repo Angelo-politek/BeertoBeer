@@ -106,3 +106,65 @@ describe('la logica pura', () => {
     }
   });
 });
+
+describe('il foglio resta da due tocchi', () => {
+  const leggi = (rel: string) =>
+    fs.readFileSync(path.join(__dirname, '..', '..', rel), 'utf8');
+  const foglio = leggi('components/foglio-uscita.tsx');
+
+  // Questo blocco difende il cantiere da se stesso. Ogni campo che qualcuno
+  // vorra' aggiungere («che negozio? quante birre? quanto ti fermi?») sembrera'
+  // utile, e uccidera' la spontaneita' — che e' tutto il punto. Se una di
+  // queste asserzioni va fatta cadere, va fatta cadere apposta.
+
+  it('non salva bozze: persiste la preferenza, non il contenuto', () => {
+    // create-request.tsx ha una bozza persistita con debounce, ed e' la
+    // confessione che compilarlo e' un lavoro. Qui si scrive su disco una cosa
+    // sola — forma e durata, cioe' due scelte — e mai la nota.
+    expect(foglio).toContain('btb:uscita.preferenza.v1');
+    const scritture = foglio.match(/AsyncStorage\.setItem\([^)]*\)/g) ?? [];
+    expect(scritture).toHaveLength(1);
+    expect(scritture[0]).toContain('JSON.stringify({ forma, durata })');
+    expect(scritture[0]).not.toContain('nota');
+  });
+
+  it('non chiede l indirizzo: lo prende dal telefono', () => {
+    expect(foglio).toContain('getCurrentCoords');
+    expect(foglio).not.toContain('LocationPickerMap');
+  });
+
+  it('rispetta il confine della citta come i giri e gli incontri', () => {
+    expect(foglio).toContain('isWithinCity');
+  });
+
+  it('dice le due frasi che tolgono l esitazione', () => {
+    // Dichiarare a un'app dove sei e' la cosa che fa esitare di piu'.
+    expect(foglio).toContain('Puoi rientrare quando vuoi');
+    expect(foglio).toContain('Si chiude da sola');
+  });
+});
+
+describe('la barra ha quattro voci, e la terza non e una schermata', () => {
+  const barra = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'components/ui/app-tab-bar.tsx'), 'utf8');
+
+  it('la voce FUORI e un azione, non una route', () => {
+    // Registrarla come schermata lascerebbe una rotta fantasma apribile da un
+    // deep link, che mostrerebbe il vuoto.
+    expect(barra).toContain("kind: 'azione'");
+    expect(barra).toContain("label: 'Fuori'");
+  });
+
+  it('«Home» non e piu la sola parola inglese della navigazione', () => {
+    expect(barra).toContain("label: 'Giri'");
+    const layout = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'app/(tabs)/_layout.tsx'), 'utf8');
+    expect(layout).not.toContain("title: 'Home'");
+  });
+
+  it('icone e nomi stanno in una lista sola', () => {
+    // Erano due strutture parallele che potevano divergere in silenzio.
+    expect(barra).not.toContain('PRIMARY_TABS');
+    expect(barra).not.toContain('TAB_ICONS');
+  });
+});

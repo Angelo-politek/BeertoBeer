@@ -15,24 +15,42 @@ import { BrandIcon, type BrandIconName } from '@/components/ui/brand-icon';
 import { Fonts, Radii, Springs } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useReducedMotion } from '@/hooks/use-reduced-motion';
+import { useFoglioUscita } from '@/lib/foglio-uscita-context';
+import { oraBreve } from '@/lib/format';
 
-/** Icona brand (PNG disegnati a mano) per ogni route delle tab. */
-const TAB_ICONS: Record<string, BrandIconName> = {
-  index: 'home',
-  map: 'pin',
-  profile: 'profile',
-};
+/**
+ * LE QUATTRO VOCI DELLA BARRA, IN ORDINE.
+ *
+ * Prima erano due strutture parallele — un dizionario di icone e un insieme di
+ * nomi — che potevano divergere in silenzio: bastava aggiungere una voce a una
+ * sola delle due. Ora sono una lista sola, ed e' anche l'ordine visivo.
+ *
+ * La terza voce non e' una route: e' un'AZIONE. Apre il foglio per dire che sei
+ * fuori, e non naviga da nessuna parte. Registrarla come schermata lascerebbe
+ * una rotta fantasma apribile da un deep link, che mostrerebbe il vuoto.
+ *
+ * «GIRI» e non «Home»: era l'unica parola inglese della navigazione, in
+ * un'app che parla italiano stretto.
+ */
+type Voce =
+  | { kind: 'route'; name: string; label: string; icon: BrandIconName }
+  | { kind: 'azione'; label: string; icon: BrandIconName };
 
-/** Le route legacy restano registrate per i vecchi deep link, ma non sono tab. */
-const PRIMARY_TABS = new Set(['index', 'map', 'profile']);
+const VOCI: Voce[] = [
+  { kind: 'route', name: 'index', label: 'Giri', icon: 'home' },
+  { kind: 'route', name: 'map', label: 'Mappa', icon: 'pin' },
+  { kind: 'azione', label: 'Fuori', icon: 'cheers' },
+  { kind: 'route', name: 'profile', label: 'Profilo', icon: 'profile' },
+];
 
 /**
  * Tab bar custom: barra piatta sul nero con riga di separazione sottile,
  * indicatore giallo netto dietro l'icona attiva.
  */
-export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function AppTabBar({ state, navigation }: BottomTabBarProps) {
   const c = useColors();
   const insets = useSafeAreaInsets();
+  const { apri, mia } = useFoglioUscita();
 
   return (
     <View
@@ -44,16 +62,36 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
           borderTopColor: c.border,
         },
       ]}>
-      {state.routes.filter((route) => PRIMARY_TABS.has(route.name)).map((route) => {
-        const { options } = descriptors[route.key];
-        const label = options.title ?? route.name;
+      {VOCI.map((voce) => {
+        if (voce.kind === 'azione') {
+          // Quando sei gia' fuori, la voce lo dice: e' il promemoria che c'e'
+          // una dichiarazione aperta a tuo nome, ed e' anche il modo di
+          // rientrare (toccandola si riapre il foglio, in modo «rientra»).
+          return (
+            <TabItem
+              key="azione-fuori"
+              label={mia ? oraBreve(mia.finisceAlle) : voce.label}
+              icon={voce.icon}
+              focused={mia != null}
+              onPress={() => {
+                if (Platform.OS !== 'web') {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => null);
+                }
+                apri();
+              }}
+            />
+          );
+        }
+
+        const route = state.routes.find((r) => r.name === voce.name);
+        if (!route) return null;
         const focused = state.routes[state.index]?.key === route.key;
 
         return (
           <TabItem
             key={route.key}
-            label={label}
-            icon={TAB_ICONS[route.name] ?? 'bottle'}
+            label={voce.label}
+            icon={voce.icon}
             focused={focused}
             onPress={() => {
               if (Platform.OS !== 'web') {
