@@ -86,6 +86,11 @@ export default function ProfileScreen() {
           <Button label="Personalizza la vetrina" variant="secondary" onPress={() => router.push('/profile-customize' as never)} />
 
           <View style={styles.profileActions}>
+            {/* Gli amici stavano a tre tocchi di distanza, dentro Impostazioni,
+                sotto una card intitolata «Sicurezza»: l'unico riferimento in
+                tutto il progetto. Chi non riceveva una richiesta di amicizia
+                non li trovava proprio. */}
+            <ProfileAction icon="smile" label="Amici" onPress={() => router.push('/amici' as never)} />
             <ProfileAction icon="scooter" label="I miei giri" onPress={() => router.push('/my-orders')} />
             <ProfileAction icon="wallet" label="BeerCoin" onPress={() => router.push('/beercoin' as never)} />
             <ProfileAction icon="profile" label="Impostazioni" onPress={() => router.push('/settings' as never)} />

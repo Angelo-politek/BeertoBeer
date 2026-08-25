@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 /**
  * LAYER DATI — l'unico punto da cui le schermate leggono/scrivono i dati.
  *
@@ -1752,7 +1753,7 @@ export async function cancelStaleOrder(orderId: string): Promise<void> {
 
 export async function submitProductFeedback(kind: 'bug' | 'idea', message: string): Promise<void> {
   const userId = await requireUserId();
-  const { error } = await supabase.from('product_feedback').insert({ user_id: userId, kind, message: message.trim(), app_version: 'V2.1' });
+  const { error } = await supabase.from('product_feedback').insert({ user_id: userId, kind, message: message.trim(), app_version: Constants.expoConfig?.version ?? 'sconosciuta' });
   if (error) throw error;
 }
 

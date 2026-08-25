@@ -75,7 +75,7 @@ export default function ChatEventoScreen() {
         messages={messaggi}
         myId={myId}
         loading={loading}
-        emptyMessage="Ancora nessun messaggio. Mettetevi d accordo su chi porta cosa."
+        emptyMessage="Ancora nessun messaggio. Mettetevi d’accordo su chi porta cosa."
         onSend={invia}
         quickReplies={['Ci sono!', 'Arrivo tardi di 10 minuti', 'Che porto?', 'Dove ci troviamo di preciso?']}
       />

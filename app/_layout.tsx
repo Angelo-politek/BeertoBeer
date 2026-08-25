@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
+import { NovitaBanner } from '@/components/novita-banner';
 import { ToastProvider, useToast } from '@/components/toast';
 import { Colors, Fonts } from '@/constants/theme';
 import { getOnboardingCompleted, updateUserCity } from '@/data/api';
@@ -17,6 +18,7 @@ import { useColors } from '@/hooks/use-colors';
 import { SessionProvider, useSession } from '@/lib/auth-context';
 import { CityProvider, useCity } from '@/lib/city-context';
 import { DiscoveryProvider } from '@/lib/discovery-context';
+import { segnaAggiornamentoInArrivo } from '@/lib/preferences';
 import { registerForPushNotifications } from '@/lib/push-notifications';
 import { supabaseConfigError } from '@/lib/supabase';
 
@@ -229,7 +231,11 @@ function RootLayout() {
       try {
         const result = await Updates.checkForUpdateAsync();
         if (result.isAvailable) {
-          await Updates.fetchUpdateAsync();
+          const esito = await Updates.fetchUpdateAsync();
+          // Il ricordo si scrive su disco PRIMA del riavvio: reloadAsync()
+          // distrugge tutto lo stato React, quindi non esiste nessun altro
+          // ponte fra il "prima" e il "dopo" di un aggiornamento.
+          await segnaAggiornamentoInArrivo(esito.manifest?.id ?? 'sconosciuto');
           await Updates.reloadAsync();
         }
       } catch {

@@ -126,3 +126,83 @@ describe('il pulsante «invia» della segnalazione resta raggiungibile', () => {
     expect(modale).toContain('keyboardShouldPersistTaps="handled"');
   });
 });
+
+describe('gli amici si trovano', () => {
+  it('il profilo porta agli amici in un tocco', () => {
+    // Erano a tre tocchi, dentro Impostazioni, sotto una card intitolata
+    // «Sicurezza»: l'unico riferimento a /amici in tutto il progetto.
+    expect(leggi('app/(tabs)/profile.tsx')).toContain("router.push('/amici'");
+  });
+});
+
+describe('un aggiornamento si annuncia', () => {
+  it('il flag si scrive PRIMA del riavvio', () => {
+    // reloadAsync() distrugge tutto lo stato React: se il ricordo non e su
+    // disco prima, dopo il riavvio non esiste piu nessun ponte.
+    const layout = leggi('app/_layout.tsx');
+    const iScrittura = layout.indexOf('segnaAggiornamentoInArrivo');
+    const iReload = layout.indexOf('Updates.reloadAsync()');
+    expect(iScrittura).toBeGreaterThan(-1);
+    expect(iScrittura).toBeLessThan(iReload);
+  });
+
+  it('chi ha appena installato non vede le novita di un app che non ha usato', () => {
+    expect(leggi('components/novita-banner.tsx')).toContain('haGiaVistoUnaVersione');
+  });
+
+  it('il diario esiste e ha una voce', () => {
+    expect(leggi('constants/novita.ts')).toContain('NOVITA');
+  });
+});
+
+describe('un admin puo chiudere un giro', () => {
+  it('la scheda esiste e usa la funzione che era orfana', () => {
+    // adminCancelOrder stava in data/api.ts da settembre, esposta e importata
+    // da nessuna schermata: un amministratore non poteva chiudere un giro.
+    const schermata = leggi('app/admin/giri.tsx');
+    expect(schermata).toContain('adminCancelOrder');
+    expect(schermata).toContain('adminGetActiveOrders');
+    expect(leggi('app/admin/index.tsx')).toContain("/admin/giri");
+  });
+});
+
+describe('i numeri non mentono piu', () => {
+  const branding = leggi('constants/branding.ts');
+
+  it('le costanti morte e sbagliate sono sparite', () => {
+    // Dicevano 10 dove il database ne dava 5, e 5 dove ne coniava 5+5 mentre
+    // lib/credits.ts diceva 3. Nessuno le leggeva: per questo erano rimaste
+    // sbagliate per mesi.
+    expect(branding).not.toMatch(/export const WELCOME_TOKENS/);
+    expect(branding).not.toMatch(/export const REFERRAL_TOKENS/);
+    expect(branding).not.toMatch(/export const NIGHT_BONUS_PT/);
+  });
+
+  it('la versione nel feedback non e piu scritta a mano', () => {
+    // Ogni segnalazione della beta era etichettata 'V2.1', qualunque fosse la
+    // versione vera: la prima cosa che si guarda leggendo un bug.
+    expect(leggi('data/api.ts')).not.toContain("'V2.1'");
+  });
+
+  it('il commento dei limiti non cita un tetto che non esiste', () => {
+    expect(leggi('lib/limiti.ts')).not.toContain('si fermano a 10');
+  });
+});
+
+describe('le parole a schermo hanno gli accenti', () => {
+  const CADUTE = [
+    'Chi c e<',
+    'Non ci vado piu<',
+    'CONOSCI GIA<',
+    'Mettetevi d accordo',
+    'Non siete piu amici',
+    'La tua versione e stata inviata',
+  ];
+
+  it('nessuna delle stringhe note e ancora monca', () => {
+    const tutto = ['app/event/[id].tsx', 'app/amici.tsx', 'app/chat/evento/[id].tsx',
+      'app/segnalazione/[id].tsx', 'app/user/[id].tsx']
+      .map(leggi).join('\n');
+    for (const c of CADUTE) expect(tutto).not.toContain(c.replace('<', ''));
+  });
+});

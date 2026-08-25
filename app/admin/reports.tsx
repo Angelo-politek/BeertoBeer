@@ -104,7 +104,7 @@ export default function AdminReportsScreen() {
   function chiudiSenzaProvvedimento(report: AdminReport) {
     Alert.alert(
       'Chiudere senza provvedimento?',
-      'La segnalazione resta nella storia di entrambe le persone, con la nota che era infondata o gia risolta.',
+      'La segnalazione resta nella storia di entrambe le persone, con la nota che era infondata o già risolta.',
       [
         { text: 'Annulla', style: 'cancel' },
         {

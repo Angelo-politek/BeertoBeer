@@ -62,7 +62,7 @@ export function ProvvedimentoModal({ visible, nomePersona, loading, onClose, onS
                 {tipo === 'avvertimento'
                   ? 'Nessuna limitazione, ma resta scritto nella storia della persona.'
                   : tipo === 'sospensione'
-                    ? 'Non potra lanciare giri ne accettarne fino alla scadenza.'
+                    ? 'Non potrà lanciare giri né accettarne fino alla scadenza.'
                     : "Fuori da Beer to Beer. L'account non viene cancellato: giri e segnalazioni restano consultabili."}
               </ThemedText>
             </View>

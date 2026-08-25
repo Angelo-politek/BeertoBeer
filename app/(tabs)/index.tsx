@@ -5,6 +5,7 @@ import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '@/components/button';
+import { NovitaBanner } from '@/components/novita-banner';
 import { CityPicker } from '@/components/city-picker';
 import { EmptyState } from '@/components/empty-state';
 import { DiscoveryFilterBar } from '@/components/discovery-filter-bar';
@@ -111,6 +112,8 @@ export default function HomeScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}
           ListHeaderComponent={
             <View style={styles.headerContent}>
+              {/* Dopo un aggiornamento: cosa e cambiato, una volta sola. */}
+              <NovitaBanner />
               <View style={styles.brandRow}>
                 <Image source={require('../../assets/brand/wordmark.png')} style={styles.wordmark} contentFit="contain" />
                 <View style={styles.headerActions}><CityPicker selectedKey={city.key} onSelect={setCityKey} /><PressableScale accessibilityRole="button" accessibilityLabel={`Notifiche${unread ? `, ${unread} non lette` : ''}`} onPress={() => router.push('/notifications' as never)} style={[styles.bell, { borderColor: c.border }]}><BrandIcon name="bell" size={22} color={c.text} />{unread ? <View style={[styles.unread, { backgroundColor: c.danger }]}><ThemedText style={styles.unreadText}>{Math.min(unread, 9)}</ThemedText></View> : null}</PressableScale></View>

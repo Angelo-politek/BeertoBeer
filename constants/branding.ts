@@ -41,10 +41,19 @@ export const LEVELS: LevelDef[] = [{ level: 0, titolo: 'Community', emoji: '', s
 export function levelForScambi(_scambi: number): LevelDef { return LEVELS[0]; }
 export function nextLevel(_scambi: number): LevelDef | null { return null; }
 
-export const WELCOME_TOKENS = 10;
-export const NIGHT_BONUS_PT = 2;
+/*
+ * QUI C'ERANO TRE NUMERI, E DICEVANO TUTTI E TRE UNA COSA DIVERSA DAL DATABASE.
+ *
+ *   WELCOME_TOKENS = 10   il database ne accredita 5
+ *   REFERRAL_TOKENS = 5   lib/credits.ts dice 3, il database ne conia 5+5
+ *   NIGHT_BONUS_PT = 2    e "PT" e' la vecchia moneta, che non esiste piu'
+ *
+ * Nessuno li leggeva, ed e' proprio per questo che erano rimasti sbagliati:
+ * un numero che nessuno usa non lo corregge nessuno, e prima o poi qualcuno lo
+ * copia dentro una schermata. La fonte unica dei premi e' lib/credits.ts, che
+ * dichiara di essere uno specchio del SQL e ha un test che lo verifica.
+ */
 export const NIGHT_FROM_HOUR = 22;
-export const REFERRAL_TOKENS = 5;
 export type BadgeDef = { key: string; nome: string; descrizione: string; emoji: string; rewardPt: number; categoria: 'delivery' | 'social' | 'milestone' | 'infamia' };
 export const BADGES: BadgeDef[] = [];
 export const BADGE_BY_KEY: Record<string, BadgeDef> = {};

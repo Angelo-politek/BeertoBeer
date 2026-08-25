@@ -7,20 +7,20 @@
 ## STATO
 
 ### Scudo beta (settimana 0) — prima dei 20/30 inviti
-- [ ] **A1** `handle_new_report` no-op — basta doppia moderazione e sospensione automatica 48h
-- [ ] **A2** `pair_allowed` accetta anche `sono_amici` — sblocca la chat fra amici
-- [ ] **A3** `committed_credits` e il tetto dei 3 aperti ignorano i `richiesto` oltre 12h
-- [ ] **A4** `verify_delivery_code` guarda `expires_at`
-- [ ] **A5** `admin_cancel_order` sgela, cancella il codice, avvisa entrambe le parti
-- [ ] **A6** `annulla_giro_mio` pubblicata (policy DELETE **non** revocata — R3)
-- [ ] **B1** `congelato` + `statoModerazione` + `isExpired` dentro `nextOrderAction`
-- [ ] **B2** `report-modal` diventa foglio scorribile (`<FoglioModale>` condiviso)
-- [ ] **B3** profilo di chi porta caricato da `withHosts`
-- [ ] **B4** amici raggiungibili dal Profilo, `connections.tsx` cancellata
-- [ ] **B5** changelog OTA (flag su AsyncStorage prima di `reloadAsync`)
-- [ ] **B6** matrice annullamenti completata
-- [ ] **B7** le stringhe che mentono (token, APK_URL, 18 accenti)
-- [ ] **B8** scheda admin «Giri» + safety-map centrata sulla città
+- [x] **A1** `handle_new_report` no-op — basta doppia moderazione e sospensione automatica 48h
+- [x] **A2** `pair_allowed` accetta anche `sono_amici` — sblocca la chat fra amici
+- [x] **A3** `committed_credits` e il tetto dei 3 aperti ignorano i `richiesto` oltre 12h
+- [x] **A4** `verify_delivery_code` guarda `expires_at`
+- [x] **A5** `admin_cancel_order` sgela, cancella il codice, avvisa entrambe le parti
+- [x] **A6** `annulla_giro_mio` pubblicata (policy DELETE **non** revocata — R3)
+- [x] **B1** `congelato` + `statoModerazione` + `isExpired` dentro `nextOrderAction`
+- [x] **B2** `report-modal` diventa foglio scorribile (`<FoglioModale>` condiviso)
+- [x] **B3** profilo di chi porta caricato da `withHosts`
+- [x] **B4** amici raggiungibili dal Profilo, `connections.tsx` cancellata
+- [x] **B5** changelog OTA (flag su AsyncStorage prima di `reloadAsync`)
+- [x] **B6** matrice annullamenti completata
+- [x] **B7** le stringhe che mentono (token, APK_URL, 18 accenti)
+- [x] **B8** scheda admin «Giri» + safety-map centrata sulla città
 
 ### Ondata 1 (mese 1) — Tempo, parole, una sola porta
 - [ ] **C1** APK nuovo + `app_release` + ponte di runtime + Sentry source map

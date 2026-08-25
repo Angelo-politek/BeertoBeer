@@ -108,7 +108,7 @@ export default function AmiciScreen() {
                   richiede una risposta. */}
               {daRispondere.length > 0 ? (
                 <View style={styles.sezione}>
-                  <ThemedText type="label">TI HANNO CHIESTO L AMICIZIA</ThemedText>
+                  <ThemedText type="label">TI HANNO CHIESTO L’AMICIZIA</ThemedText>
                   {daRispondere.map((a) => (
                     <View key={a.id} style={[styles.riga, { backgroundColor: c.surface }]}>
                       <Avatar name={a.nome} uri={a.fotoUrl ?? undefined} size={44} />
@@ -189,9 +189,9 @@ export default function AmiciScreen() {
               {/* Il suggerimento: gente con cui hai gia' fatto uno scambio. */}
               {daSuggerire.length > 0 ? (
                 <View style={styles.sezione}>
-                  <ThemedText type="label">QUESTE LE CONOSCI GIA</ThemedText>
+                  <ThemedText type="label">QUESTE LE CONOSCI GIÀ</ThemedText>
                   <ThemedText type="caption" style={{ color: c.textSecondary }}>
-                    Ci hai gia fatto almeno un giro insieme.
+                    Ci hai già fatto almeno un giro.
                   </ThemedText>
                   {daSuggerire.slice(0, 8).map((k) => (
                     <PressableScale

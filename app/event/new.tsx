@@ -220,7 +220,7 @@ export default function NewEventScreen() {
         <TextField label="Ora (24h)" value={ora} onChangeText={setOra} placeholder="21:00" keyboardType="numbers-and-punctuation" />
         <TextField label="Posti" value={posti} onChangeText={setPosti} placeholder="6" keyboardType="number-pad" />
 
-        <Button label={tipo === 'evento' ? 'Pubblica l evento' : 'Pubblica l incontro'} onPress={handleCreate} loading={saving} />
+        <Button label={tipo === 'evento' ? 'Pubblica l’evento' : 'Pubblica l’incontro'} onPress={handleCreate} loading={saving} />
       </ScrollView>
     </ThemedView>
   );

@@ -249,7 +249,7 @@ export default function RequestDetailScreen() {
           ? 'Giro fermato. Gli amministratori sono stati avvisati.'
           : type === 'request_mismatch'
             ? 'Segnalazione inviata agli amministratori.'
-            : 'Comunicato all altra persona.',
+            : 'L’altra persona lo sa.',
       );
       // «Non mi sento al sicuro» congela il giro: la schermata deve
       // aggiornarsi, o continua a mostrare pulsanti che ora il server rifiuta.
@@ -640,8 +640,8 @@ export default function RequestDetailScreen() {
             />
             <ThemedText type="caption" style={{ color: c.textSecondary }}>
               {isDriver
-                ? 'Si apre da qualsiasi telefono, anche senza app. Mostra dove sei e a che punto e il giro. Scade dopo 12 ore.'
-                : 'Si apre da qualsiasi telefono, anche senza app. Mostra a che punto e il giro, mai il tuo indirizzo. La posizione di chi porta puo condividerla solo lui.'}
+                ? 'Si apre da qualsiasi telefono, anche senza app. Mostra dove sei e a che punto è il giro. Scade dopo 12 ore.'
+                : 'Si apre da qualsiasi telefono, anche senza app. Mostra a che punto è il giro, mai il tuo indirizzo. La posizione di chi porta può condividerla solo lui.'}
             </ThemedText>
 
             <View style={styles.issueGrid}>
@@ -658,7 +658,7 @@ export default function RequestDetailScreen() {
                 onPress={() => handleIssue('person_absent')}
               />
               <Button
-                label="Non e il giro concordato"
+                label="Non è il giro concordato"
                 size="md"
                 variant="secondary"
                 onPress={() => setChiediDettagli('request_mismatch')}
@@ -739,8 +739,8 @@ export default function RequestDetailScreen() {
         titolo={chiediDettagli === 'unsafe' ? 'Cosa sta succedendo?' : 'Cosa non torna?'}
         spiegazione={
           chiediDettagli === 'unsafe'
-            ? 'Il giro viene fermato subito e la segnalazione arriva agli amministratori. Scrivi cosa sta succedendo: senza sapere cosa e successo non possono aiutarti davvero. Se sei in pericolo immediato chiama il 112.'
-            : 'La segnalazione arriva agli amministratori, e l altra persona potra dare la sua versione. Scrivi cosa era stato concordato e cosa e arrivato.'
+            ? 'Il giro viene fermato subito e la segnalazione arriva agli amministratori. Scrivi cosa sta succedendo: senza sapere cosa è successo non possono aiutarti davvero. Se sei in pericolo immediato chiama il 112.'
+            : 'La segnalazione arriva agli amministratori, e l’altra persona potrà dare la sua versione. Scrivi cosa era stato concordato e cosa è arrivato.'
         }
         placeholder={chiediDettagli === 'unsafe' ? 'Es. non se ne va da davanti al portone' : 'Es. avevo chiesto sei birre, ne sono arrivate due'}
         etichettaConferma={chiediDettagli === 'unsafe' ? 'Ferma il giro' : 'Segnala'}

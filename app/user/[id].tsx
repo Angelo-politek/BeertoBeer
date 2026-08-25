@@ -118,7 +118,7 @@ export default function UserProfileScreen() {
       if (relazione === 'amico') {
         await togliAmicizia(id);
         setRelazione('nessuna');
-        toast.show('Non siete piu amici.');
+        toast.show('Non siete più amici.');
       } else {
         // Se l'altro aveva gia' chiesto, chiedere equivale ad accettare: il
         // database lo sa e risponde «accettata».

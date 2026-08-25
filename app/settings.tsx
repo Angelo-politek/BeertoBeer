@@ -23,7 +23,7 @@ export default function SettingsScreen() {
         </Card>
         <Card>
           <ThemedText type="subtitle">Sicurezza</ThemedText>
-          <ThemedText style={{ color: c.textSecondary }}>Contatti fidati, connessioni e preferenze notifiche saranno raccolti qui.</ThemedText>
+          <ThemedText style={{ color: c.textSecondary }}>Chi hai bloccato, e le regole che valgono durante un giro.</ThemedText>
           {/* «Amici» sostituisce «Le mie connessioni» come porta d'ingresso:
               le connessioni erano un elenco implicito di chi avevi incrociato,
               gli amici sono un legame che le due persone hanno scelto. Chi

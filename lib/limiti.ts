@@ -24,7 +24,7 @@ export const MAX_GIRI_AL_GIORNO = 8;
 /**
  * Birre per singolo giro.
  * Oltre questa soglia non è più un favore fra vicini: è un trasloco. E siccome
- * i BeerCoin si fermano a 10 molto prima, senza un tetto le birre in più
+ * i BeerCoin si fermano a 14 molto prima, senza un tetto le birre in più
  * sarebbero gratis.
  */
 export const MAX_BIRRE_PER_GIRO = 24;

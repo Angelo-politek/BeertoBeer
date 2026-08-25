@@ -191,7 +191,7 @@ export default function EventDetailScreen() {
             bastava per decidere se andarci. */}
         {partecipanti.length > 0 ? (
           <Card style={styles.card} index={3}>
-            <ThemedText type="subtitle">Chi c e</ThemedText>
+            <ThemedText type="subtitle">Chi c’è</ThemedText>
             <View style={styles.facce}>
               {partecipanti.map((p) => (
                 <PressableScale
@@ -228,7 +228,7 @@ export default function EventDetailScreen() {
             Sei tu che organizzi.
           </ThemedText>
         ) : event.partecipo ? (
-          <Button label="Non ci vado piu" variant="secondary" onPress={toggleJoin} loading={acting} />
+          <Button label="Non ci vado più" variant="secondary" onPress={toggleJoin} loading={acting} />
         ) : pieno ? (
           <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>Posti esauriti.</ThemedText>
         ) : (

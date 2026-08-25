@@ -34,7 +34,7 @@ import { formatShortDate } from '@/lib/format';
  */
 
 const MOTIVI: Record<string, string> = {
-  unsafe: 'Qualcuno non si e sentito al sicuro durante un giro con te',
+  unsafe: 'Qualcuno non si è sentito al sicuro durante un giro con te',
   person_absent: 'Qualcuno dice di non averti trovato',
   request_mismatch: 'Qualcuno dice che il giro non era quello concordato',
   comportamento_scorretto: 'Comportamento scorretto',
@@ -76,7 +76,7 @@ export default function SegnalazioneScreen() {
     setInvio(true);
     try {
       await rispondiASegnalazione(id, testo.trim());
-      toast.show('La tua versione e stata inviata.');
+      toast.show('La tua versione è stata inviata.');
       await load();
       setTesto('');
     } catch (e) {
@@ -104,7 +104,7 @@ export default function SegnalazioneScreen() {
         <View style={styles.center}>
           <EmptyState
             title="Segnalazione non trovata"
-            message="Puo essere gia stata chiusa, oppure il link non e piu valido."
+            message="Può essere già stata chiusa, oppure il link non è più valido."
             actionLabel="Torna indietro"
             onAction={() => router.back()}
           />
