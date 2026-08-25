@@ -45,7 +45,9 @@ export function RequestCard({ request, onPress, index }: Props) {
       <ThemedText style={[styles.beers, { color: c.textSecondary }]} numberOfLines={2}>
         {birreLabel}
       </ThemedText>
-      <ThemedText type="caption" style={{ color: c.accent }}>{whyThisRequest(request)}</ThemedText>
+      {whyThisRequest(request) ? (
+        <ThemedText type="caption" style={{ color: c.accent }}>{whyThisRequest(request)}</ThemedText>
+      ) : null}
 
       <View style={styles.footerRow}>
         <View style={styles.badges}>

@@ -206,3 +206,43 @@ describe('le parole a schermo hanno gli accenti', () => {
     for (const c of CADUTE) expect(tutto).not.toContain(c.replace('<', ''));
   });
 });
+
+describe('più community, meno algoritmi', () => {
+  // La mission della brand bible, presa alla lettera. Questo blocco e' la
+  // decisione piu' politica del progetto: senza, `smartScore` torna fra tre
+  // mesi con un altro nome, e chi lo fa fallire deve prendersi la
+  // responsabilita' di averlo voluto.
+  // I commenti di questi file citano di proposito cio' che e' stato tolto —
+  // e' cosi' che il codice racconta le proprie decisioni. Le asserzioni
+  // guardano solo il codice vero.
+  const senzaCommenti = (t: string) =>
+    t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const discovery = senzaCommenti(leggi('lib/discovery.ts'));
+
+  it('smartScore non esiste piu', () => {
+    expect(discovery).not.toMatch(/export function smartScore/);
+  });
+
+  it('nessuna funzione di ordinamento legge il rating', () => {
+    // ratingMedio * 4 era il termine dominante, e rating_medio parte da zero:
+    // un nuovo iscritto partiva venti punti sotto, cioe' dodici chilometri.
+    const ordinamento = discovery.slice(discovery.indexOf('export function sortDiscovery'));
+    expect(ordinamento).not.toContain('ratingMedio');
+  });
+
+  it('l app non dichiara piu «affidabile» nessuno', () => {
+    expect(discovery).not.toContain('Persona affidabile');
+  });
+
+  it('i tre ordinamenti dicono cosa fanno, e «Per te» non c e piu', () => {
+    const barra = senzaCommenti(leggi('components/discovery-filter-bar.tsx'));
+    expect(barra).not.toContain('Per te');
+    expect(barra).toContain('Chi finisce prima');
+  });
+
+  it('le preferenze salvate sui telefoni non riportano il vecchio criterio', () => {
+    // Il merge con i default riporterebbe "smart", che cadrebbe nel ramo di
+    // riserva senza che nessuno se ne accorga.
+    expect(leggi('lib/discovery-context.tsx')).toContain('btb.discovery.filters.v3');
+  });
+});

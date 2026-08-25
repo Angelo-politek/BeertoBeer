@@ -7,6 +7,14 @@ import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useDiscoveryFilters } from '@/lib/discovery-context';
+import type { DiscoveryFilters } from '@/types';
+
+/** Â«Per teÂ» era la parola delle piattaforme. Questi tre dicono cosa fanno. */
+const ORDINAMENTI: { key: DiscoveryFilters['sort']; label: string }[] = [
+  { key: 'scadenza', label: 'Chi finisce prima' },
+  { key: 'distanza', label: 'Piu vicini' },
+  { key: 'recenti', label: 'Appena arrivati' },
+];
 
 export function DiscoveryFilterBar() {
   const c = useColors();
@@ -18,10 +26,20 @@ export function DiscoveryFilterBar() {
       <Chip label="Stasera" active={filters.time === 'tonight'} onPress={() => updateFilters({ time: filters.time === 'tonight' ? 'all' : 'tonight' })} />
       <Chip label="Vibe mode" active={filters.vibeOnly} onPress={() => updateFilters({ vibeOnly: !filters.vibeOnly })} />
       <Chip label="Entro 3 km" active={filters.maxDistanceKm === 3} onPress={() => updateFilters({ maxDistanceKm: filters.maxDistanceKm === 3 ? null : 3 })} />
-      <PressableScale accessibilityRole="button" accessibilityLabel="Cambia ordinamento" onPress={() => updateFilters({ sort: filters.sort === 'smart' ? 'distance' : filters.sort === 'distance' ? 'recent' : 'smart' })} style={[styles.sort, { borderColor: c.border }]}>
-        <BrandIcon name="arrow-right" size={15} color={c.accent} />
-        <ThemedText type="caption">{filters.sort === 'smart' ? 'Per te' : filters.sort === 'distance' ? 'Distanza' : 'Recenti'}</ThemedText>
-      </PressableScale>
+      {/*
+        I tre ordinamenti sono dichiarati e visibili, non nascosti dentro un
+        tasto che li fa ruotare: chi guarda l'elenco deve poter sapere perche'
+        e' in quell'ordine. Il vecchio tasto ciclava fra tre stati invisibili,
+        ed era a sua volta un piccolo algoritmo opaco.
+      */}
+      {ORDINAMENTI.map((o) => (
+        <Chip
+          key={o.key}
+          label={o.label}
+          active={filters.sort === o.key}
+          onPress={() => updateFilters({ sort: o.key })}
+        />
+      ))}
       {activeCount > 0 ? <View style={[styles.count, { backgroundColor: c.accent }]}><ThemedText style={{ color: c.accentText, fontSize: 11 }}>{activeCount}</ThemedText></View> : null}
     </ScrollView>
   );

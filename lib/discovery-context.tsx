@@ -3,12 +3,16 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 
 import type { DiscoveryFilters } from '@/types';
 
-const STORAGE_KEY = 'btb.discovery.filters.v2';
+// v3 e non v2: sui telefoni gia' installati AsyncStorage contiene
+// {"sort":"smart"}, che con l'ordinamento nuovo cadrebbe nel ramo di riserva
+// senza che nessuno se ne accorga. Le preferenze si perdono una volta sola, e
+// il default e' buono.
+const STORAGE_KEY = 'btb.discovery.filters.v3';
 export const DEFAULT_DISCOVERY_FILTERS: DiscoveryFilters = {
   vibeOnly: false,
   maxDistanceKm: null,
   time: 'all',
-  sort: 'smart',
+  sort: 'scadenza',
 };
 
 type DiscoveryContextValue = {
@@ -48,7 +52,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const resetFilters = useCallback(() => persist(DEFAULT_DISCOVERY_FILTERS), [persist]);
-  const activeCount = Number(filters.vibeOnly) + Number(filters.maxDistanceKm != null) + Number(filters.time !== 'all') + Number(filters.sort !== 'smart');
+  const activeCount = Number(filters.vibeOnly) + Number(filters.maxDistanceKm != null) + Number(filters.time !== 'all') + Number(filters.sort !== DEFAULT_DISCOVERY_FILTERS.sort);
   const value = useMemo(() => ({ filters, ready, activeCount, updateFilters, resetFilters }), [filters, ready, activeCount, updateFilters, resetFilters]);
   return <DiscoveryContext.Provider value={value}>{children}</DiscoveryContext.Provider>;
 }

@@ -227,7 +227,7 @@ export type Invite = {
 };
 
 export type DiscoveryTime = 'all' | 'now' | 'tonight';
-export type DiscoverySort = 'smart' | 'distance' | 'recent';
+export type DiscoverySort = 'scadenza' | 'distanza' | 'recenti';
 export type DiscoveryFilters = {
   vibeOnly: boolean;
   maxDistanceKm: number | null;
