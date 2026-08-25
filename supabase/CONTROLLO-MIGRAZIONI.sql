@@ -77,6 +77,19 @@ with controlli as (
          exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                  where n.nspname = 'public' and p.proname = 'credits_for_weight'
                    and pg_get_functiondef(p.oid) like '%least(14%')
+
+  union all
+  select 10, '20260902_segnalazioni',
+         'Segnalazioni come fascicolo, provvedimenti, giro congelabile',
+         exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'reports'
+                   and column_name = 'dichiarazione_segnalato')
+
+  union all
+  select 11, '20260903_link_pubblico',
+         'Link del giro apribile da chiunque, anche senza app',
+         exists (select 1 from information_schema.tables
+                 where table_schema = 'public' and table_name = 'order_share_links')
 )
 
 select ordine as n,

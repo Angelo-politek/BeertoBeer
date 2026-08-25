@@ -8,6 +8,8 @@ import { Badge } from '@/components/badge';
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { DeliveryMap } from '@/components/delivery-map';
+import { TestoModal } from '@/components/testo-modal';
+import { messaggioServer } from '@/lib/errori';
 import { ReportModal } from '@/components/report-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -16,7 +18,7 @@ import { BrandIcon } from '@/components/ui/brand-icon';
 import { Chip } from '@/components/ui/chip';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
-import { acceptOrder, advanceOrder, arriveOrder, cancelActiveOrder, cancelOrder, cancelStaleOrder, confirmExchangeNearby, confirmOrder, getDeliveryCodeState, getOrderEta, getOrderSafetyEvents, getRequestById, regenerateDeliveryCode, releaseAcceptedOrder, reportOrderIssue, reportUser, saveTrustedContact, setOrderEta, updateOrderPresence, verifyDeliveryCode } from '@/data/api';
+import { acceptOrder, advanceOrder, arriveOrder, cancelActiveOrder, cancelOrder, cancelStaleOrder, confirmExchangeNearby, confirmOrder, getDeliveryCodeState, getOrderEta, getOrderSafetyEvents, getRequestById, regenerateDeliveryCode, releaseAcceptedOrder, reportOrderIssue, reportUser, creaLinkGiro, setOrderEta, updateOrderPresence, verifyDeliveryCode } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
 import { CREDIT_CAP, estimateBonus, FORMATS } from '@/lib/credits';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
@@ -44,8 +46,30 @@ export default function RequestDetailScreen() {
   const [codeInput, setCodeInput] = useState('');
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
   const [safetyEvents, setSafetyEvents] = useState<OrderSafetyEvent[]>([]);
-  const [trustedName, setTrustedName] = useState('');
-  const [trustedContact, setTrustedContact] = useState('');
+  /**
+   * Quale segnalazione sta chiedendo due righe di spiegazione.
+   * null = nessuna finestra aperta.
+   */
+  const [chiediDettagli, setChiediDettagli] = useState<OrderIssueType | null>(null);
+  const [condividendo, setCondividendo] = useState(false);
+
+  /**
+   * Crea il link pubblico e apre il foglio di condivisione del telefono, cosi'
+   * si manda su WhatsApp, per messaggio o come si vuole.
+   */
+  async function condividiGiro() {
+    setCondividendo(true);
+    try {
+      const link = await creaLinkGiro(id);
+      await Share.share({
+        message: `Sto facendo un giro su Beer to Beer. Puoi seguirlo qui, si apre anche senza l'app: ${link}`,
+      });
+    } catch (e) {
+      Alert.alert('Link non creato', messaggioServer(e, 'Riprova fra poco.'));
+    } finally {
+      setCondividendo(false);
+    }
+  }
   const [handshakeStatus, setHandshakeStatus] = useState<'idle'|'waiting'|'code_required'|'too_far'>('idle');
 
   // Posizione dell'utente (per la distanza dalla consegna). Best-effort.
@@ -182,20 +206,28 @@ export default function RequestDetailScreen() {
     };
   }, [statoCorrente, id, toast]);
 
-  async function handleTrustedContact() {
-    if (!trustedName.trim() || !trustedContact.trim()) return;
-    await runAction(async () => {
-      await saveTrustedContact(id, trustedName, trustedContact);
-      toast.show('Contatto fidato salvato per questo giro.');
-    });
-  }
-
   async function handleEta(minutes: number) {
     await runAction(async () => { await setOrderEta(id, minutes); setEtaMinutes(minutes); toast.show(`Arrivo stimato: ${minutes} minuti.`); });
   }
 
-  async function handleIssue(type: OrderIssueType) {
-    await runAction(async () => { await reportOrderIssue(id, type); toast.show(type === 'unsafe' ? 'Safety Center avvisato.' : 'Imprevisto comunicato.'); });
+  async function handleIssue(type: OrderIssueType, dettagli = '') {
+    await runAction(async () => {
+      await reportOrderIssue(id, type, dettagli);
+      setChiediDettagli(null);
+      // Prima diceva sempre «Safety Center avvisato», e non era vero: la
+      // segnalazione finiva in una tabella che nessuno leggeva. Ora e' vero, e
+      // il messaggio dice cosa succede davvero.
+      toast.show(
+        type === 'unsafe'
+          ? 'Giro fermato. Gli amministratori sono stati avvisati.'
+          : type === 'request_mismatch'
+            ? 'Segnalazione inviata agli amministratori.'
+            : 'Comunicato all altra persona.',
+      );
+      // «Non mi sento al sicuro» congela il giro: la schermata deve
+      // aggiornarsi, o continua a mostrare pulsanti che ora il server rifiuta.
+      if (type === 'unsafe') await reload();
+    });
   }
 
   async function handleRegenerateCode() {
@@ -517,25 +549,66 @@ export default function RequestDetailScreen() {
         </Section>
 
         {canSeeAddress && request.stato !== 'richiesto' && request.stato !== 'confermato' ? (
-          <Section title="Sicurezza">
+          <Section title="Se qualcosa non va">
+            {/* Via il CONTATTO FIDATO: si salvava davvero in
+                order_trusted_contacts, ma nessuno leggeva quella tabella. Un
+                campo che chiede il numero di una persona cara e poi non lo usa
+                per niente e' peggio che non averlo: promette una protezione
+                che non esiste. Al suo posto c'e' il link qui sotto, che una
+                persona fidata puo' davvero aprire. */}
+
+            {/* IL LINK VERO. Prima il pulsante mandava beertobeer://request/<id>:
+                apriva l'app, e solo a chi partecipava a quel giro. Un genitore
+                senza app vedeva un link morto. */}
             <Button
-              label="Condividi stato del giro"
+              label={condividendo ? 'Preparo il link...' : 'Fai seguire il giro a qualcuno'}
               variant="secondary"
-              onPress={() => Share.share({ message: `BeerToBeer · Giro ${STATO_LABEL[request.stato]} · ${request.citta ?? 'città'} · beertobeer://request/${request.id}` })}
+              loading={condividendo}
+              onPress={condividiGiro}
             />
-            <ThemedText type="caption">Il messaggio non contiene l’indirizzo esatto.</ThemedText>
-            <View style={styles.trustedForm}>
-              <ThemedText type="defaultSemiBold">Contatto fidato</ThemedText>
-              <TextInput value={trustedName} onChangeText={setTrustedName} placeholder="Nome" placeholderTextColor={c.textSecondary} style={[styles.safetyInput, { color: c.text, backgroundColor: c.surfaceAlt, borderColor: c.border }]} />
-              <TextInput value={trustedContact} onChangeText={setTrustedContact} placeholder="Telefono o contatto" placeholderTextColor={c.textSecondary} style={[styles.safetyInput, { color: c.text, backgroundColor: c.surfaceAlt, borderColor: c.border }]} />
-              <Button label="Salva per questo giro" size="md" variant="secondary" disabled={!trustedName.trim() || !trustedContact.trim()} onPress={handleTrustedContact} />
-            </View>
+            <ThemedText type="caption" style={{ color: c.textSecondary }}>
+              {isDriver
+                ? 'Si apre da qualsiasi telefono, anche senza app. Mostra dove sei e a che punto e il giro. Scade dopo 12 ore.'
+                : 'Si apre da qualsiasi telefono, anche senza app. Mostra a che punto e il giro, mai il tuo indirizzo. La posizione di chi porta puo condividerla solo lui.'}
+            </ThemedText>
+
             <View style={styles.issueGrid}>
-              <Button label="Non trovo la persona" size="md" variant="secondary" onPress={() => handleIssue('person_absent')} />
-              <Button label="Richiesta diversa" size="md" variant="secondary" onPress={() => handleIssue('request_mismatch')} />
-              <Button label="Non mi sento al sicuro" size="md" variant="danger" onPress={() => handleIssue('unsafe')} />
-              {canCloseStale ? <Button label="Chiudi giro bloccato" size="md" variant="danger" onPress={() => runAction(() => cancelStaleOrder(id))} /> : null}
+              <Button
+                label="Sono in ritardo"
+                size="md"
+                variant="secondary"
+                onPress={() => handleIssue('delay')}
+              />
+              <Button
+                label="Non trovo la persona"
+                size="md"
+                variant="secondary"
+                onPress={() => handleIssue('person_absent')}
+              />
+              <Button
+                label="Non e il giro concordato"
+                size="md"
+                variant="secondary"
+                onPress={() => setChiediDettagli('request_mismatch')}
+              />
+              <Button
+                label="Non mi sento al sicuro"
+                size="md"
+                variant="danger"
+                onPress={() => setChiediDettagli('unsafe')}
+              />
+              {canCloseStale ? (
+                <Button
+                  label="Chiudi giro bloccato"
+                  size="md"
+                  variant="secondary"
+                  onPress={() => runAction(() => cancelStaleOrder(id))}
+                />
+              ) : null}
             </View>
+            <ThemedText type="caption" style={{ color: c.textSecondary }}>
+              Le ultime due arrivano agli amministratori. «Non mi sento al sicuro» ferma subito il giro.
+            </ThemedText>
           </Section>
         ) : null}
       </ScrollView>
@@ -567,6 +640,28 @@ export default function RequestDetailScreen() {
         onDetailsChange={setReportDetails}
         onClose={() => setReportOpen(false)}
         onSubmit={handleReport}
+      />
+
+      {/* Le due segnalazioni che arrivano agli amministratori chiedono due
+          righe. Un allarme senza contesto non e' azionabile: chi lo legge non
+          sa se si tratta di un cane che abbaia o di qualcuno che non se ne va
+          dalla porta. */}
+      <TestoModal
+        visible={chiediDettagli != null}
+        titolo={chiediDettagli === 'unsafe' ? 'Cosa sta succedendo?' : 'Cosa non torna?'}
+        spiegazione={
+          chiediDettagli === 'unsafe'
+            ? 'Il giro viene fermato subito e la segnalazione arriva agli amministratori. Scrivi cosa sta succedendo: senza sapere cosa e successo non possono aiutarti davvero. Se sei in pericolo immediato chiama il 112.'
+            : 'La segnalazione arriva agli amministratori, e l altra persona potra dare la sua versione. Scrivi cosa era stato concordato e cosa e arrivato.'
+        }
+        placeholder={chiediDettagli === 'unsafe' ? 'Es. non se ne va da davanti al portone' : 'Es. avevo chiesto sei birre, ne sono arrivate due'}
+        etichettaConferma={chiediDettagli === 'unsafe' ? 'Ferma il giro' : 'Segnala'}
+        pericolo={chiediDettagli === 'unsafe'}
+        loading={acting}
+        onClose={() => setChiediDettagli(null)}
+        onSubmit={(testo) => {
+          if (chiediDettagli) void handleIssue(chiediDettagli, testo);
+        }}
       />
     </ThemedView>
   );

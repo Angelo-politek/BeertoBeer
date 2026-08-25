@@ -184,7 +184,6 @@ export type OrderSafetyEvent = {
   createdAt: string;
 };
 
-export type TrustedContact = { orderId: string; name: string; contact: string };
 export type DeliveryCodeState = { code?: string; failedAttempts: number; attemptsRemaining: number; verifiedAt?: string; expiresAt?: string };
 export type OrderIssueType = 'cannot_start' | 'delay' | 'person_absent' | 'request_mismatch' | 'unsafe';
 export type NotificationItem = { id: string; category: 'order' | 'chat' | 'event' | 'mission' | 'safety'; title: string; body: string; url?: string; readAt?: string; createdAt: string };

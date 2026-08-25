@@ -492,8 +492,88 @@ export async function getOrderEta(orderId: string): Promise<number | null> {
   return data?.eta_minutes ?? null;
 }
 
-export async function reportOrderIssue(orderId: string, type: OrderIssueType, details = ''): Promise<void> {
-  const { error } = await supabase.rpc('report_order_issue', { p_order_id: orderId, p_type: type, p_details: details });
+/**
+ * Segnala un problema durante un giro.
+ *
+ * Prima chiamava `report_order_issue`, che scriveva su order_issues e
+ * order_safety_events - due tabelle che NESSUNA schermata leggeva. Chi premeva
+ * «non mi sento al sicuro» non veniva ascoltato da nessuno.
+ *
+ * Ora apre una segnalazione vera: avvisa gli amministratori, avvisa la persona
+ * segnalata (senza dirle chi l'ha segnalata), e per «unsafe» ferma il giro.
+ * Restituisce l'id della segnalazione, oppure null per gli imprevisti che sono
+ * solo comunicazioni fra le due persone (ritardo, non riesco a partire).
+ */
+export async function reportOrderIssue(
+  orderId: string,
+  type: OrderIssueType,
+  details = '',
+): Promise<string | null> {
+  const { data, error } = await supabase.rpc('segnala_problema_giro', {
+    p_order_id: orderId,
+    p_tipo: type,
+    p_dettagli: details,
+  });
+  if (error) throw error;
+  return (data as string | null) ?? null;
+}
+
+/**
+ * Crea (o riusa) il link pubblico del giro e restituisce l'indirizzo completo.
+ *
+ * Sostituisce il vecchio `beertobeer://request/<id>`, che apriva l'app e solo
+ * a chi partecipava a quel giro: un genitore senza app vedeva un link morto.
+ * Questo si apre da qualsiasi telefono, scade da solo dopo dodici ore, e non
+ * contiene mai l'indirizzo di casa.
+ *
+ * Se un link valido esiste gia' viene restituito lo stesso: quello mandato
+ * prima a un amico deve continuare ad aggiornarsi.
+ */
+export async function creaLinkGiro(orderId: string): Promise<string> {
+  const { data, error } = await supabase.rpc('crea_link_giro', { p_order_id: orderId });
+  if (error) throw error;
+  const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (!base) throw new Error('Configurazione mancante: non posso creare il link.');
+  return `${base}/functions/v1/giro-pubblico?t=${data as string}`;
+}
+
+/** Spegne i link che ho creato per questo giro. */
+export async function revocaLinkGiro(orderId: string): Promise<void> {
+  const { error } = await supabase.rpc('revoca_link_giro', { p_order_id: orderId });
+  if (error) throw error;
+}
+
+/** Le segnalazioni ricevute da me, con la mia versione dei fatti se l'ho scritta. */
+export type MiaSegnalazione = {
+  id: string;
+  motivoCodice: string | null;
+  gravita: 'bassa' | 'media' | 'alta';
+  stato: 'aperta' | 'in_esame' | 'chiusa';
+  creataIl: string;
+  giaRisposto: boolean;
+  miaDichiarazione: string | null;
+};
+
+export async function getMieSegnalazioni(): Promise<MiaSegnalazione[]> {
+  const { data, error } = await supabase.rpc('mie_segnalazioni');
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    motivoCodice: (r.motivo_codice as string) ?? null,
+    gravita: r.gravita as 'bassa' | 'media' | 'alta',
+    stato: r.stato as 'aperta' | 'in_esame' | 'chiusa',
+    creataIl: r.creata_il as string,
+    giaRisposto: Boolean(r.gia_risposto),
+    miaDichiarazione: (r.mia_dichiarazione as string) ?? null,
+  }));
+}
+
+/** La versione dei fatti di chi e' stato segnalato. Finisce nello stesso fascicolo. */
+export async function rispondiASegnalazione(reportId: string, testo: string): Promise<void> {
+  const { error } = await supabase.rpc('rispondi_a_segnalazione', {
+    p_report_id: reportId,
+    p_testo: testo,
+  });
   if (error) throw error;
 }
 
@@ -529,16 +609,17 @@ export async function getOrderSafetyEvents(orderId: string): Promise<OrderSafety
   })) as OrderSafetyEvent[];
 }
 
-export async function saveTrustedContact(orderId: string, name: string, contact: string): Promise<void> {
-  const userId = await requireUserId();
-  const { error } = await supabase.from('order_trusted_contacts').upsert({
-    order_id: orderId,
-    user_id: userId,
-    name: name.trim(),
-    contact: contact.trim(),
-  });
-  if (error) throw error;
-}
+/**
+ * TOLTA: il contatto fidato.
+ *
+ * Scriveva davvero su order_trusted_contacts - ma nessuno leggeva quella
+ * tabella, quindi il nome e il numero di una persona cara restavano li' senza
+ * servire a niente. Un campo che promette protezione e non la da e' peggio di
+ * un campo che non c'e': fa credere di essere piu' al sicuro.
+ *
+ * Al suo posto c'e' `creaLinkGiro`, che una persona fidata puo' davvero
+ * aprire, anche senza l'app.
+ */
 
 export async function getReciprocitySummary(): Promise<ReciprocitySummary> {
   const { data, error } = await supabase.rpc('get_reciprocity_summary');
@@ -770,14 +851,18 @@ export async function getReviewsForUser(userId: string): Promise<Review[]> {
   return rows.map((r) => mapReview(r, authors.get(r.from_user_id)));
 }
 
+/**
+ * Segnala una persona. Passa da una RPC e non piu' da un insert diretto,
+ * perche' oltre a scrivere la riga deve avvisare gli amministratori e la
+ * persona segnalata: prima la segnalazione finiva in una tabella e nessuno
+ * riceveva niente.
+ */
 export async function reportUser(userId: string, reason: ReportReason, details: string, orderId?: string): Promise<void> {
-  const myId = await requireUserId();
-  const motivo = details.trim() ? `${reason}: ${details.trim()}` : reason;
-  const { error } = await supabase.from('reports').insert({
-    reported_user_id: userId,
-    reporting_user_id: myId,
-    order_id: orderId ?? null,
-    motivo,
+  const { error } = await supabase.rpc('segnala_utente', {
+    p_user_id: userId,
+    p_motivo: reason,
+    p_dettagli: details,
+    p_order_id: orderId ?? null,
   });
   if (error) throw error;
 }
@@ -910,22 +995,50 @@ export type AdminReport = {
   createdAt: string;
   reportedUser?: User;
   reportingUser?: User;
+  /** Il fascicolo: le due versioni dei fatti, la gravita, lo stato, il contesto. */
+  motivoCodice: string | null;
+  gravita: 'bassa' | 'media' | 'alta';
+  stato: 'aperta' | 'in_esame' | 'chiusa';
+  dichiarazioneSegnalante: string | null;
+  dichiarazioneSegnalato: string | null;
+  rispostoIl: string | null;
+  noteAdmin: string | null;
+  chiusaIl: string | null;
+  /** Fotografia del giro al momento della segnalazione (resta anche se il giro sparisce). */
+  contesto: Record<string, unknown> | null;
 };
 
 export async function getAdminReports(): Promise<AdminReport[]> {
   const { data, error } = await supabase
     .from('reports')
-    .select('id, reported_user_id, reporting_user_id, order_id, motivo, created_at')
+    .select(
+      'id, reported_user_id, reporting_user_id, order_id, motivo, created_at, ' +
+        'motivo_codice, gravita, stato, dichiarazione_segnalante, dichiarazione_segnalato, ' +
+        'risposto_il, note_admin, chiusa_il, contesto',
+    )
+    // Prima le aperte, e fra quelle prima le gravi: chi non si sente al sicuro
+    // non deve finire in fondo a un elenco ordinato per data.
+    .order('stato', { ascending: true })
     .order('created_at', { ascending: false });
   if (error) throw error;
-  const rows = (data ?? []) as {
+  type RigaFascicolo = {
     id: string;
     reported_user_id: string;
     reporting_user_id: string;
     order_id: string | null;
     motivo: string;
     created_at: string;
-  }[];
+    motivo_codice: string | null;
+    gravita: 'bassa' | 'media' | 'alta' | null;
+    stato: 'aperta' | 'in_esame' | 'chiusa' | null;
+    dichiarazione_segnalante: string | null;
+    dichiarazione_segnalato: string | null;
+    risposto_il: string | null;
+    note_admin: string | null;
+    chiusa_il: string | null;
+    contesto: Record<string, unknown> | null;
+  };
+  const rows = (data ?? []) as unknown as RigaFascicolo[];
   const profiles = await fetchProfiles(rows.flatMap((r) => [r.reported_user_id, r.reporting_user_id]));
   return rows.map((r) => ({
     id: r.id,
@@ -936,11 +1049,62 @@ export async function getAdminReports(): Promise<AdminReport[]> {
     createdAt: r.created_at,
     reportedUser: profiles.get(r.reported_user_id),
     reportingUser: profiles.get(r.reporting_user_id),
+    motivoCodice: r.motivo_codice,
+    gravita: r.gravita ?? 'media',
+    stato: r.stato ?? 'aperta',
+    dichiarazioneSegnalante: r.dichiarazione_segnalante,
+    dichiarazioneSegnalato: r.dichiarazione_segnalato,
+    rispostoIl: r.risposto_il,
+    noteAdmin: r.note_admin,
+    chiusaIl: r.chiusa_il,
+    contesto: r.contesto,
   }));
 }
 
-export async function deleteAdminReport(reportId: string): Promise<void> {
-  const { error } = await supabase.from('reports').delete().eq('id', reportId);
+/**
+ * Le segnalazioni NON si cancellano piu': si chiudono.
+ *
+ * Prima il pannello faceva `delete`, quindi di una persona segnalata tre volte
+ * non restava traccia di nessuna delle tre - e la terza segnalazione deve
+ * pesare piu' della prima.
+ */
+export async function adminChiudiSegnalazione(reportId: string, note: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_chiudi_segnalazione', {
+    p_report_id: reportId,
+    p_note: note,
+  });
+  if (error) throw error;
+}
+
+export type TipoProvvedimento = 'avvertimento' | 'sospensione' | 'esclusione';
+
+/**
+ * Applica un provvedimento e chiude il fascicolo. Prima esisteva una pena
+ * sola: 48 ore, scritte a mano nella schermata.
+ */
+export async function adminProvvedimento(input: {
+  reportId?: string | null;
+  userId: string;
+  tipo: TipoProvvedimento;
+  giorni?: number;
+  motivo: string;
+}): Promise<void> {
+  const { error } = await supabase.rpc('admin_provvedimento', {
+    p_report_id: input.reportId ?? null,
+    p_user_id: input.userId,
+    p_tipo: input.tipo,
+    p_giorni: input.giorni ?? null,
+    p_motivo: input.motivo,
+  });
+  if (error) throw error;
+}
+
+/** Rimette in moto un giro fermato da una segnalazione, dopo aver verificato. */
+export async function adminScongelaGiro(orderId: string, motivo: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_scongela_giro', {
+    p_order_id: orderId,
+    p_motivo: motivo,
+  });
   if (error) throw error;
 }
 
