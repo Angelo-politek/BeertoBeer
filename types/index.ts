@@ -322,3 +322,26 @@ export type CommunityFeedItem = {
   titolo: string;
   emoji: string;
 };
+
+/**
+ * Un'uscita: una persona, un quartiere, un paio d'ore.
+ * L'unita' centrale della V3. Schema: tabella `uscite`.
+ */
+export type Uscita = {
+  id: string;
+  /** chi e' fuori. Risolto come per i giri, in una query batch sola. */
+  persona: User;
+  tipo: 'negozio' | 'birra' | 'zona';
+  nota?: string;
+  citta: string;
+  /** il quartiere, testo libero: e' quello che si legge, non le coordinate */
+  zona?: string;
+  /** arrotondate (~1 km) nella vista pubblica, come per i giri */
+  lat: number;
+  lng: number;
+  finisceAlle: string;
+  stato: 'aperta' | 'chiusa' | 'scaduta';
+  createdAt: string;
+  /** distanza da me, calcolata sul client quando c'e' il GPS */
+  distanzaKm?: number;
+};

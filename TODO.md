@@ -24,8 +24,8 @@
 
 ### Ondata 1 (mese 1) — Tempo, parole, una sola porta
 - [ ] **C1** APK nuovo + `app_release` + ponte di runtime + Sentry source map
-- [ ] **C2** `ttl_giro()` + `orders.scade_il` + **un solo** `drop view` di `open_requests`
-- [ ] **C3** tabella `uscite` + vista redatta + RPC + trigger guardia (nessuna UI)
+- [x] **C2** `ttl_giro()` + `orders.scade_il` + **un solo** `drop view` di `open_requests`
+- [x] **C3** tabella `uscite` + vista redatta + RPC + trigger guardia (nessuna UI)
 - [ ] **C4** inbox unificata (vista `conversazioni`, `letture`, contatori)
 - [ ] **C5** pulizia codice morto
 - [ ] **C6** `constants/testi/` + glossario esteso + migrazione delle parole

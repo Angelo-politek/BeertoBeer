@@ -188,6 +188,30 @@ const DA_NON_PERDERE: { funzione: string; pezzi: { testo: string; perche: string
     ],
   },
   {
+    funzione: 'regole_uscite',
+    pezzi: [
+      { testo: 'sospeso_fino', perche: 'un sospeso direbbe di essere fuori e riceverebbe visite' },
+      { testo: 'punto_in_citta', perche: 'tornerebbero i segnaposto in provincia, terza volta' },
+      { testo: 'v_max_ore', perche: 'un uscita senza tetto non e una serata: e una posizione pubblicata' },
+      { testo: 'v_max_aperte', perche: 'una persona comparirebbe fuori in cinque modi insieme' },
+    ],
+  },
+  {
+    funzione: 'guardie_uscite',
+    pezzi: [
+      { testo: 'congelata', perche: 'un uscita fermata per sicurezza ripartirebbe' },
+      { testo: 'sospeso_fino', perche: 'un escluso resterebbe sulla mappa prorogandosi da solo' },
+    ],
+  },
+  {
+    funzione: 'admin_uscita',
+    pezzi: [
+      { testo: 'is_admin_user', perche: 'chiunque spegnerebbe le uscite altrui' },
+      { testo: 'admin_audit', perche: 'un provvedimento senza traccia' },
+      { testo: 'avvisa', perche: 'un contenuto sparirebbe in silenzio, che e il motivo per cui la gente odia i moderatori' },
+    ],
+  },
+  {
     funzione: 'giro_pubblico',
     pezzi: [
       {

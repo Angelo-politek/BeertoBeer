@@ -82,6 +82,7 @@ function colonneChieste(costante: string): string[] {
 const COPPIE: { vista: string; costante: string; letta_da: string }[] = [
   { vista: 'open_requests', costante: 'ORDER_COLUMNS', letta_da: 'il feed e la mappa' },
   { vista: 'public_profiles', costante: 'PROFILE_COLUMNS', letta_da: 'ogni profilo mostrato' },
+  { vista: 'uscite_aperte', costante: 'USCITA_COLUMNS', letta_da: 'chi e fuori adesso' },
 ];
 
 describe('le viste proiettano tutto quello che il client chiede', () => {

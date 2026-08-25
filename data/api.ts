@@ -34,6 +34,7 @@ import type {
     ProductFeedback,
     ReciprocitySummary,
     UrbanMission,
+    Uscita,
     Invite,
     ReportReason,
     Review,
@@ -2065,4 +2066,102 @@ export async function adminDashboardStats(): Promise<AdminStats> {
     negoziApprovati: Number(raw.negozi_approvati ?? 0),
     segnalazioniAperte: Number(raw.segnalazioni_aperte ?? 0),
   };
+}
+
+// ---------- Uscite (chi è fuori adesso) ----------
+// L'unità centrale della V3. Il feed lo dà la vista redatta `uscite_aperte`,
+// i profili li risolve fetchProfiles come per i giri, la distanza la calcola
+// il client: nessuna RPC di lettura, nessuna firma in più da mantenere.
+
+const USCITA_COLUMNS =
+  'id, autore_id, tipo, nota, lat, lng, citta, zona, finisce_alle, stato, created_at';
+
+type UscitaRow = {
+  id: string;
+  autore_id: string;
+  tipo: Uscita['tipo'];
+  nota: string | null;
+  lat: number;
+  lng: number;
+  citta: string;
+  zona: string | null;
+  finisce_alle: string;
+  stato: Uscita['stato'];
+  created_at: string;
+};
+
+function mapUscita(row: UscitaRow, persona: User | undefined): Uscita {
+  return {
+    id: row.id,
+    persona: persona ?? UNKNOWN_USER,
+    tipo: row.tipo,
+    nota: row.nota ?? undefined,
+    citta: row.citta,
+    zona: row.zona ?? undefined,
+    lat: row.lat,
+    lng: row.lng,
+    finisceAlle: row.finisce_alle,
+    stato: row.stato,
+    createdAt: row.created_at,
+  };
+}
+
+/** Chi è fuori adesso in una città, dalla più vicina alla fine. */
+export async function getUscite(citta: string): Promise<Uscita[]> {
+  const { data, error } = await supabase
+    .from('uscite_aperte')
+    .select(USCITA_COLUMNS)
+    .eq('citta', citta)
+    .order('finisce_alle', { ascending: true });
+  if (error) throw error;
+  const rows = (data ?? []) as UscitaRow[];
+  const persone = await fetchProfiles(rows.map((r) => r.autore_id));
+  return rows.map((r) => mapUscita(r, persone.get(r.autore_id)));
+}
+
+/** Le mie uscite ancora aperte (la policy mi fa vedere solo le mie). */
+export async function getMieUscite(): Promise<Uscita[]> {
+  const me = await requireUserId();
+  const { data, error } = await supabase
+    .from('uscite')
+    .select(USCITA_COLUMNS)
+    .eq('autore_id', me)
+    .eq('stato', 'aperta')
+    .order('finisce_alle', { ascending: true });
+  if (error) throw error;
+  const rows = (data ?? []) as UscitaRow[];
+  const persone = await fetchProfiles([me]);
+  return rows.map((r) => mapUscita(r, persone.get(me)));
+}
+
+export async function apriUscita(input: {
+  tipo: Uscita['tipo'];
+  citta: string;
+  lat: number;
+  lng: number;
+  finisceAlle: string;
+  nota?: string;
+  zona?: string;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc('apri_uscita', {
+    p_tipo: input.tipo,
+    p_citta: input.citta,
+    p_lat: input.lat,
+    p_lng: input.lng,
+    p_finisce_alle: input.finisceAlle,
+    p_nota: input.nota ?? null,
+    p_zona: input.zona ?? null,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+export async function chiudiUscita(id: string): Promise<void> {
+  const { error } = await supabase.rpc('chiudi_uscita', { p_id: id });
+  if (error) throw error;
+}
+
+export async function prorogaUscita(id: string, finisceAlle: string): Promise<void> {
+  const { error } = await supabase.rpc('proroga_uscita', { p_id: id, p_finisce_alle: finisceAlle });
+  if (error) throw error;
 }
