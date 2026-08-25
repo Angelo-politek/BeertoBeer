@@ -32,7 +32,7 @@
 
 ### Ondata 2 (mese 2) — Chi è fuori
 - [x] **D1** tab centrale FUORI + foglio a 2 tocchi
-- [ ] **D2** mappa a livelli + raggruppamento per cella
+- [x] **D2** mappa a livelli + raggruppamento per cella
 - [x] **D3** `da_uscita_id` + prelazione 45 min
 - [x] **D4** morte di `smartScore` **e** `whyThisRequest`
 - [ ] **D5** reputazione come fatti + catena degli inviti

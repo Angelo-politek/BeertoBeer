@@ -210,3 +210,34 @@ describe('il ponte fra un uscita e un giro', () => {
     expect(PONTE).toContain('da_uscita_id');
   });
 });
+
+describe('chi è fuori si vede anche sulla mappa', () => {
+  const mappa = fs.readFileSync(
+    path.join(__dirname, '..', '..', 'components/feed-map.tsx'), 'utf8');
+
+  it('e un quarto livello, con la sua voce in legenda', () => {
+    // La legenda esisteva gia' e faceva meta' del suo mestiere: diceva i nomi
+    // ma nessuno sapeva a cosa corrispondessero i segnaposto.
+    expect(mappa).toContain("kind: 'uscita'");
+    expect(mappa).toContain('Chi è fuori');
+  });
+
+  it('il marker delle persone non introduce un colore nuovo', () => {
+    // Il brand ha un accento solo. La distinzione qui e' di FORMA — un
+    // quadrato bianco fra pillole gialle e quadrati verdi — non di tinta:
+    // le persone non sono un oggetto colorato in un elenco.
+    const marker = mappa.slice(mappa.indexOf('styles.uscitaMarker'), mappa.indexOf('{shops.map'));
+    // Solo superficie, testo e accento: i tre token che l'app usa ovunque.
+    expect(marker).toMatch(/backgroundColor: c\.surface/);
+    expect(marker).toMatch(/borderColor: active \? c\.accent : c\.text/);
+    expect(marker).not.toMatch(/c\.positive|c\.danger|#[0-9a-f]{6}/i);
+  });
+
+  it('la mappa non cade se chi è fuori non carica', () => {
+    // Stessa regola gia' scritta per gli incontri: una sezione guasta non deve
+    // portarsi dietro giri e negozi.
+    const schermata = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'app/(tabs)/map.tsx'), 'utf8');
+    expect(schermata).toMatch(/getUscite\(city\.key\)\.catch/);
+  });
+});

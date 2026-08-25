@@ -15,12 +15,15 @@ import { useColors, useShadows } from '@/hooks/use-colors';
 import type { City } from '@/lib/cities';
 import type { Coords } from '@/lib/location';
 import type { Shop } from '@/data/api';
-import type { BeerEvent, BeerRequest } from '@/types';
+import type { BeerEvent, BeerRequest, Uscita } from '@/types';
+import { Avatar } from '@/components/avatar';
+import { finoAlle, formaDi } from '@/lib/uscite';
 
 type Selection =
   | { kind: 'request'; request: BeerRequest }
   | { kind: 'shop'; shop: Shop }
   | { kind: 'event'; event: BeerEvent }
+  | { kind: 'uscita'; uscita: Uscita }
   | null;
 
 /** «Domenica 24, 21:00» — corto abbastanza per stare nell'anteprima. */
@@ -39,6 +42,12 @@ type Props = {
   shops: Shop[];
   /** Incontri della città. Quelli senza coordinate non hanno un posto sulla mappa. */
   events?: BeerEvent[];
+  /** Chi è fuori adesso: il quarto livello della mappa. */
+  uscite?: Uscita[];
+  /** Apre il profilo di chi è fuori. */
+  onOpenPersona?: (id: string) => void;
+  /** Chiede un giro a chi passa da un negozio. */
+  onChiediGiro?: (uscitaId: string) => void;
   userCoords?: Coords | null;
   /** Apre il dettaglio richiesta (secondo tap, dal bottone dell'anteprima). */
   onOpenRequest: (id: string) => void;
@@ -54,7 +63,7 @@ type Props = {
  * della mappa a metà gesture); da lì un secondo tap apre il dettaglio o le
  * indicazioni Google Maps per i negozi.
  */
-export function FeedMap({ city, requests, shops, events = [], userCoords, onOpenRequest, onOpenEvent, canDeleteShop, onDeleteShop, onAddShop }: Props) {
+export function FeedMap({ city, requests, shops, events = [], uscite = [], userCoords, onOpenRequest, onOpenEvent, onOpenPersona, onChiediGiro, canDeleteShop, onDeleteShop, onAddShop }: Props) {
   const c = useColors();
   const sh = useShadows();
   const [selection, setSelection] = useState<Selection>(null);
@@ -91,6 +100,30 @@ export function FeedMap({ city, requests, shops, events = [], userCoords, onOpen
             </View>
           </Marker>
         ) : null}
+
+        {/*
+          CHI E' FUORI. E' l'unico marker non colorato della mappa, e non e' una
+          dimenticanza: il brand ha un accento solo, il giallo, e le persone non
+          sono un oggetto colorato in un elenco. La distinzione qui e' di FORMA
+          — un quadrato bianco fra pillole gialle e quadrati verdi — non di
+          tinta.
+        */}
+        {uscite.map((u) => {
+          const active = selection?.kind === 'uscita' && selection.uscita.id === u.id;
+          return (
+            <Marker key={`uscita-${u.id}`} lngLat={[u.lng, u.lat]}>
+              <Pressable
+                onPress={() => selectMarker({ kind: 'uscita', uscita: u })}
+                accessibilityLabel={`${u.persona.nome} è fuori`}
+                style={[
+                  styles.uscitaMarker,
+                  { backgroundColor: c.surface, borderColor: active ? c.accent : c.text },
+                ]}>
+                <BrandIcon name="cheers" size={15} color={active ? c.accent : c.text} />
+              </Pressable>
+            </Marker>
+          );
+        })}
 
         {shops.map((shop) => {
           const active = selection?.kind === 'shop' && selection.shop.id === shop.id;
@@ -162,8 +195,50 @@ export function FeedMap({ city, requests, shops, events = [], userCoords, onOpen
             <View style={styles.legendItem}><BrandIcon name="bottle" size={14} color={c.accent} /><ThemedText type="caption">Giri</ThemedText></View>
             <View style={styles.legendItem}><BrandIcon name="cart" size={14} color={c.positive} /><ThemedText type="caption">Negozi</ThemedText></View>
             <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.accentStrong} /><ThemedText type="caption">Incontri</ThemedText></View>
+            <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.text} /><ThemedText type="caption">Chi è fuori</ThemedText></View>
           </View>
         </>
+      ) : null}
+
+      {/* Anteprima di chi è fuori */}
+      {selection?.kind === 'uscita' ? (
+        <Animated.View
+          entering={appare}
+          exiting={sparisce}
+          style={[styles.preview, { backgroundColor: c.surface }, sh.raised]}>
+          <View style={styles.previewHeader}>
+            <Avatar name={selection.uscita.persona.nome} uri={selection.uscita.persona.fotoUrl} size={32} />
+            <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>
+              {selection.uscita.persona.nome}
+            </ThemedText>
+            <Pressable onPress={() => setSelection(null)} hitSlop={10}>
+              <BrandIcon name="x-mark" size={18} color={c.textSecondary} />
+            </Pressable>
+          </View>
+          <ThemedText style={{ color: c.textSecondary }}>
+            {formaDi(selection.uscita.tipo).titolo}
+            {selection.uscita.zona ? ` · ${selection.uscita.zona}` : ''}
+            {` · ${finoAlle(selection.uscita.finisceAlle)}`}
+          </ThemedText>
+          {selection.uscita.nota ? (
+            <ThemedText numberOfLines={2} style={{ color: c.textSecondary }}>«{selection.uscita.nota}»</ThemedText>
+          ) : null}
+          <View style={styles.uscitaAzioni}>
+            <Button
+              label="Vedi chi è"
+              variant="secondary"
+              onPress={() => onOpenPersona?.(selection.uscita.persona.id)}
+              style={styles.uscitaAzione}
+            />
+            {selection.uscita.tipo === 'negozio' && onChiediGiro ? (
+              <Button
+                label="Chiedi un giro"
+                onPress={() => onChiediGiro(selection.uscita.id)}
+                style={styles.uscitaAzione}
+              />
+            ) : null}
+          </View>
+        </Animated.View>
       ) : null}
 
       {/* Anteprima richiesta */}
@@ -291,6 +366,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  uscitaMarker: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uscitaAzioni: { flexDirection: 'row', gap: Spacing.sm },
+  uscitaAzione: { flex: 1 },
   legend: {
     position: 'absolute',
     left: 12,

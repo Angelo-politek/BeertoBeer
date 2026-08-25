@@ -11,14 +11,14 @@ import { FeedMap } from '@/components/feed-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { addShop, deleteShop, getCurrentUser, getEvents, getShops, type Shop } from '@/data/api';
+import { addShop, deleteShop, getCurrentUser, getEvents, getShops, getUscite, type Shop } from '@/data/api';
 import { useToast } from '@/components/toast';
 import { useSession } from '@/lib/auth-context';
 import { useCity } from '@/lib/city-context';
 import { useDiscoveryFilters } from '@/lib/discovery-context';
 import { requestMatchesFilters, sortDiscovery } from '@/lib/discovery';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
-import type { BeerEvent, BeerRequest } from '@/types';
+import type { BeerEvent, BeerRequest, Uscita } from '@/types';
 import { getDiscoveryRequests, getDiscoveryShops, invalidateDiscovery } from '@/lib/discovery-cache';
 
 export default function MapScreen() {
@@ -28,6 +28,7 @@ export default function MapScreen() {
   const { city, setCityKey } = useCity();
   const [requests, setRequests] = useState<BeerRequest[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
+  const [uscite, setUscite] = useState<Uscita[]>([]);
   const [events, setEvents] = useState<BeerEvent[]>([]);
   const [coords, setCoords] = useState<Coords | null>(null);
   const { filters } = useDiscoveryFilters();
@@ -42,14 +43,18 @@ export default function MapScreen() {
     try {
       // Gli incontri non devono poter far cadere la mappa: se la loro query
       // va storta, giri e negozi restano comunque visibili.
-      const [nextRequests, nextShops, nextEvents] = await Promise.all([
+      const [nextRequests, nextShops, nextEvents, nextUscite] = await Promise.all([
         getDiscoveryRequests(city.key),
         getDiscoveryShops(city.key),
         getEvents(city.key).catch(() => [] as BeerEvent[]),
+        // Stessa regola degli incontri: chi e' fuori non deve poter far cadere
+        // la mappa. Se questa query va storta, giri e negozi restano.
+        getUscite(city.key).catch(() => [] as Uscita[]),
       ]);
       setRequests(nextRequests);
       setShops(nextShops);
       setEvents(nextEvents);
+      setUscite(nextUscite);
       setError(null);
     } catch {
       setError('La mappa non è disponibile. Controlla la connessione e riprova.');
@@ -130,9 +135,12 @@ export default function MapScreen() {
             requests={visibleRequests}
             shops={shops}
             events={events}
+            uscite={uscite}
             userCoords={coords}
             onOpenRequest={(id) => router.push({ pathname: '/request/[id]', params: { id } })}
             onOpenEvent={(id) => router.push({ pathname: '/event/[id]', params: { id } })}
+            onOpenPersona={(id) => router.push({ pathname: '/user/[id]', params: { id } })}
+            onChiediGiro={(uscitaId) => router.push({ pathname: '/create-request', params: { a: uscitaId } })}
             canDeleteShop={(shop) => isAdmin || shop.createdBy === session?.user.id}
             onDeleteShop={handleDeleteShop}
             onAddShop={() => setAddShopOpen(true)}
