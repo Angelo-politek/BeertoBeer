@@ -151,7 +151,18 @@ function TabItem({
           <BrandIcon size={26} name={icon} color={focused ? c.accent : c.tabIconDefault} />
         </Animated.View>
       </View>
-      <Animated.Text style={[styles.label, labelStyle]}>{label}</Animated.Text>
+      {/*
+        L'etichetta della barra e' gia' piccola (10 px) e ha una larghezza
+        fissa: con i caratteri di sistema ingranditi al massimo diventava piu'
+        larga dello spazio e le quattro voci si accavallavano. Qui il limite e'
+        piu' stretto che altrove perche' e' cromatura, non contenuto.
+      */}
+      <Animated.Text
+        style={[styles.label, labelStyle]}
+        maxFontSizeMultiplier={1.15}
+        numberOfLines={1}>
+        {label}
+      </Animated.Text>
     </Pressable>
   );
 }

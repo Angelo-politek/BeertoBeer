@@ -182,3 +182,58 @@ export async function reverseGeocode(coords: Coords): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * SOLO IL QUARTIERE. Mai la via, mai il numero civico.
+ *
+ * `reverseGeocode` restituisce «Via Po 12, Torino» — ed è giusto così: serve a
+ * chi sta scrivendo l'indirizzo DI CONSEGNA di un giro, che vedrà solo chi ha
+ * accettato.
+ *
+ * Un'uscita è un'altra cosa. Quando una persona dice «sono fuori», quella riga
+ * la legge chiunque in città. Passare lì dentro il risultato di
+ * `reverseGeocode` significa pubblicare la via e il numero civico di qualcuno
+ * a tutta la città — è successo, ed è la ragione per cui questa funzione
+ * esiste separata invece di essere un parametro dell'altra.
+ *
+ * Qui si prende `suburb` (il quartiere: «San Salvario») e, se manca, il
+ * comune. Se Nominatim non dà né l'uno né l'altro si torna `null`: meglio
+ * nessuna zona che una zona troppo precisa.
+ */
+export async function zonaDaCoordinate(coords: Coords): Promise<string | null> {
+  const url =
+    'https://nominatim.openstreetmap.org/reverse' +
+    // zoom=14 chiede a Nominatim il livello «quartiere»: già così non
+    // restituisce la via. La selezione qui sotto è la seconda difesa.
+    `?format=json&addressdetails=1&zoom=14&lat=${coords.lat}&lon=${coords.lng}`;
+
+  try {
+    const res = await conLimite(() => fetch(url, { headers: NOMINATIM_HEADERS }));
+    if (!res.ok) return null;
+    const data = (await res.json()) as ReverseResult;
+    const a = data.address;
+    // NB: `road` e `house_number` non si leggono nemmeno.
+    return a?.suburb || a?.city || a?.town || a?.village || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Terza difesa: una zona non è mai un indirizzo.
+ *
+ * Vale anche per quello che una persona scrive a mano, e per le righe che sono
+ * già nel database. Se contiene una cifra o comincia con una parola da
+ * toponimo stradale, non è un quartiere.
+ */
+const PAROLE_DI_STRADA =
+  /^\s*(via|viale|v\.le|corso|c\.so|piazza|p\.zza|piazzale|largo|strada|vicolo|lungo|borgo|salita|circonvallazione)\b/i;
+
+export function zonaAmmessa(zona: string | null | undefined): boolean {
+  if (!zona) return false;
+  const z = zona.trim();
+  if (z.length < 2 || z.length > 60) return false;
+  if (/\d/.test(z)) return false;
+  if (PAROLE_DI_STRADA.test(z)) return false;
+  return true;
+}

@@ -2119,3 +2119,14 @@ export async function getUscita(id: string): Promise<Uscita | null> {
   const persone = await fetchProfiles([row.autore_id]);
   return mapUscita(row, persone.get(row.autore_id));
 }
+
+/**
+ * Annulla un incontro o un evento. Non cancella la riga: chi si era iscritto
+ * ha diritto di sapere che è saltato, e una riga cancellata non avvisa nessuno.
+ * Funziona per chi l'ha proposto e per gli amministratori (che devono però
+ * scrivere il perché).
+ */
+export async function annullaIncontro(id: string, motivo = ''): Promise<void> {
+  const { error } = await supabase.rpc('annulla_incontro', { p_id: id, p_motivo: motivo });
+  if (error) throw error;
+}

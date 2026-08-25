@@ -241,3 +241,91 @@ describe('chi è fuori si vede anche sulla mappa', () => {
     expect(schermata).toMatch(/getUscite\(city\.key\)\.catch/);
   });
 });
+
+describe('un uscita non pubblica la via di casa di nessuno', () => {
+  const leggi2 = (rel: string) => fs.readFileSync(path.join(__dirname, '..', '..', rel), 'utf8');
+  // I commenti di questi file citano di proposito «reverseGeocode» e «road»
+  // per raccontare cosa NON si fa piu': le asserzioni guardano solo il codice.
+  const soloCodice = (t: string) =>
+    t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const ZONA = leggi2('supabase/migrations/20260911_zona_non_e_un_indirizzo.sql');
+
+  // COSA E' SUCCESSO: il foglio riempiva `zona` con reverseGeocode(), che
+  // restituisce «Via Po 12, Torino». Quella riga la legge chiunque in citta'.
+  // Le coordinate erano arrotondate a un chilometro come previsto — e accanto
+  // ci passava l'indirizzo esatto scritto in chiaro.
+  //
+  // LA LEZIONE: la redazione non e' una proprieta' di una colonna, e' una
+  // proprieta' del CAMPO PIU' LOQUACE.
+
+  it('il foglio non chiama piu reverseGeocode', () => {
+    const foglio = soloCodice(leggi2('components/foglio-uscita.tsx'));
+    expect(foglio).not.toMatch(/\breverseGeocode\b/);
+    expect(foglio).toContain('zonaDaCoordinate');
+  });
+
+  it('zonaDaCoordinate non legge nemmeno la via', () => {
+    const geo = soloCodice(leggi2('lib/geocoding.ts'));
+    const fn = geo.slice(geo.indexOf('export async function zonaDaCoordinate'));
+    const corpo = fn.slice(0, fn.indexOf('export function zonaAmmessa'));
+    expect(corpo).not.toContain('a?.road');
+    expect(corpo).not.toContain('house_number');
+    expect(corpo).toContain('a?.suburb');
+  });
+
+  it('il database rifiuta una zona che sembra un indirizzo', () => {
+    // Il client si aggiorna quando la persona riapre l'app: finche' qualcuno
+    // gira su un bundle vecchio, continuerebbe a mandare indirizzi.
+    expect(ZONA).toContain('function public.zona_ammessa');
+    expect(ZONA).toContain('regole_uscite');
+    expect(ZONA).toContain('guardie_uscite');
+  });
+
+  it('le righe gia pubblicate vengono bonificate', () => {
+    expect(ZONA).toMatch(/update public\.uscite\s+set zona = null/);
+  });
+
+  it('la vista e la terza difesa', () => {
+    const vista = ZONA.slice(ZONA.indexOf('create view public.uscite_aperte'));
+    expect(vista).toContain('case when public.zona_ammessa(zona) then zona else null end');
+  });
+
+  it('zonaAmmessa riconosce un indirizzo da una zona', () => {
+    const { zonaAmmessa } = require('@/lib/geocoding') as typeof import('@/lib/geocoding');
+    expect(zonaAmmessa('San Salvario')).toBe(true);
+    expect(zonaAmmessa('Vanchiglia')).toBe(true);
+    expect(zonaAmmessa('Via Po 12')).toBe(false);
+    expect(zonaAmmessa('via Garibaldi')).toBe(false);
+    expect(zonaAmmessa('Corso Vercelli 3')).toBe(false);
+    expect(zonaAmmessa('Piazza Castello')).toBe(false);
+    expect(zonaAmmessa(null)).toBe(false);
+  });
+});
+
+describe('due persone nello stesso punto si vedono entrambe', () => {
+  it('i marker sovrapposti si aprono a ventaglio', () => {
+    const { sparpagliaSovrapposti } = require('@/lib/mappa-sovrapposti') as typeof import('@/lib/mappa-sovrapposti');
+    // Le viste arrotondano a ~1 km: chi sta nello stesso quartiere riceve le
+    // STESSE coordinate, e si vedeva solo l'ultimo disegnato.
+    const stessi = [
+      { id: 'a', lat: 45.07, lng: 7.69 },
+      { id: 'b', lat: 45.07, lng: 7.69 },
+      { id: 'c', lat: 45.07, lng: 7.69 },
+    ];
+    const fuori = sparpagliaSovrapposti(stessi);
+    const punti = new Set(fuori.map((p) => `${p.lat},${p.lng}`));
+    expect(punti.size).toBe(3);
+    // e restano dentro l'incertezza gia' introdotta dall'arrotondamento
+    for (const p of fuori) {
+      expect(Math.abs(p.lat - 45.07)).toBeLessThan(0.005);
+      expect(Math.abs(p.lng - 7.69)).toBeLessThan(0.005);
+    }
+  });
+
+  it('chi e da solo non si sposta', () => {
+    const { sparpagliaSovrapposti } = require('@/lib/mappa-sovrapposti') as typeof import('@/lib/mappa-sovrapposti');
+    const [solo] = sparpagliaSovrapposti([{ id: 'a', lat: 45.07, lng: 7.69 }]);
+    expect(solo.lat).toBe(45.07);
+    expect(solo.lng).toBe(7.69);
+  });
+});

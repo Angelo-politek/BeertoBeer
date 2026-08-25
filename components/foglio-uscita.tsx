@@ -18,7 +18,7 @@ import { getCity, isWithinCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { messaggioServer } from '@/lib/errori';
 import { useFoglioUscita } from '@/lib/foglio-uscita-context';
-import { reverseGeocode } from '@/lib/geocoding';
+import { zonaAmmessa, zonaDaCoordinate } from '@/lib/geocoding';
 import { getCurrentCoords, type Coords } from '@/lib/location';
 import { durateRapide, finoAlle, FORME, type FormaUscita } from '@/lib/uscite';
 
@@ -113,8 +113,11 @@ export function FoglioUscita() {
       setCoords(trovate);
       setCercandoPosizione(false);
       if (trovate) {
-        const nome = await reverseGeocode(trovate).catch(() => null);
-        setZona(nome);
+        // SOLO IL QUARTIERE. reverseGeocode darebbe «Via Po 12, Torino», e
+        // questa riga la legge chiunque in citta': era la via di casa di una
+        // persona, pubblicata a tutti.
+        const nome = await zonaDaCoordinate(trovate).catch(() => null);
+        setZona(zonaAmmessa(nome) ? nome : null);
       }
     })();
   }, [aperto, precompilazione]);
@@ -226,6 +229,10 @@ export function FoglioUscita() {
                   placeholder="Passo dal minimarket, serve niente?"
                   multiline
                 />
+                <ThemedText type="caption" style={{ color: c.textSecondary }}>
+                  La legge chiunque in città. Non scriverci il tuo indirizzo: la zona la
+                  aggiungiamo noi, e si ferma al quartiere.
+                </ThemedText>
 
                 {errore ? <ThemedText style={{ color: c.danger }}>{errore}</ThemedText> : null}
 

@@ -116,11 +116,26 @@ export default function AdminUtenteScreen() {
   }
 
   if (errore || !scheda) {
+    // Prima qui finiva tutto: un messaggio rosso e nient'altro, e per vedere
+    // la persona bisognava tornare indietro e cercarla da un'altra parte.
+    // La scheda amministrativa e' un extra — email, movimenti, precedenti —
+    // e se non arriva resta comunque il profilo, che e' quello che si voleva
+    // guardare nove volte su dieci.
     return (
       <ThemedView style={styles.container}>
         <Stack.Screen options={{ title: 'Scheda' }} />
         <View style={styles.center}>
-          <ThemedText style={{ color: c.danger }}>{errore ?? 'Persona non trovata.'}</ThemedText>
+          <ThemedText style={{ color: c.danger, textAlign: 'center' }}>
+            {errore ?? 'Persona non trovata.'}
+          </ThemedText>
+          <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>
+            La scheda amministrativa non è arrivata. Il profilo pubblico sì.
+          </ThemedText>
+          <Button
+            label="Apri il profilo"
+            onPress={() => router.push({ pathname: '/user/[id]', params: { id } })}
+          />
+          <Button label="Riprova" variant="secondary" onPress={() => load()} />
         </View>
       </ThemedView>
     );

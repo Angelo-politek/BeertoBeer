@@ -53,7 +53,17 @@ export function Button({ label, onPress, variant = 'primary', size = 'lg', style
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
-        <Text style={[styles.label, size === 'md' ? styles.labelMd : null, { color: fg }]}>{label}</Text>
+        // Il testo si adatta ai caratteri di sistema, ma entro un limite:
+        // sopra il ~20% l'etichetta esce dal bottone o lo fa diventare alto
+        // tre righe. adjustsFontSizeToFit rimpicciolisce solo se serve
+        // davvero, e numberOfLines impedisce che si spezzi in verticale.
+        <Text
+          style={[styles.label, size === 'md' ? styles.labelMd : null, { color: fg }]}
+          maxFontSizeMultiplier={1.2}
+          numberOfLines={2}
+          adjustsFontSizeToFit>
+          {label}
+        </Text>
       )}
     </PressableScale>
   );

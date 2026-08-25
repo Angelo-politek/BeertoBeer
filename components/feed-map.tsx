@@ -18,6 +18,7 @@ import type { Shop } from '@/data/api';
 import type { BeerEvent, BeerRequest, Uscita } from '@/types';
 import { Avatar } from '@/components/avatar';
 import { finoAlle, formaDi } from '@/lib/uscite';
+import { sparpagliaSovrapposti } from '@/lib/mappa-sovrapposti';
 
 type Selection =
   | { kind: 'request'; request: BeerRequest }
@@ -108,7 +109,7 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
           — un quadrato bianco fra pillole gialle e quadrati verdi — non di
           tinta.
         */}
-        {uscite.map((u) => {
+        {sparpagliaSovrapposti(uscite).map((u) => {
           const active = selection?.kind === 'uscita' && selection.uscita.id === u.id;
           return (
             <Marker key={`uscita-${u.id}`} lngLat={[u.lng, u.lat]}>
@@ -158,8 +159,12 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
           );
         })}
 
-        {requests.map((request) => {
-          if (request.lat == null || request.lng == null) return null;
+        {/* Un giro senza coordinate non ha un posto sulla mappa: si filtra
+            prima, cosi' sparpagliaSovrapposti riceve solo punti veri. */}
+        {sparpagliaSovrapposti(
+          requests.filter((r): r is typeof r & { lat: number; lng: number } =>
+            r.lat != null && r.lng != null),
+        ).map((request) => {
           const active = selection?.kind === 'request' && selection.request.id === request.id;
           return (
             <Marker key={request.id} lngLat={[request.lng, request.lat]}>
@@ -194,7 +199,7 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
           <View style={[styles.legend, { backgroundColor: c.surface }, sh.card]}>
             <View style={styles.legendItem}><BrandIcon name="bottle" size={14} color={c.accent} /><ThemedText type="caption">Giri</ThemedText></View>
             <View style={styles.legendItem}><BrandIcon name="cart" size={14} color={c.positive} /><ThemedText type="caption">Negozi</ThemedText></View>
-            <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.accentStrong} /><ThemedText type="caption">Incontri</ThemedText></View>
+            <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.accentStrong} /><ThemedText type="caption">Incontri ed eventi</ThemedText></View>
             <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.text} /><ThemedText type="caption">Chi è fuori</ThemedText></View>
           </View>
         </>
@@ -279,7 +284,7 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>
               {selection.event.titolo}
             </ThemedText>
-            <Badge label="Incontro" tone="accent" />
+            <Badge label={selection.event.tipo === 'evento' ? 'Evento' : 'Incontro'} tone="accent" />
             <Pressable onPress={() => setSelection(null)} hitSlop={10}>
               <BrandIcon name="x-mark" size={18} color={c.textSecondary} />
             </Pressable>
@@ -293,7 +298,10 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
             {selection.event.host ? ` · da ${selection.event.host.nome}` : ''}
           </ThemedText>
           {onOpenEvent ? (
-            <Button label="Apri l'incontro" onPress={() => onOpenEvent(selection.event.id)} />
+            <Button
+              label={selection.event.tipo === 'evento' ? 'Apri l’evento' : 'Apri l’incontro'}
+              onPress={() => onOpenEvent(selection.event.id)}
+            />
           ) : null}
         </Animated.View>
       ) : null}

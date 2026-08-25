@@ -1,11 +1,12 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Image } from 'expo-image';
 
 import { Avatar } from '@/components/avatar';
 import { Button } from '@/components/button';
+import { reverseGeocode } from '@/lib/geocoding';
 import { Card } from '@/components/card';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { DeliveryMap } from '@/components/delivery-map';
@@ -13,7 +14,7 @@ import { useToast } from '@/components/toast';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Spacing } from '@/constants/theme';
-import { getEventById, getPartecipanti, joinEvent, leaveEvent, type Partecipante } from '@/data/api';
+import { annullaIncontro, getEventById, getPartecipanti, joinEvent, leaveEvent, type Partecipante } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
 import { messaggioServer } from '@/lib/errori';
@@ -40,10 +41,33 @@ export default function EventDetailScreen() {
   const { session } = useSession();
   // Posizione di chi guarda, solo per dire quanto dista. Se il GPS non
   // risponde la scheda funziona lo stesso: la distanza semplicemente non compare.
+  /**
+   * L'indirizzo, quando chi organizza non l'ha scritto. Qui `reverseGeocode`
+   * per esteso e' la cosa GIUSTA — al contrario delle uscite: il luogo di un
+   * incontro esiste per essere trovato, e chi lo pubblica lo sta dicendo
+   * apposta.
+   */
+  const [indirizzo, setIndirizzo] = useState<string | null>(null);
   const [mieCoords, setMieCoords] = useState<Coords | null>(null);
+
   useEffect(() => { getCurrentCoords().then(setMieCoords).catch(() => null); }, []);
 
   const [event, setEvent] = useState<BeerEvent | null>(null);
+
+  // Solo se manca il testo scritto da chi organizza: non si sovrascrive mai
+  // quello che una persona ha deciso di chiamare «il posto».
+  useEffect(() => {
+    if (!event || event.luogo || event.lat == null || event.lng == null) return;
+    let vivo = true;
+    reverseGeocode({ lat: event.lat, lng: event.lng })
+      .then((via) => {
+        if (vivo) setIndirizzo(via);
+      })
+      .catch(() => null);
+    return () => {
+      vivo = false;
+    };
+  }, [event]);
   // Prima si vedeva solo «5 / 8 posti»: un numero non dice con chi si sta per
   // passare la serata.
   const [partecipanti, setPartecipanti] = useState<Partecipante[]>([]);
@@ -153,6 +177,7 @@ export default function EventDetailScreen() {
             }
           />
           {event.luogo ? <Row label="Dove" value={event.luogo} /> : null}
+          {!event.luogo && indirizzo ? <Row label="Dove" value={indirizzo} /> : null}
           {distanzaKm != null ? <Row label="Distanza" value={`${distanzaKm.toFixed(1)} km da te`} /> : null}
           <Row label="Posti" value={`${event.partecipanti ?? 0} / ${event.posti}`} />
         </Card>
@@ -160,8 +185,28 @@ export default function EventDetailScreen() {
         {/* Un incontro senza mappa costringe a chiedere «ma dove esattamente?».
             Gli eventi pubblicati prima di questa versione non hanno coordinate:
             per loro la scheda resta com'era. */}
+        {/*
+          UNA MAPPA NON E' UN INDIRIZZO.
+          Prima c'era solo il riquadro: si vedeva DOVE, ma per arrivarci
+          bisognava tenere l'app aperta in una mano e guardare fuori con
+          l'altra. E se chi organizza non aveva scritto niente nel campo
+          «luogo», non c'era nemmeno una riga di testo da copiare o da mandare
+          a qualcuno. Adesso l'indirizzo si legge — ricavato dalle coordinate
+          quando manca — e un tocco apre le indicazioni.
+        */}
         {event.lat != null && event.lng != null ? (
-          <DeliveryMap lat={event.lat} lng={event.lng} height={180} />
+          <>
+            <DeliveryMap lat={event.lat} lng={event.lng} height={180} />
+            <Button
+              label="Apri le indicazioni"
+              variant="secondary"
+              onPress={() =>
+                Linking.openURL(
+                  `https://www.google.com/maps/dir/?api=1&destination=${event.lat},${event.lng}`,
+                ).catch(() => null)
+              }
+            />
+          </>
         ) : null}
 
         {event.descrizione ? (
@@ -224,9 +269,53 @@ export default function EventDetailScreen() {
         ) : null}
 
         {isHost ? (
-          <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>
-            Sei tu che organizzi.
-          </ThemedText>
+          <>
+            <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>
+              Sei tu che organizzi.
+            </ThemedText>
+            {/*
+              Prima non c'era: un incontro pubblicato per sbaglio, o saltato,
+              restava li' a far presentare la gente in un posto dove non c'era
+              nessuno. Non si cancella la riga — chi si era iscritto ha diritto
+              di sapere che e' saltato, e una riga cancellata non avvisa
+              nessuno.
+            */}
+            {event.stato === 'annullato' ? (
+              <ThemedText style={{ color: c.danger, textAlign: 'center' }}>
+                Annullato. Chi si era iscritto è stato avvisato.
+              </ThemedText>
+            ) : (
+              <Button
+                label={event.tipo === 'evento' ? 'Annulla l’evento' : 'Annulla l’incontro'}
+                variant="danger"
+                loading={acting}
+                onPress={() =>
+                  Alert.alert(
+                    event.tipo === 'evento' ? 'Annulli l’evento?' : 'Annulli l’incontro?',
+                    'Chi si è iscritto riceve un avviso. Resta visibile come annullato, così nessuno ci va per sbaglio.',
+                    [
+                      { text: 'Lascio com’è', style: 'cancel' },
+                      {
+                        text: 'Annulla',
+                        style: 'destructive',
+                        onPress: async () => {
+                          setActing(true);
+                          try {
+                            await annullaIncontro(event.id);
+                            await load();
+                          } catch (e) {
+                            Alert.alert('Non annullato', messaggioServer(e, 'Riprova fra poco.'));
+                          } finally {
+                            setActing(false);
+                          }
+                        },
+                      },
+                    ],
+                  )
+                }
+              />
+            )}
+          </>
         ) : event.partecipo ? (
           <Button label="Non ci vado più" variant="secondary" onPress={toggleJoin} loading={acting} />
         ) : pieno ? (

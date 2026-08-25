@@ -1,5 +1,5 @@
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { Badge } from '@/components/badge';
@@ -30,9 +30,24 @@ export default function MyOrdersScreen() {
   const [error, setError] = useState<string | null>(null);
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set());
 
+  /**
+   * Vero finché la schermata non ha mai mostrato niente.
+   *
+   * Prima ogni ritorno da un sottomenu faceva `setLoading(true)`: la lista
+   * spariva, comparivano gli scheletri, e quando i dati tornavano l'elenco si
+   * ricostruiva da capo — perdendo il punto in cui stavi leggendo. Con dieci
+   * giri aperti significa riscorrere ogni volta.
+   *
+   * Ora lo scheletro si vede solo al primo caricamento; gli aggiornamenti
+   * successivi avvengono sotto, senza far ballare quello che stai guardando, e
+   * la posizione resta dov'era. È lo stesso rimedio già applicato alla
+   * schermata iniziale dopo il primo collaudo.
+   */
+  const maiCaricato = useRef(true);
+
   const load = useCallback(async (asRefresh = false) => {
     if (asRefresh) setRefreshing(true);
-    else setLoading(true);
+    else if (maiCaricato.current) setLoading(true);
     try {
       const [rows, reviewed] = await Promise.all([
         getMyOrders(),
@@ -46,6 +61,7 @@ export default function MyOrdersScreen() {
     } catch {
       setError('Impossibile caricare i tuoi giri. Riprova.');
     } finally {
+      maiCaricato.current = false;
       setLoading(false);
       setRefreshing(false);
     }

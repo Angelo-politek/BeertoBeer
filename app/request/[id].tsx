@@ -644,13 +644,26 @@ export default function RequestDetailScreen() {
                 : 'Si apre da qualsiasi telefono, anche senza app. Mostra a che punto è il giro, mai il tuo indirizzo. La posizione di chi porta può condividerla solo lui.'}
             </ThemedText>
 
+            {/*
+              I PULSANTI DEI GUAI COMPAIONO QUANDO C'E' UN GUAIO POSSIBILE.
+              Prima erano tutti visibili dal momento in cui lanciavi un giro:
+              chi aveva appena chiesto delle birre si trovava davanti «Sono in
+              ritardo» e «Non trovo la persona», che a quel punto non
+              significano niente — non c'e' ancora nessuno da trovare, e non
+              sei tu quello che deve arrivare da qualche parte.
+              Da qui in avanti: nessuno ha accettato, nessun pulsante. E «sono
+              in ritardo» lo dice solo chi sta portando.
+            */}
+            {request.driverId ? (
             <View style={styles.issueGrid}>
-              <Button
-                label="Sono in ritardo"
-                size="md"
-                variant="secondary"
-                onPress={() => handleIssue('delay')}
-              />
+              {isDriver ? (
+                <Button
+                  label="Sono in ritardo"
+                  size="md"
+                  variant="secondary"
+                  onPress={() => handleIssue('delay')}
+                />
+              ) : null}
               <Button
                 label="Non trovo la persona"
                 size="md"
@@ -678,9 +691,16 @@ export default function RequestDetailScreen() {
                 />
               ) : null}
             </View>
-            <ThemedText type="caption" style={{ color: c.textSecondary }}>
-              Le ultime due arrivano agli amministratori. «Non mi sento al sicuro» ferma subito il giro.
-            </ThemedText>
+            ) : (
+              <ThemedText type="caption" style={{ color: c.textSecondary }}>
+                Quando qualcuno accetta, qui compaiono i modi per segnalare un problema.
+              </ThemedText>
+            )}
+            {request.driverId ? (
+              <ThemedText type="caption" style={{ color: c.textSecondary }}>
+                Le ultime due arrivano agli amministratori. «Non mi sento al sicuro» ferma subito il giro.
+              </ThemedText>
+            ) : null}
           </Section>
         ) : null}
       </ScrollView>

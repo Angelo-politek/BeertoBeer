@@ -160,61 +160,6 @@ export default function HomeScreen() {
                 </PressableScale>
               ) : null}
 
-              {/*
-                CHI E' FUORI ADESSO.
-                Sta SOPRA i giri, e non e' un vezzo: e' la tesi della V3 messa
-                in ordine di lettura. Una citta' in cui non c'e' scritto niente
-                sembra rotta; una citta' in cui qualcuno ha detto «passo dal
-                negozio» sembra viva, anche se nessuno ha ancora chiesto nulla.
-              */}
-              <View style={styles.sectionHead}>
-                <View><ThemedText type="label">ADESSO</ThemedText><ThemedText type="title">CHI È FUORI</ThemedText></View>
-                {mia ? null : (
-                  <PressableScale onPress={() => apri()} style={styles.mapLink}>
-                    <BrandIcon name="cheers" size={18} color={c.accent} />
-                    <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Ci sono anch’io</ThemedText>
-                  </PressableScale>
-                )}
-              </View>
-              {uscite.length === 0 ? (
-                <Pressable onPress={() => apri()} style={[styles.vuotoFuori, { borderColor: c.border }]}>
-                  <ThemedText style={{ color: c.textSecondary }}>
-                    A {city.label} in questo momento non è fuori nessuno. Ci vogliono quindici secondi.
-                  </ThemedText>
-                  <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Sono fuori</ThemedText>
-                </Pressable>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.fuoriRiga}>
-                  {uscite.map((u) => (
-                    <Pressable
-                      key={u.id}
-                      onPress={() => router.push({ pathname: '/user/[id]', params: { id: u.persona.id } })}
-                      style={[styles.fuoriCard, { backgroundColor: c.surface }]}>
-                      <Avatar name={u.persona.nome} uri={u.persona.fotoUrl} size={40} />
-                      <ThemedText type="defaultSemiBold" numberOfLines={1}>{u.persona.nome}</ThemedText>
-                      <ThemedText type="caption" style={{ color: c.textSecondary }} numberOfLines={1}>
-                        {formaDi(u.tipo).breve} · {finoAlle(u.finisceAlle)}
-                      </ThemedText>
-                      {u.zona ? (
-                        <ThemedText type="caption" style={{ color: c.textSecondary }} numberOfLines={1}>{u.zona}</ThemedText>
-                      ) : null}
-                      {/*
-                        Solo su chi passa da un negozio: e' l'unica forma che
-                        promette qualcosa di preciso. A chi sta bevendo una
-                        birra non si "prenota" un giro — semmai gli si scrive.
-                      */}
-                      {u.tipo === 'negozio' && u.persona.id !== session?.user.id ? (
-                        <Pressable
-                          onPress={() => router.push({ pathname: '/create-request', params: { a: u.id } })}
-                          hitSlop={6}>
-                          <ThemedText type="caption" style={{ color: c.accent }}>Chiedi un giro</ThemedText>
-                        </Pressable>
-                      ) : null}
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              )}
-
               <View style={styles.sectionHead}>
                 <View><ThemedText type="label">VICINO A TE</ThemedText><ThemedText type="title">{`${GLOSSARY.deliveryPlural.toUpperCase()} APERTI`}</ThemedText></View>
                 <PressableScale onPress={() => router.push('/(tabs)/map' as never)} style={styles.mapLink}>
@@ -229,6 +174,65 @@ export default function HomeScreen() {
           renderItem={({ item }) => <RequestCard request={item} onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })} />}
           ListEmptyComponent={!loading && !error ? <EmptyState icon="bottle" title="Nessuno ha ancora chiesto niente" message={`Sii tu il primo: ${GLOSSARY.createDeliveryHint.toLowerCase()}`} actionLabel={GLOSSARY.createDeliveryAction} onAction={() => router.push('/create-request')} /> : null}
           ListFooterComponent={
+            <View style={styles.footerContent}>
+            {/*
+              CHI E' FUORI ADESSO — sotto i giri aperti.
+              Al primo collaudo stava sopra: era la tesi della V3 messa in
+              ordine di lettura. Ma chi apre l'app viene quasi sempre per una
+              cosa sola — vedere se c'e' un giro da prendere o se il suo e'
+              stato accettato — e trovarsi davanti un'altra sezione, per
+              quanto nuova, e' un ostacolo fra la persona e il motivo per cui
+              ha aperto. Le uscite restano, subito sotto: si vedono scorrendo
+              di poco, e non stanno davanti a niente.
+            */}
+            <View style={styles.sectionHead}>
+              <View><ThemedText type="label">ADESSO</ThemedText><ThemedText type="title">CHI È FUORI</ThemedText></View>
+              {mia ? null : (
+                <PressableScale onPress={() => apri()} style={styles.mapLink}>
+                  <BrandIcon name="cheers" size={18} color={c.accent} />
+                  <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Ci sono anch’io</ThemedText>
+                </PressableScale>
+              )}
+            </View>
+            {uscite.length === 0 ? (
+              <Pressable onPress={() => apri()} style={[styles.vuotoFuori, { borderColor: c.border }]}>
+                <ThemedText style={{ color: c.textSecondary }}>
+                  A {city.label} in questo momento non è fuori nessuno. Ci vogliono quindici secondi.
+                </ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Sono fuori</ThemedText>
+              </Pressable>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.fuoriRiga}>
+                {uscite.map((u) => (
+                  <Pressable
+                    key={u.id}
+                    onPress={() => router.push({ pathname: '/user/[id]', params: { id: u.persona.id } })}
+                    style={[styles.fuoriCard, { backgroundColor: c.surface }]}>
+                    <Avatar name={u.persona.nome} uri={u.persona.fotoUrl} size={40} />
+                    <ThemedText type="defaultSemiBold" numberOfLines={1}>{u.persona.nome}</ThemedText>
+                    <ThemedText type="caption" style={{ color: c.textSecondary }} numberOfLines={1}>
+                      {formaDi(u.tipo).breve} · {finoAlle(u.finisceAlle)}
+                    </ThemedText>
+                    {u.zona ? (
+                      <ThemedText type="caption" style={{ color: c.textSecondary }} numberOfLines={1}>{u.zona}</ThemedText>
+                    ) : null}
+                    {/*
+                      Solo su chi passa da un negozio: e' l'unica forma che
+                      promette qualcosa di preciso. A chi sta bevendo una
+                      birra non si "prenota" un giro — semmai gli si scrive.
+                    */}
+                    {u.tipo === 'negozio' && u.persona.id !== session?.user.id ? (
+                      <Pressable
+                        onPress={() => router.push({ pathname: '/create-request', params: { a: u.id } })}
+                        hitSlop={6}>
+                        <ThemedText type="caption" style={{ color: c.accent }}>Chiedi un giro</ThemedText>
+                      </Pressable>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+
             <PressableScale onPress={() => router.push('/(tabs)/community' as never)} style={[styles.community, { backgroundColor: c.surface }]}>
               <View style={styles.communityText}>
                 <ThemedText type="label">COMMUNITY</ThemedText>
@@ -241,6 +245,7 @@ export default function HomeScreen() {
               <Image source={require('../../assets/brand/sticker-community.png')} style={styles.sticker} contentFit="contain" />
               <BrandIcon name="arrow-right" size={24} color={c.accent} />
             </PressableScale>
+            </View>
           }
         />
       </SafeAreaView>
@@ -256,6 +261,7 @@ const styles = StyleSheet.create({
   activeOrder: { minHeight: 78, padding: Spacing.md, borderRadius: Radii.md, flexDirection: 'row', alignItems: 'center', gap: Spacing.md }, activeIcon: { width: 34, alignItems: 'center' },
   sectionHead: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: Spacing.sm }, mapLink: { flexDirection: 'row', alignItems: 'center', gap: 5, padding: Spacing.sm },
   filters: { flexDirection: 'row', gap: Spacing.sm }, loading: { gap: Spacing.md },
+  footerContent: { gap: Spacing.md },
   fuoriRiga: { gap: Spacing.sm, paddingVertical: 2 },
   fuoriCard: { width: 132, borderRadius: 12, padding: Spacing.sm, gap: 3 },
   vuotoFuori: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: Spacing.md, gap: 6 },
