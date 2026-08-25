@@ -4,53 +4,75 @@
 > Il piano ragionato completo (contesto, motivazioni, verdetti di brand)
 > comincia alla sezione **CONTESTO** più sotto: leggilo prima di toccare codice.
 
-## STATO
+## STATO — aggiornato il 26/08/2026
 
-### Scudo beta (settimana 0) — prima dei 20/30 inviti
-- [x] **A1** `handle_new_report` no-op — basta doppia moderazione e sospensione automatica 48h
-- [x] **A2** `pair_allowed` accetta anche `sono_amici` — sblocca la chat fra amici
-- [x] **A3** `committed_credits` e il tetto dei 3 aperti ignorano i `richiesto` oltre 12h
-- [x] **A4** `verify_delivery_code` guarda `expires_at`
-- [x] **A5** `admin_cancel_order` sgela, cancella il codice, avvisa entrambe le parti
-- [x] **A6** `annulla_giro_mio` pubblicata (policy DELETE **non** revocata — R3)
-- [x] **B1** `congelato` + `statoModerazione` + `isExpired` dentro `nextOrderAction`
-- [x] **B2** `report-modal` diventa foglio scorribile (`<FoglioModale>` condiviso)
-- [x] **B3** profilo di chi porta caricato da `withHosts`
-- [x] **B4** amici raggiungibili dal Profilo, `connections.tsx` cancellata
-- [x] **B5** changelog OTA (flag su AsyncStorage prima di `reloadAsync`)
-- [x] **B6** matrice annullamenti completata
-- [x] **B7** le stringhe che mentono (token, APK_URL, 18 accenti)
-- [x] **B8** scheda admin «Giri» + safety-map centrata sulla città
+**22 commit, 10 migrazioni, 342 test verdi.** Versione in circolazione:
+**3.0.0-beta.2** (`constants/versione.ts`).
 
-### Ondata 1 (mese 1) — Tempo, parole, una sola porta
-- [ ] **C1** *(rinviato: dipende dalle 3 decisioni in RILASCIO.md §5)* APK nuovo + `app_release` + ponte di runtime + Sentry source map
-- [x] **C2** `ttl_giro()` + `orders.scade_il` + **un solo** `drop view` di `open_requests`
-- [x] **C3** tabella `uscite` + vista redatta + RPC + trigger guardia (nessuna UI)
+### Scudo beta — completo
+- [x] **A1–A6** le sei correzioni SQL di sicurezza
+- [x] **B1–B8** modello di stato, modale scorribile, profilo di chi porta,
+      amici raggiungibili, changelog OTA, matrice annullamenti, stringhe che
+      mentivano, scheda admin «Giri»
+
+### Ondata 1 — 4 su 6
+- [x] **C2** `ttl_giro()` + `orders.scade_il` + vista del feed ricostruita
+- [x] **C3** tabella `uscite` + vista redatta + RPC + trigger guardia
+- [x] **C5** pulizia del codice morto
+- [x] **C6 (parziale)** riscritte le ~90 stringhe del **database**
+      (`20260910_le_parole_delle_push.sql`). Le ~394 dell'**app** no.
+- [ ] **C1** APK nuovo + `app_release` + ponte di runtime
 - [ ] **C4** inbox unificata (vista `conversazioni`, `letture`, contatori)
-- [x] **C5** pulizia codice morto
-- [ ] **C6** `constants/testi/` + glossario esteso + migrazione delle parole
 
-### Ondata 2 (mese 2) — Chi è fuori
-- [x] **D1** tab centrale FUORI + foglio a 2 tocchi
-- [x] **D2** mappa a livelli + raggruppamento per cella
-- [x] **D3** `da_uscita_id` + prelazione 45 min
+### Ondata 2 — 4 su 5
+- [x] **D1** tab FUORI + foglio a due tocchi + sezione in home
+- [x] **D2** uscite sulla mappa + marker sovrapposti sparpagliati
+- [x] **D3** `da_uscita_id` + avviso a chi si era reso disponibile
+      *(la prelazione di 45 min è stata scartata: il perché è nel commento di
+      `20260909_giro_da_uscita.sql`)*
 - [x] **D4** morte di `smartScore` **e** `whyThisRequest`
 - [ ] **D5** reputazione come fatti + catena degli inviti
 
-### Ondata 3 (mese 3) — I valori diventano funzioni
-- [ ] **E1** chi risponde + registro pubblico
+### Ondata 3 — non cominciata
+- [ ] **E1** «chi risponde» + registro pubblico
 - [ ] **E2** IL PARI al centro
 - [ ] **E3** ritaratura BeerCoin + tetto morbido
 - [ ] **E4** IL QUADERNO
-- [ ] **E5** apertura repository AGPLv3
+- [ ] **E5** apertura formale AGPLv3 *(repo già pubblico; manca `LICENSE`)*
 - [ ] **E6** Milano: schermata di attesa, non lancio
 
+### I due collaudi — 17 segnalazioni su 17, tutte chiuse
+La più grave era una fuga di indirizzo introdotta con le uscite:
+`reverseGeocode()` restituisce «Via Po 12, Torino», e finiva nel campo `zona`
+che la vista pubblica a tutta la città. **La lezione, scritta per esteso in
+`20260911_zona_non_e_un_indirizzo.sql`: la redazione non è una proprietà di una
+colonna, è una proprietà del campo più loquace.**
+
 ---
 
-> **ESCI. DICHIARALO. QUALCUNO RISPONDE.**
-> La riga di brand della V3, scelta dal custode: ha la cadenza del manifesto, e dice la meccanica nuova in tre battute — una persona dichiara, un'altra risponde, in mezzo non c'è niente.
+## DECISIONI PRESE (25-26/08/2026)
+
+1. **Repository pubblico.** `APK_URL` punta a `releases/latest`. La release non
+   dev'essere «pre-release» e l'allegato deve chiamarsi esattamente
+   `beer-to-beer.apk`.
+2. **Sentry spento.** Il DSN era in chiaro e mandava i crash a un progetto a cui
+   nessuno ha accesso, mentre i termini non lo nominavano. Si riaccende con
+   `EXPO_PUBLIC_SENTRY_DSN` **e** una riga in `app/terms.tsx`.
+3. **«PORTA. BEVI. RIPETI.»** sostituisce «CONSEGNA» nel manifesto. Registrata
+   in `Brand/CORREZIONI.md`; il PDF va riesportato quando ci si rimette mano.
+
+## DA FARE, E NON PUÒ FARLO UN AGENTE
+
+- **`LICENSE` manca.** Il README dichiara AGPLv3 e il repo è pubblico: allo
+  stato attuale il codice è *tutti i diritti riservati*, cioè il contrario di
+  quello che c'è scritto. Da GitHub: *Add file → Create new file → `LICENSE` →
+  Choose a license template → GNU AGPL v3.0*. Poi la riga che esclude il
+  marchio (nome, logo, `Brand/`), o un fork può chiamarsi Beer to Beer.
+- **Il contatto in `SECURITY.md`** rimanda al profilo GitHub: se lì non c'è
+  un'email pubblica, va messa.
 
 ---
+
 
 ## Contesto
 

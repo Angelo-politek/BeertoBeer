@@ -32,7 +32,7 @@ Devono passare tutti e tre, senza errori e senza avvisi.
 > connessione**. È già successo il 26 agosto, ed è raccontato nell'intestazione
 > di `supabase/migrations/20260826_fix_feed.sql`.
 
-Nel **SQL Editor di Supabase**, apri ed esegui questi cinque file **in questo
+Nel **SQL Editor di Supabase**, apri ed esegui questi nove file **in questo
 ordine**, uno alla volta, aspettando che ciascuno finisca:
 
 | # | File | Cosa fa |
@@ -42,8 +42,12 @@ ordine**, uno alla volta, aspettando che ciascuno finisca:
 | 3 | `supabase/migrations/20260908_uscite.sql` | La tabella `uscite` e le sue guardie |
 | 4 | `supabase/migrations/20260909_giro_da_uscita.sql` | Il ponte fra un'uscita e un giro |
 | 5 | `supabase/migrations/20260910_le_parole_delle_push.sql` | Le notifiche riscritte (nessuna schermata cambia) |
+| 6 | `supabase/migrations/20260911_zona_non_e_un_indirizzo.sql` | **La fuga di indirizzo: questa per prima, se ne salti** |
+| 7 | `supabase/migrations/20260912_incontri_e_pannello.sql` | Annullare incontri + il badge segnalazioni che si spegne |
+| 8 | `supabase/migrations/20260913_inviti.sql` | Nome sull'invito + gestione dal pannello |
+| 9 | `supabase/migrations/20260914_modifica_incontro.sql` | Correggere un incontro senza rifarlo |
 
-Tutte e cinque sono **sicure da rieseguire**: se hai un dubbio su quale hai
+Tutte e nove sono **sicure da rieseguire**: se hai un dubbio su quale hai
 già lanciato, rilanciala. Non cancellano niente.
 
 ### Verifiche subito dopo, sempre dal SQL Editor

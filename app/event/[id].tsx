@@ -280,6 +280,15 @@ export default function EventDetailScreen() {
               di sapere che e' saltato, e una riga cancellata non avvisa
               nessuno.
             */}
+            {event.stato !== 'annullato' ? (
+              <Button
+                label="Modifica"
+                variant="secondary"
+                onPress={() =>
+                  router.push({ pathname: '/event/modifica/[id]', params: { id: event.id } } as never)
+                }
+              />
+            ) : null}
             {event.stato === 'annullato' ? (
               <ThemedText style={{ color: c.danger, textAlign: 'center' }}>
                 Annullato. Chi si era iscritto è stato avvisato.

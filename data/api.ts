@@ -2190,3 +2190,53 @@ export async function annullaIncontro(id: string, motivo = ''): Promise<void> {
   const { error } = await supabase.rpc('annulla_incontro', { p_id: id, p_motivo: motivo });
   if (error) throw error;
 }
+
+/** Corregge un incontro aperto. Chi partecipa viene avvisato se cambia l'ora o il titolo. */
+export async function modificaIncontro(input: {
+  id: string;
+  titolo: string;
+  descrizione?: string;
+  quando?: string;
+  posti?: number;
+}): Promise<void> {
+  const { error } = await supabase.rpc('modifica_incontro', {
+    p_id: input.id,
+    p_titolo: input.titolo,
+    p_descrizione: input.descrizione ?? null,
+    p_quando: input.quando ?? null,
+    p_posti: input.posti ?? null,
+  });
+  if (error) throw error;
+}
+
+export type AdminIncontro = {
+  id: string;
+  tipo: 'incontro' | 'evento';
+  titolo: string;
+  quando: string;
+  luogo?: string;
+  citta?: string;
+  stato: string;
+  posti: number;
+  partecipanti: number;
+  hostId: string;
+  hostNome: string;
+};
+
+export async function adminIncontri(): Promise<AdminIncontro[]> {
+  const { data, error } = await supabase.rpc('admin_incontri');
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    id: r.id as string,
+    tipo: (r.tipo as 'incontro' | 'evento') ?? 'incontro',
+    titolo: r.titolo as string,
+    quando: r.quando as string,
+    luogo: (r.luogo as string) ?? undefined,
+    citta: (r.citta as string) ?? undefined,
+    stato: r.stato as string,
+    posti: Number(r.posti ?? 0),
+    partecipanti: Number(r.partecipanti ?? 0),
+    hostId: r.host_id as string,
+    hostNome: r.host_nome as string,
+  }));
+}
