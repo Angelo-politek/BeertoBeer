@@ -36,7 +36,7 @@
  * di fatti al posto della media, e tutto l'auto-governo. Quando ci saranno,
  * questo numero diventa `3.0.0` e `app.json` lo raggiunge con un APK nuovo.
  */
-export const VERSIONE = '3.0.0-beta.1';
+export const VERSIONE = '3.0.0-beta.2';
 
 /** Il nome per esteso, per i posti in cui si legge da solo. */
 export const VERSIONE_ESTESA = `Beer to Beer ${VERSIONE}`;

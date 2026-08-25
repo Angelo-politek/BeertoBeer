@@ -1,19 +1,23 @@
 import { Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, Share, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Clipboard, ScrollView, Share, StyleSheet, View } from 'react-native';
 
 import { Button } from '@/components/button';
 import { Card } from '@/components/card';
 import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TesseraInvito } from '@/components/tessera-invito';
+import { TestoModal } from '@/components/testo-modal';
 import { useToast } from '@/components/toast';
 import { APK_URL } from '@/constants/branding';
 import { Fonts, Spacing } from '@/constants/theme';
-import { getMyInvites } from '@/data/api';
+import { getMyInvites, nominaInvito } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
+import { useSession } from '@/lib/auth-context';
+import { useCity } from '@/lib/city-context';
+import { messaggioServer } from '@/lib/errori';
 import { REWARDS } from '@/lib/credits';
-import { formatShortDate } from '@/lib/format';
 import type { Invite } from '@/types';
 
 /**
@@ -24,11 +28,47 @@ import type { Invite } from '@/types';
  * scelta da far pesare. Per questo il codice non si mostra prima di aver detto
  * cosa comporta, e il testo condiviso lo ripete a chi lo riceve.
  */
+/**
+ * IL MESSAGGIO CHE ESCE DALL'APP.
+ *
+ * È l'unico testo di Beer to Beer che una persona legge PRIMA di avere l'app,
+ * e finora era un blocco anonimo: non diceva chi lo mandava — «ti porto
+ * dentro», ma chi? — né a chi era destinato, mentre la schermata prometteva
+ * «ho scelto te». Su WhatsApp, un testo così somiglia a una catena di
+ * Sant'Antonio, che è esattamente il contrario di quello che è.
+ *
+ * E diceva «community di Torino» scritto a mano, in un'app che ha quattro
+ * città: chi invitava da Milano mandava un messaggio falso.
+ */
+function messaggioInvito(
+  code: string,
+  nominativo: string | undefined,
+  citta: string,
+  mittente: string,
+): string {
+  return [
+    nominativo ? `${nominativo}, ti porto dentro Beer to Beer.` : 'Ti porto dentro Beer to Beer.',
+    '',
+    `È una community di ${citta}: ci si porta le birre a vicenda fra chi abita vicino. Nessuno ci guadagna niente. Chi porta si fa rimborsare la spesa e prende BeerCoin, che valgono solo qui dentro e non diventano soldi.`,
+    '',
+    'Si entra solo su invito e ognuno ne ha uno. Il mio l’ho dato a te.',
+    '',
+    `Il tuo codice: ${code}`,
+    APK_URL ? `L’app: ${APK_URL}` : 'Chiedimi il link per scaricarla.',
+    '',
+    `— ${mittente}`,
+  ].join('\n');
+}
+
 export default function InviteScreen() {
   const c = useColors();
   const toast = useToast();
   const [invites, setInvites] = useState<Invite[]>([]);
+  const { city } = useCity();
+  const { session } = useSession();
   const [loading, setLoading] = useState(true);
+  const [daNominare, setDaNominare] = useState<Invite | null>(null);
+  const [salvando, setSalvando] = useState(false);
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
@@ -44,22 +84,17 @@ export default function InviteScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  async function condividi(code: string) {
+  async function condividi(code: string, nominativo?: string) {
     // Nel messaggio ci vanno due sole cose: il codice e dove scaricare l'app.
     // C'era anche un link beertobeer://, ma è una riga che confonde e basta:
     // chi riceve un invito non ha ancora l'app, e chi ce l'ha è già dentro.
     // (Il link continua a funzionare se qualcuno lo apre: non lo proponiamo più.)
     try {
       await Share.share({
-        message:
-          `Ti porto dentro Beer to Beer.\n\n` +
-          `È una community di Torino dove ci si porta le birre a vicenda tra vicini: nessuno ci guadagna, chi porta viene rimborsato della spesa e riceve BeerCoin che valgono solo dentro l'app.\n\n` +
-          `Si entra solo su invito e io ne avevo uno. Ho scelto te.\n\n` +
-          `Il tuo codice: ${code}` +
-          (APK_URL ? `\n\nScarica l'app: ${APK_URL}` : ''),
+        message: messaggioInvito(code, nominativo, city.label, session?.user.user_metadata?.nome ?? 'un amico'),
       });
     } catch {
-      toast.show('Non sono riuscito ad aprire la condivisione.', 'error');
+      toast.show('La condivisione non si è aperta. Riprova.', 'error');
     }
   }
 
@@ -106,26 +141,35 @@ export default function InviteScreen() {
             </Card>
 
             {liberi.map((inv) => (
-              <Card key={inv.code} style={styles.codeCard}>
-                <ThemedText type="label">IL TUO CODICE</ThemedText>
-                <ThemedText style={[styles.code, { color: c.accentStrong }]}>{inv.code}</ThemedText>
-                <ThemedText type="caption">
-                  {`Quando chi inviti completa il suo primo giro, ricevete ${REWARDS.referral} BeerCoin a testa.`}
+              <View key={inv.code} style={styles.blocco}>
+                <TesseraInvito invito={inv} onPress={() => setDaNominare(inv)} />
+                <Button
+                  label={inv.nominativo ? 'Cambia il nome' : 'Scrivi a chi lo dai'}
+                  variant="secondary"
+                  onPress={() => setDaNominare(inv)}
+                />
+                <Button
+                  label="Copia il codice"
+                  variant="secondary"
+                  onPress={() => {
+                    Clipboard.setString(inv.code);
+                    toast.show('Codice copiato.');
+                  }}
+                />
+                <Button label="Condividi l’invito" onPress={() => condividi(inv.code, inv.nominativo)} />
+                <ThemedText type="caption" style={{ color: c.textSecondary }}>
+                  {`Quando chi inviti chiude il suo primo giro, prendete ${REWARDS.referral} BeerCoin a testa.`}
                 </ThemedText>
-                <Button label="Condividi l’invito" onPress={() => condividi(inv.code)} />
-              </Card>
+              </View>
             ))}
 
             {usati.length > 0 ? (
-              <Card style={styles.nota}>
-                <ThemedText type="defaultSemiBold">Chi hai portato dentro</ThemedText>
+              <View style={styles.blocco}>
+                <ThemedText type="label">CHI HAI PORTATO DENTRO</ThemedText>
                 {usati.map((inv) => (
-                  <ThemedText key={inv.code} style={{ color: c.textSecondary }}>
-                    {inv.invitato ?? 'Qualcuno'}
-                    {inv.usedAt ? ` · ${formatShortDate(inv.usedAt)}` : ''}
-                  </ThemedText>
+                  <TesseraInvito key={inv.code} invito={inv} />
                 ))}
-              </Card>
+              </View>
             ) : null}
 
             {liberi.length === 0 && usati.length > 0 ? (
@@ -136,11 +180,36 @@ export default function InviteScreen() {
           </>
         )}
       </ScrollView>
+
+      <TestoModal
+        visible={daNominare != null}
+        titolo="A chi lo dai?"
+        spiegazione="Serve solo a scrivere il messaggio e a ricordartelo. Non lo vede nessun altro."
+        placeholder="Il suo nome"
+        etichettaConferma="Salva"
+        minimo={1}
+        loading={salvando}
+        onClose={() => setDaNominare(null)}
+        onSubmit={async (testo) => {
+          if (!daNominare) return;
+          setSalvando(true);
+          try {
+            await nominaInvito(daNominare.code, testo);
+            setDaNominare(null);
+            await load();
+          } catch (e) {
+            toast.show(messaggioServer(e, 'Non è stato salvato.'), 'error');
+          } finally {
+            setSalvando(false);
+          }
+        }}
+      />
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
+  blocco: { gap: Spacing.sm },
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: Spacing.md, gap: Spacing.md, paddingBottom: Spacing.xxl },

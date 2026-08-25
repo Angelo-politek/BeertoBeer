@@ -224,6 +224,15 @@ export type Invite = {
   /** nome di chi l'ha usato, se è stato speso */
   invitato?: string;
   usedAt?: string;
+  /**
+   * A chi hai deciso di darlo. Lo scrivi tu, e serve a due cose: personalizza
+   * il messaggio — la schermata dice «ho scelto te», e senza un nome era una
+   * frase che il messaggio non manteneva — e ti fa fermare a pensare prima di
+   * spendere l'unico invito che hai.
+   */
+  nominativo?: string;
+  /** Ritirato dall'amministrazione: non vale più, ma resta visibile. */
+  revocato?: boolean;
 };
 
 export type DiscoveryTime = 'all' | 'now' | 'tonight';

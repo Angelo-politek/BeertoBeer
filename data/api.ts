@@ -1381,12 +1381,72 @@ export async function sendTestPush(): Promise<void> {
 export async function getMyInvites(): Promise<Invite[]> {
   const { data, error } = await supabase.rpc('my_invites');
   if (error) throw error;
-  return ((data ?? []) as { code: string; usato: boolean; invitato: string | null; used_at: string | null }[]).map((r) => ({
+  type Riga = {
+    code: string;
+    usato: boolean;
+    invitato: string | null;
+    used_at: string | null;
+    nominativo: string | null;
+    revocato: boolean | null;
+  };
+  return ((data ?? []) as Riga[]).map((r) => ({
     code: r.code,
     usato: r.usato,
     invitato: r.invitato ?? undefined,
     usedAt: r.used_at ?? undefined,
+    nominativo: r.nominativo ?? undefined,
+    revocato: r.revocato ?? false,
   }));
+}
+
+/** Scrive (o cancella, con stringa vuota) il nome sopra un invito non ancora speso. */
+export async function nominaInvito(code: string, nominativo: string): Promise<void> {
+  const { error } = await supabase.rpc('nomina_invito', { p_code: code, p_nominativo: nominativo });
+  if (error) throw error;
+}
+
+export type AdminInvito = {
+  code: string;
+  nominativo?: string;
+  creatoIl: string;
+  usatoIl?: string;
+  revocatoIl?: string;
+  daAdmin: boolean;
+  inviterId: string;
+  inviterNome: string;
+  invitatoNome?: string;
+};
+
+export async function adminInviti(): Promise<AdminInvito[]> {
+  const { data, error } = await supabase.rpc('admin_inviti');
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
+    code: r.code as string,
+    nominativo: (r.nominativo as string) ?? undefined,
+    creatoIl: r.creato_il as string,
+    usatoIl: (r.usato_il as string) ?? undefined,
+    revocatoIl: (r.revocato_il as string) ?? undefined,
+    daAdmin: Boolean(r.da_admin),
+    inviterId: r.inviter_id as string,
+    inviterNome: r.inviter_nome as string,
+    invitatoNome: (r.invitato_nome as string) ?? undefined,
+  }));
+}
+
+/** Crea un invito. Senza destinatario, è per l'amministratore che lo crea. */
+export async function adminCreaInvito(per?: string, nominativo?: string): Promise<string> {
+  const { data, error } = await supabase.rpc('admin_crea_invito', {
+    p_per: per ?? null,
+    p_nominativo: nominativo ?? null,
+  });
+  if (error) throw error;
+  return data as string;
+}
+
+/** Ritira un invito non ancora speso. Non si cancella: si marca. */
+export async function adminRevocaInvito(code: string, motivo: string): Promise<void> {
+  const { error } = await supabase.rpc('admin_revoca_invito', { p_code: code, p_motivo: motivo });
+  if (error) throw error;
 }
 
 /**

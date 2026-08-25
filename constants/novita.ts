@@ -27,19 +27,28 @@ export type Novita = { data: string; righe: string[] };
 /** Dalla piu' recente. La prima e' quella che compare dopo un aggiornamento. */
 export const NOVITA: Novita[] = [
   {
+    data: '2026-08-26',
+    righe: [
+      'Chi è fuori non mostra più la via: solo il quartiere. Era un errore nostro, ed è la prima cosa che abbiamo sistemato.',
+      'Sulla mappa si vedono tutti quelli che sono fuori, non solo l’ultimo.',
+      'I giri aperti sono tornati in cima, e chi è fuori subito sotto.',
+      'Il tuo invito è una tessera, con sopra il nome di chi hai scelto. E il codice si copia con un tocco.',
+      'Incontri ed eventi mostrano l’indirizzo, e un tocco apre le indicazioni.',
+      'Un incontro si può annullare: chi si era iscritto viene avvisato.',
+      'Nel giro, «sono in ritardo» lo vede solo chi porta — e i pulsanti dei guai compaiono quando c’è un guaio possibile.',
+      'Tornando indietro da un sottomenu non perdi più il punto in cui stavi leggendo.',
+      'Con i caratteri di sistema ingranditi non sborda più niente.',
+    ],
+  },
+  {
     data: '2026-08-25',
     righe: [
       'C’è un tasto nuovo in mezzo alla barra: dì che sei fuori, e chi ha bisogno di birre in zona ti vede.',
-      'Chi è fuori adesso compare in cima alla schermata iniziale e sulla mappa.',
-      'Se passi da un negozio, qualcuno può chiederti un giro con un tocco.',
-      'Vedi chi ha accettato il tuo giro: nome, faccia e profilo, prima che suoni al portone.',
-      'Un giro fermato da una segnalazione lo dice, invece di lasciarti premere pulsanti che non funzionano.',
-      'Puoi annullare un giro anche dopo che qualcuno ha accettato: gli arriva il perché.',
-      'I giri scaduti non ti bloccano più: non occupano un posto e non tengono fermi i BeerCoin.',
+      'Vedi chi ha accettato il tuo giro, prima che suoni al portone.',
+      'I giri scaduti non ti bloccano più.',
       'Nella segnalazione il pulsante «invia» si raggiunge anche con un messaggio lungo.',
       'Se hai un amico, puoi scrivergli anche senza aver mai fatto un giro insieme.',
-      'Gli amici stanno nel profilo, e chi hai bloccato si può sbloccare.',
-      'Il feed non dice più «per te»: si ordina per chi finisce prima, e si può cambiare.',
+      'Il feed non dice più «per te»: si ordina per chi finisce prima.',
       'In Impostazioni c’è la versione che stai usando, e il link al codice: è tutto pubblico.',
     ],
   },

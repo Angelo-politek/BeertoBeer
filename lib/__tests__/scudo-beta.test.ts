@@ -352,3 +352,49 @@ describe('le push parlano la lingua dell app', () => {
     expect(codice).not.toMatch(/peroni/i);
   });
 });
+
+describe('l invito è una tessera, non una riga di testo', () => {
+  const INVITI = leggi('supabase/migrations/20260913_inviti.sql');
+  const schermata = leggi('app/invite.tsx');
+
+  it('il messaggio dice chi lo manda e a chi', () => {
+    // Era un blocco anonimo: non diceva chi lo mandava — «ti porto dentro»,
+    // ma chi? — mentre la schermata prometteva «ho scelto te». Su WhatsApp
+    // somigliava a una catena di Sant'Antonio.
+    expect(schermata).toContain('function messaggioInvito');
+    expect(schermata).toMatch(/nominativo \? `\$\{nominativo\}, ti porto dentro/);
+    expect(schermata).toContain('— ${mittente}');
+  });
+
+  it('la città non è più scritta a mano', () => {
+    // Diceva «community di Torino» in un'app che ha quattro città: chi
+    // invitava da Milano mandava un messaggio falso.
+    const senzaCommenti = schermata.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(senzaCommenti).not.toContain('community di Torino');
+    expect(senzaCommenti).toContain('city.label');
+  });
+
+  it('il codice si può copiare', () => {
+    // Chi lo riceveva doveva selezionarlo a mano dal corpo del messaggio.
+    expect(schermata).toContain('Clipboard.setString');
+  });
+
+  it('un amministratore può crearli e ritirarli', () => {
+    expect(INVITI).toContain('function public.admin_crea_invito');
+    expect(INVITI).toContain('function public.admin_revoca_invito');
+    expect(INVITI).toContain('is_admin_user');
+  });
+
+  it('un invito ritirato non vale più, ma non sparisce', () => {
+    // Cancellare la riga farebbe leggere «codice inesistente», che sembra un
+    // errore di battitura e fa riprovare tre volte.
+    expect(INVITI).toContain('revocato_il');
+    expect(INVITI).not.toMatch(/delete from public\.invites/);
+    const valida = INVITI.slice(INVITI.indexOf('function public.invite_is_valid'));
+    expect(valida).toContain('revocato_il is null');
+  });
+
+  it('ogni azione di amministrazione resta scritta', () => {
+    expect(INVITI.match(/insert into public\.admin_audit/g)?.length).toBeGreaterThanOrEqual(2);
+  });
+});
