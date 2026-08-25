@@ -19,9 +19,7 @@ npx tsc --noEmit
 npx expo lint
 ```
 
-Devono passare tutti e tre. `tsc` segnala un solo errore preesistente in
-`app/(tabs)/map.tsx:135` (una rotta tipizzata), che non c'entra con questo
-aggiornamento e c'era anche prima.
+Devono passare tutti e tre, senza errori e senza avvisi.
 
 ---
 
@@ -45,7 +43,7 @@ ordine**, uno alla volta, aspettando che ciascuno finisca:
 | 4 | `supabase/migrations/20260909_giro_da_uscita.sql` | Il ponte fra un'uscita e un giro |
 | 5 | `supabase/migrations/20260910_le_parole_delle_push.sql` | Le notifiche riscritte (nessuna schermata cambia) |
 
-Tutte e quattro sono **sicure da rieseguire**: se hai un dubbio su quale hai
+Tutte e cinque sono **sicure da rieseguire**: se hai un dubbio su quale hai
 già lanciato, rilanciala. Non cancellano niente.
 
 ### Verifiche subito dopo, sempre dal SQL Editor
@@ -146,32 +144,61 @@ Nell'ordine. Serve un secondo account per i punti 4-6.
 
 ---
 
-## 5. Le tre decisioni che restano a te
+## 5. Le tre decisioni — prese il 25/08/2026
 
-Nessuna blocca questo rilascio. Tutte e tre vanno decise prima dell'ondata
-successiva.
+**1 · Il repository è pubblico.** Quindi `APK_URL` punta a
+`releases/latest/download/beer-to-beer.apk`, che segue sempre l'ultima release
+e non va più aggiornato a mano. ⚠️ Perché regga: la release **non** deve essere
+marcata «pre-release», e l'allegato deve chiamarsi **esattamente**
+`beer-to-beer.apk`. Con un nome diverso il link dà 404 e chi riceve un invito
+sbatte contro un muro.
 
-**1 · Il repository diventa pubblico?** Da questo dipende il link di download
-nel messaggio d'invito. Oggi `APK_URL` (`constants/branding.ts`) punta a una
-release fissa `v1.1.0-beta1`; il link «sempre l'ultima»
-(`releases/latest/download/...`) funziona **solo** con repository pubblico,
-perché gli allegati delle release private non sono scaricabili senza account —
-e chi riceve un invito non ha un account GitHub. Finché resta privato, ogni
-APK nuovo richiede di aggiornare quella riga a mano.
+**Due conseguenze già applicate**, perché un repository pubblico cambia cosa è
+prudente lasciare in giro:
+- `dist-v2-check/` e `dist-v21-check/` non sono più tracciate. Erano 116 file
+  di build con dentro l'URL del progetto e la anon key: non è una fuga — quella
+  chiave è pubblica per costruzione e sta dentro ogni APK distribuito — ma in
+  un repo pubblico *sembra* una chiave committata. `SECURITY.md` lo spiega
+  prima che qualcuno lo chieda.
+- `README.md` non è più «Welcome to your Expo app 👋» con il link al Discord di
+  Expo. Era la porta d'ingresso di un progetto che si dichiara fatto dalla
+  community.
 
-**2 · Sentry.** Oggi `eas.json` ha `SENTRY_DISABLE_AUTO_UPLOAD: true` su tutti
-i profili: i crash arrivano, ma il punto esatto del codice risulta illeggibile.
-Per accenderli servono un token nell'account Sentry e le opzioni
-`organization`/`project` nel plugin di `app.json` (che oggi è dichiarato senza
-opzioni: toglierne la variabile senza aggiungerle fa fallire la build).
-E il DSN è in chiaro in `app/_layout.tsx`, mentre `app/terms.tsx` non nomina
-mai la diagnostica: o diventa una riga nei termini, o si toglie.
+**2 · Sentry è spento.** Il DSN era scritto in chiaro e mandava i crash di tutti
+i tester a un progetto a cui nessuno del team ha accesso, mentre `app/terms.tsx`
+— la pagina che promette di dire «chi vede cosa» — non nominava né la
+diagnostica né una terza parte. Ora parte solo se esiste
+`EXPO_PUBLIC_SENTRY_DSN`. **Il giorno in cui vorrai accenderlo davvero**: crea
+un account su sentry.io, metti il DSN in quella variabile, e aggiungi una riga
+ai termini. Senza la riga nei termini, non accenderlo.
 
-**3 · La correzione alla brand bible.** Il manifesto dice «CONSEGNA. BEVI.
-RIPETI.», ma la sua stessa vision dice «non è un servizio di delivery» — e il
-glossario dell'app vieta la parola «consegna» perché evoca un lavoro pagato.
-La proposta è **«PORTA. BEVI. RIPETI.»**: stesso ritmo, una parola su tre, e
-toglie la contraddizione alla radice invece di gestirla per sempre.
+**3 · «PORTA. BEVI. RIPETI.»** è la riga corretta del manifesto, registrata in
+`Brand/CORREZIONI.md` con il perché. Il PDF della bible va riesportato con
+quella riga quando capita di rimetterci mano: fino ad allora quel file è la
+versione vera.
+
+---
+
+## 5b · Due cose che restano da fare, e non le posso fare io
+
+**La licenza.** `README.md` dichiara AGPLv3, ma **il file `LICENSE` non c'è**.
+Non l'ho scritto di proposito: il testo dell'AGPL è un documento legale di
+34 KB, e riprodurlo a memoria è esattamente il genere di cosa che non va
+approssimata. Aggiungilo da GitHub — *Add file → Create new file → nome
+`LICENSE` → «Choose a license template» → GNU Affero General Public License
+v3.0* — che inserisce il testo ufficiale esatto.
+
+Poi aggiungi in fondo al file, o nel README, la riga che esclude il marchio:
+
+> Il codice è AGPLv3. Nome, logo e i materiali in `Brand/` restano di Beer to
+> Beer: puoi forkare il codice, non puoi chiamarlo Beer to Beer.
+
+Senza quella riga, un fork può chiamarsi come noi.
+
+**Il contatto per le segnalazioni di sicurezza.** `SECURITY.md` dice di
+scrivere «al contatto nel profilo GitHub del proprietario del repository».
+Se sul tuo profilo non c'è un'email pubblica, mettila — oppure sostituisci
+quella riga con l'indirizzo che preferisci.
 
 ---
 
