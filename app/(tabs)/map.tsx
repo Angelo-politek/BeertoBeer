@@ -138,7 +138,12 @@ export default function MapScreen() {
             uscite={uscite}
             userCoords={coords}
             onOpenRequest={(id) => router.push({ pathname: '/request/[id]', params: { id } })}
-            onOpenEvent={(id) => router.push({ pathname: '/event/[id]', params: { id } })}
+            onOpenEvent={(id) =>
+              // I tipi delle rotte generati da expo-router non conoscono
+              // /event/[id] finche' il dev server non li rigenera; il resto del
+              // progetto usa gia' questo stesso rimedio in sette punti.
+              router.push({ pathname: '/event/[id]', params: { id } } as never)
+            }
             onOpenPersona={(id) => router.push({ pathname: '/user/[id]', params: { id } })}
             onChiediGiro={(uscitaId) => router.push({ pathname: '/create-request', params: { a: uscitaId } })}
             canDeleteShop={(shop) => isAdmin || shop.createdBy === session?.user.id}
