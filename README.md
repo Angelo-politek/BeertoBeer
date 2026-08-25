@@ -15,6 +15,10 @@ Si entra solo su invito, e ognuno ne ha uno solo.
 
 ---
 
+> **Riprendi lo sviluppo da un altro computer?** Comincia da
+> **[PASSAGGIO.md](PASSAGGIO.md)**: branch, ambiente, regole della casa e
+> debiti aperti.
+
 ## Se vuoi capire com'è fatta
 
 **Non cominciare dal codice.** Leggi i commenti in cima alle migrazioni, in
