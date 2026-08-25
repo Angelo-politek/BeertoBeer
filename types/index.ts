@@ -77,6 +77,10 @@ export type Review = {
   commento?: string;
   createdAt: string;
   author?: User;
+  /** Voti di dettaglio (1-5), presenti dalle recensioni V2.1 in poi. */
+  puntualita?: number;
+  comunicazione?: number;
+  rispetto?: number;
 };
 
 export type ReportReason =

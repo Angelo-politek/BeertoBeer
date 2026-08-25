@@ -319,6 +319,17 @@ export default function UserProfileScreen() {
                   <ThemedText style={{ color: c.textSecondary }}>{formatShortDate(review.createdAt)}</ThemedText>
                 </View>
                 <StarRating value={review.voto} readonly size={20} />
+                {/* I tre voti di dettaglio erano nel database dalla V2.1 e non
+                    li leggeva nessuno: sul profilo compariva solo la media.
+                    Sono proprio quelli che dicono se una persona e' puntuale
+                    o se si fa capire. */}
+                {review.puntualita || review.comunicazione || review.rispetto ? (
+                  <View style={styles.dettagli}>
+                    {review.puntualita ? <Dettaglio etichetta="Puntualita" voto={review.puntualita} /> : null}
+                    {review.comunicazione ? <Dettaglio etichetta="Comunicazione" voto={review.comunicazione} /> : null}
+                    {review.rispetto ? <Dettaglio etichetta="Rispetto" voto={review.rispetto} /> : null}
+                  </View>
+                ) : null}
                 {review.commento ? <ThemedText style={{ color: c.textSecondary }}>{review.commento}</ThemedText> : null}
               </View>
             ))
@@ -367,6 +378,16 @@ export default function UserProfileScreen() {
   );
 }
 
+/** Un voto di dettaglio, in una riga sola: «Puntualita 4/5». */
+function Dettaglio({ etichetta, voto }: { etichetta: string; voto: number }) {
+  const c = useColors();
+  return (
+    <ThemedText type="caption" style={{ color: voto >= 4 ? c.positive : c.textSecondary }}>
+      {`${etichetta} ${voto}/5`}
+    </ThemedText>
+  );
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -390,6 +411,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { marginBottom: Spacing.xs },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
+  dettagli: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   tag: { borderRadius: Radii.pill, paddingHorizontal: 10, paddingVertical: 5 },
   review: {
     borderTopWidth: 1,

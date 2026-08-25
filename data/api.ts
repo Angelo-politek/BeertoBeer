@@ -48,7 +48,11 @@ const PROFILE_COLUMNS =
   'id, nome, foto_url, bio, preferenze_birra, rating_medio, eta, scambi_completati, livello, karma, interessi, cerco_compagnia, citta';
 const ORDER_COLUMNS =
   'id, host_id, driver_id, lista_birre, indirizzo, lat, lng, fascia, stato, vibe_mode, crediti_offerti, host_confermato, driver_confermato, created_at, updated_at, citta, stato_moderazione';
-const REVIEW_COLUMNS = 'id, order_id, from_user_id, to_user_id, voto, commento, created_at';
+// I tre voti di dettaglio esistevano nel database dalla V2.1 e non venivano
+// mai letti: sul profilo compariva solo la media. Sono proprio quelli che
+// dicono se una persona e' puntuale o se si fa capire.
+const REVIEW_COLUMNS =
+  'id, order_id, from_user_id, to_user_id, voto, commento, created_at, puntualita, comunicazione, rispetto';
 const MESSAGE_COLUMNS = 'id, order_id, sender_id, testo, created_at';
 
 // ---------- Helper sessione ----------
@@ -239,10 +243,16 @@ type ReviewRow = {
   voto: number;
   commento: string | null;
   created_at: string;
+  puntualita: number | null;
+  comunicazione: number | null;
+  rispetto: number | null;
 };
 
 function mapReview(row: ReviewRow, author?: User): Review {
   return {
+    puntualita: row.puntualita ?? undefined,
+    comunicazione: row.comunicazione ?? undefined,
+    rispetto: row.rispetto ?? undefined,
     id: row.id,
     orderId: row.order_id,
     fromUserId: row.from_user_id,
