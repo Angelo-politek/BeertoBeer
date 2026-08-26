@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import { ChatView } from '@/components/chat-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PERSONE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { getDirectMessages, getUserById, sendDirectMessage, subscribeToDirectMessages } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
@@ -41,7 +42,7 @@ export default function DirectChatScreen() {
         if (active) setMessages(rows);
       })
       .catch(() => {
-        if (active) setError('Impossibile caricare la conversazione.');
+        if (active) setError(PERSONE.chat.direttaNonCaricata);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -72,7 +73,7 @@ export default function DirectChatScreen() {
         messages={messages}
         myId={myId}
         loading={loading}
-        emptyMessage={`Scrivi a ${other?.nome ?? 'questa persona'}: vi siete conosciuti con uno scambio!`}
+        emptyMessage={other?.nome ? PERSONE.chat.direttaVuota(other.nome) : PERSONE.chat.direttaVuotaSenzaNome}
         onSend={handleSend}
       />
     </ThemedView>

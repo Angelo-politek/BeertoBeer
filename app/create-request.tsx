@@ -21,6 +21,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { BrandIcon } from '@/components/ui/brand-icon';
 import { GLOSSARY } from '@/constants/branding';
+import { GIRO } from '@/constants/testi';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { createOrder, getAvailableCredits, getCurrentUser, getUscita } from '@/data/api';
@@ -36,7 +37,7 @@ import type { BeerItem, Uscita } from '@/types';
 
 type BeerInput = { nome: string; quantita: string; formato: string };
 
-const FASCE = ['Adesso', 'Tra 1 ora', 'Stasera', 'Domani'];
+const FASCE = GIRO.lancia.fasce;
 const DRAFT_KEY = 'btb.giro-composer.draft.v21';
 
 export default function CreateRequestScreen() {
@@ -46,7 +47,7 @@ export default function CreateRequestScreen() {
 
   const [birre, setBirre] = useState<BeerInput[]>([{ nome: '', quantita: '', formato: DEFAULT_FORMAT }]);
   const [indirizzo, setIndirizzo] = useState('');
-  const [fascia, setFascia] = useState(FASCE[0]);
+  const [fascia, setFascia] = useState<string>(FASCE[0]);
   /**
    * Se arrivo da un'uscita, la schermata lo dice in cima e il giro se lo
    * ricorda. Le due cose che la macchina non puo' sapere — dove consegnare e
@@ -141,18 +142,18 @@ export default function CreateRequestScreen() {
   // Cosa manca davvero per pubblicare: dirlo qui evita di far premere a vuoto
   // il bottone e di scoprire il problema con un avviso a schermo intero.
   const mancanze = [
-    cleanBirre.length === 0 ? 'almeno una birra' : null,
-    mancanzaPosizione({ indirizzo, coords }, "l'indirizzo di consegna"),
+    cleanBirre.length === 0 ? GIRO.lancia.mancaBirra : null,
+    mancanzaPosizione({ indirizzo, coords }, GIRO.lancia.mancaIndirizzo),
   ].filter((x): x is string => x !== null);
 
 
   async function handleSubmit() {
     if (cleanBirre.length === 0) {
-      Alert.alert('Manca qualcosa', 'Indica almeno una birra.');
+      Alert.alert(GIRO.lancia.mancaTitolo, GIRO.lancia.mancaBirraAvviso);
       return;
     }
     if (indirizzo.trim().length === 0) {
-      Alert.alert('Manca qualcosa', 'Indica un indirizzo di consegna.');
+      Alert.alert(GIRO.lancia.mancaTitolo, GIRO.lancia.mancaIndirizzoAvviso);
       return;
     }
     setSubmitting(true);
@@ -172,17 +173,14 @@ export default function CreateRequestScreen() {
       if (!point) {
         setSubmitting(false);
         Alert.alert(
-          'Indirizzo da confermare',
-          `Non riesco a posizionare "${indirizzo.trim()}" dentro ${city.label}. Usa "Usa la mia posizione", oppure scegli il punto sulla mappa: senza il punto esatto chi consegna non saprebbe dove andare.`,
+          GIRO.lancia.indirizzoTitolo,
+          GIRO.lancia.indirizzoTesto(indirizzo.trim(), city.label),
         );
         return;
       }
       if (balance != null && stima > balance) {
         setSubmitting(false);
-        Alert.alert(
-          'Crediti insufficienti',
-          `Questa richiesta costa ${stima} BeerCoin e ne hai ${balance} disponibili. Gli altri sono impegnati in giri ancora aperti: chiudili, guadagnane consegnando, oppure riduci l'ordine.`,
-        );
+        Alert.alert(GIRO.lancia.saldoTitolo, GIRO.lancia.saldoTesto(stima, balance));
         return;
       }
       const newId = await createOrder({
@@ -202,7 +200,7 @@ export default function CreateRequestScreen() {
       // I limiti nuovi (troppe birre, troppi giri aperti, indirizzo fuori
       // città) arrivano come messaggio dal database: vanno mostrati come sono,
       // perché dicono esattamente cosa fare.
-      Alert.alert('Non pubblicato', messaggioServer(e, 'Non è stato possibile pubblicare il giro.'));
+      Alert.alert(GIRO.lancia.nonPubblicatoTitolo, messaggioServer(e, GIRO.lancia.nonPubblicatoTesto));
     }
   }
 
@@ -220,17 +218,17 @@ export default function CreateRequestScreen() {
           {suspended ? (
             <View style={[styles.suspendedBanner, { backgroundColor: c.dangerSoft }]}>
               <ThemedText type="defaultSemiBold" style={{ color: c.danger }}>
-                Account temporaneamente sospeso
+                {GIRO.lancia.sospesoTitolo}
               </ThemedText>
               <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-                Una tua richiesta è stata segnalata ed è in verifica. Potrai pubblicare di nuovo dal{' '}
-                {new Date(sospesoFino as string).toLocaleString('it-IT', {
-                  day: 'numeric',
-                  month: 'short',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-                , o prima se la moderazione approva la richiesta.
+                {GIRO.lancia.sospesoTesto(
+                  new Date(sospesoFino as string).toLocaleString('it-IT', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }),
+                )}
               </ThemedText>
             </View>
           ) : null}
@@ -243,26 +241,29 @@ export default function CreateRequestScreen() {
           */}
           {uscita ? (
             <Card style={[styles.section, { borderColor: c.accent, borderWidth: 1 }]}>
-              <ThemedText type="label" style={{ color: c.accent }}>STAI RISPONDENDO A</ThemedText>
-              <ThemedText type="subtitle">{uscita.persona.nome}</ThemedText>
+              <ThemedText type="label" style={{ color: c.accent }}>{GIRO.lancia.rispondiA}</ThemedText>
+              {/* type="nome": il nome di una persona non si urla. */}
+              <ThemedText type="nome">{uscita.persona.nome}</ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>
-                {formaDi(uscita.tipo).titolo.toLowerCase()}
-                {uscita.zona ? ` a ${uscita.zona}` : ''}, {finoAlle(uscita.finisceAlle)}.
-                Riceve un avviso, ma il giro resta aperto a tutti: chi passa per primo lo prende.
+                {GIRO.lancia.rispondiANota(
+                  formaDi(uscita.tipo).titolo,
+                  uscita.zona,
+                  finoAlle(uscita.finisceAlle),
+                )}
               </ThemedText>
             </Card>
           ) : null}
 
           {/* 1 — COSA */}
           <Card style={styles.section}>
-            <ThemedText type="label">COSA TI SERVE</ThemedText>
+            <ThemedText type="label">{GIRO.lancia.cosa}</ThemedText>
             {birre.map((b, i) => (
               <View key={i} style={styles.beerBlock}>
                 <View style={styles.beerRow}>
                   <TextInput
                     value={b.nome}
                     onChangeText={(t) => updateBeer(i, 'nome', t)}
-                    placeholder="Tipo di birra (es. Ichnusa)"
+                    placeholder={GIRO.lancia.birraSegnaposto}
                     placeholderTextColor={c.textSecondary}
                     style={[
                       styles.input,
@@ -273,7 +274,7 @@ export default function CreateRequestScreen() {
                   <TextInput
                     value={b.quantita}
                     onChangeText={(t) => updateBeer(i, 'quantita', t.replace(/[^0-9]/g, ''))}
-                    placeholder="Qtà"
+                    placeholder={GIRO.lancia.quantitaSegnaposto}
                     placeholderTextColor={c.textSecondary}
                     keyboardType="number-pad"
                     style={[
@@ -302,36 +303,36 @@ export default function CreateRequestScreen() {
               </View>
             ))}
             <Pressable onPress={addBeer} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}>
-              <View style={styles.addRow}><BrandIcon name="plus" size={17} color={c.accent} /><Text style={[styles.addBeer, { color: c.accent }]}>Aggiungi un&apos;altra birra</Text></View>
+              <View style={styles.addRow}><BrandIcon name="plus" size={17} color={c.accent} /><Text style={[styles.addBeer, { color: c.accent }]}>{GIRO.lancia.aggiungiBirra}</Text></View>
             </Pressable>
             {troppeBirre ? (
               <ThemedText style={{ color: c.danger, fontSize: 13 }}>
-                {`${totaleBirre} birre sono troppe: il massimo per un giro è ${MAX_BIRRE_PER_GIRO}. Oltre non è più un favore fra vicini.`}
+                {GIRO.lancia.troppeBirre(totaleBirre, MAX_BIRRE_PER_GIRO)}
               </ThemedText>
             ) : null}
             {righeIncomplete > 0 ? (
               <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-                {righeIncomplete === 1 ? 'Una riga è senza nome e non verrà pubblicata.' : `${righeIncomplete} righe sono senza nome e non verranno pubblicate.`}
+                {righeIncomplete === 1 ? GIRO.lancia.rigaSenzaNome : GIRO.lancia.righeSenzaNome(righeIncomplete)}
               </ThemedText>
             ) : null}
           </Card>
 
           {/* 2 — DOVE (ricerca vincolata alla città selezionata nel feed) */}
           <Card style={styles.section}>
-            <ThemedText type="label">DOVE CONSEGNARE</ThemedText>
+            <ThemedText type="label">{GIRO.lancia.dove}</ThemedText>
             <LocationField
               city={city}
               value={posizione}
               onChange={setPosizione}
-              label={`Indirizzo di consegna a ${city.label}`}
-              mapTitle="Tocca il punto di consegna"
-              mapHint={`${city.label} — sposta e zooma la mappa, poi tocca dove consegnare.`}
+              label={GIRO.lancia.indirizzo(city.label)}
+              mapTitle={GIRO.lancia.mappaTitolo}
+              mapHint={GIRO.lancia.mappaAiuto(city.label)}
             />
           </Card>
 
           {/* 3 — QUANDO */}
           <Card style={styles.section}>
-            <ThemedText type="label">QUANDO</ThemedText>
+            <ThemedText type="label">{GIRO.lancia.quando}</ThemedText>
             <View style={styles.chips}>
               {FASCE.map((f) => (
                 <Chip key={f} label={f} active={f === fascia} onPress={() => setFascia(f)} />
@@ -342,9 +343,9 @@ export default function CreateRequestScreen() {
           {/* Vibe mode */}
           <View style={[styles.vibeRow, { backgroundColor: c.surfaceAlt }]}>
             <View style={styles.vibeText}>
-              <ThemedText type="defaultSemiBold">Vibe mode</ThemedText>
+              <ThemedText type="defaultSemiBold">{GIRO.lancia.vibeTitolo}</ThemedText>
               <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-                Invita chi consegna a fermarsi a bere insieme.
+                {GIRO.lancia.vibeTesto}
               </ThemedText>
             </View>
             <Switch value={vibeMode} onValueChange={setVibeMode} />
@@ -353,33 +354,33 @@ export default function CreateRequestScreen() {
           {/* Stima crediti: parte peso subito, bonus distanza quando un driver accetta */}
           <View style={[styles.creditsCard, { backgroundColor: c.accentSoft }]}>
             <ThemedText type="label" style={{ color: c.accentStrong }}>
-              BEERCOIN DEL GIRO
+              {GIRO.lancia.costo}
             </ThemedText>
             <ThemedText type="title" style={{ color: c.accentStrong }}>
-              {stima} BeerCoin
+              {GIRO.lancia.quanto(stima)}
             </ThemedText>
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-              Calcolati dal peso delle birre.
+              {GIRO.lancia.daPeso}
               {bonusMax > 0
-                ? ` Quando un driver accetta si aggiunge un bonus in base alla sua distanza (fino a +${bonusMax}, massimo ${CREDIT_CAP} totali).`
-                : ` Sei già al massimo di ${CREDIT_CAP} crediti per consegna.`}
-              {balance != null ? ` Hai ${balance} BeerCoin disponibili.` : ''}
+                ? GIRO.lancia.bonusDistanza(bonusMax, CREDIT_CAP)
+                : GIRO.lancia.giaAlMassimo(CREDIT_CAP)}
+              {balance != null ? GIRO.lancia.disponibili(balance) : ''}
             </ThemedText>
             {nonCopribile ? (
               <ThemedText style={{ color: c.danger, fontSize: 13 }}>
-                Non hai abbastanza BeerCoin disponibili: gli altri sono impegnati in giri ancora aperti.
+                {GIRO.lancia.nonCopribile}
               </ThemedText>
             ) : null}
           </View>
 
           {mancanze.length > 0 ? (
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-              Per pubblicare manca ancora: {mancanze.join(' · ')}.
+              {GIRO.lancia.manca(mancanze.join(' · '))}
             </ThemedText>
           ) : null}
 
           <Button
-            label="Pubblica il giro"
+            label={GIRO.lancia.pubblica}
             onPress={handleSubmit}
             loading={submitting}
             disabled={nonCopribile || suspended || troppeBirre}

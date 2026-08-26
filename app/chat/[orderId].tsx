@@ -5,6 +5,7 @@ import { StyleSheet, View } from 'react-native';
 import { ChatView } from '@/components/chat-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { GIRO } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { getMessages, getOrderEta, getRequestById, sendMessage, subscribeToMessages } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
@@ -34,7 +35,7 @@ export default function ChatScreen() {
         if (active) setMessages(rows);
       })
       .catch(() => {
-        if (active) setError('Impossibile caricare la chat.');
+        if (active) setError(GIRO.chat.nonCaricata);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -67,15 +68,15 @@ export default function ChatScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Chat del giro' }} />
+      <Stack.Screen options={{ title: GIRO.chat.titolo }} />
       {error ? <ThemedText style={[styles.error, { color: c.danger }]}>{error}</ThemedText> : null}
       <ChatView
         messages={messages}
         myId={myId}
         loading={loading}
-        emptyMessage="Usa la chat solo per coordinare il giro."
-        quickReplies={['Parto ora', 'Arrivo tra 10 minuti', 'Sono sotto', 'Ho un ritardo']}
-        header={request ? <PressableScale onPress={() => router.push({ pathname: '/request/[id]', params: { id: orderId } })} style={[styles.hub, { backgroundColor: c.accentSoft }]}><View style={styles.hubText}><ThemedText type="label">GIRO {STATO_LABEL[request.stato].toUpperCase()}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{request.fascia ?? 'Fascia non indicata'}{eta ? ` · ETA ${eta} min` : ''}</ThemedText></View><BrandIcon name="arrow-right" size={20} color={c.accent} /></PressableScale> : null}
+        emptyMessage={GIRO.chat.vuota}
+        quickReplies={[...GIRO.chat.rapide]}
+        header={request ? <PressableScale onPress={() => router.push({ pathname: '/request/[id]', params: { id: orderId } })} style={[styles.hub, { backgroundColor: c.accentSoft }]}><View style={styles.hubText}><ThemedText type="label">{GIRO.chat.intestazione(STATO_LABEL[request.stato])}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{request.fascia ?? GIRO.chat.fasciaNonIndicata}{eta ? GIRO.chat.arrivoStimato(eta) : ''}</ThemedText></View><BrandIcon name="arrow-right" size={20} color={c.accent} /></PressableScale> : null}
         onSend={handleSend}
       />
     </ThemedView>

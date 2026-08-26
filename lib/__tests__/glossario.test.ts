@@ -155,8 +155,11 @@ const FILE_SORVEGLIATI_FUORI = [
  *        motivi per cui un giro è fermo, le etichette della prossima azione,
  *        che stavano sparsi in `lib/orders.ts` e `lib/discovery.ts` — più
  *        `app/my-orders.tsx` e `app/review.tsx`.
- *        Restano `app/create-request.tsx`, `app/request/[id].tsx` (la
- *        schermata più grossa dell'app, 84 frasi) e le chat.
+ *   S2 · IL GIRO, COMPLETA — `create-request`, `request/[id]` (875 righe e 84
+ *        frasi, la più grossa dell'app) e le tre chat.
+ *
+ * Il prossimo è S3: le persone (profilo, amici, incontri, blocchi), il sistema
+ * (impostazioni, notifiche, novità, segnalazioni) e il pannello.
  */
 const IN_DEROGA = [
   'app/(tabs)/community.tsx',
@@ -177,11 +180,7 @@ const IN_DEROGA = [
   'app/amici.tsx',
   'app/beercoin.tsx',
   'app/bloccati.tsx',
-  'app/chat/[orderId].tsx',
-  'app/chat/direct/[userId].tsx',
-  'app/chat/evento/[id].tsx',
   'app/connections.tsx',
-  'app/create-request.tsx',
   'app/edit-profile.tsx',
   'app/event/[id].tsx',
   'app/event/modifica/[id].tsx',
@@ -191,14 +190,12 @@ const IN_DEROGA = [
   'app/notifications.tsx',
   'app/novita.tsx',
   'app/profile-customize.tsx',
-  'app/request/[id].tsx',
   'app/segnalazione/[id].tsx',
   'app/settings.tsx',
   'app/terms.tsx',
   'app/user/[id].tsx',
   'components/add-shop-modal.tsx',
   'components/birthdate-field.tsx',
-  'components/chat-view.tsx',
   'components/city-picker.tsx',
   'components/discovery-filter-bar.tsx',
   'components/feed-map.tsx',
@@ -288,10 +285,15 @@ function frasiItaliane(relativo: string): string[] {
   const trovate: string[] = [];
 
   for (const m of sorgente.matchAll(LETTERALE)) {
-    const v = m[1] ?? m[2] ?? m[3] ?? '';
+    // In un template la COPY sono le parti letterali: `${...}` è codice.
+    // Senza questo passaggio, `${forma}${zona ? ` a ${zona}` : ''}` risultava
+    // italiano perché contiene la parola «zona», mentre non contiene nessuna
+    // frase — e un test che grida su codice corretto viene aggirato in una
+    // settimana.
+    const v = (m[1] ?? m[2] ?? m[3] ?? '').replace(/\$\{[^}]*\}/g, ' ');
     if (tecnica(v)) continue;
     if (!ACCENTO.test(v) && !PAROLE_ITALIANE.test(v)) continue;
-    trovate.push(v);
+    trovate.push(m[1] ?? m[2] ?? m[3] ?? '');
   }
   for (const m of sorgente.matchAll(TESTO_JSX)) {
     const v = m[1].trim();
@@ -440,6 +442,58 @@ describe('C6 · le regole di forma dei testi', () => {
     expect(PAROLE.giro).toBe(GLOSSARY.delivery);
     expect(PAROLE.chiPorta).toBe(GLOSSARY.roleCarrier);
     expect(PAROLE.chiChiede).toBe(GLOSSARY.roleAsker);
+  });
+
+  it('le parole vietate dal glossario non rientrano dalla finestra', () => {
+    /**
+     * ⚠️ Questo è il controllo che tiene in piedi il glossario adesso che i
+     * testi stanno in un posto solo: prima le parole vietate erano sparse in
+     * cinquanta schermate e nessuno poteva cercarle tutte.
+     *
+     * Ne sono state tolte cinque solo da `request/[id].tsx` e
+     * `create-request.tsx`: «driver», «host», «crediti», «richiesta» come
+     * oggetto, «consegna» come oggetto. Erano lì da sempre, ognuna sembrava
+     * innocua, e insieme facevano parlare l'app in quattro modi.
+     */
+    const vietate: [RegExp, string][] = [
+      [/\bdriver\b/i, 'driver'],
+      [/\brider\b/i, 'rider'],
+      [/\bfattorin/i, 'fattorino'],
+      [/(?:^|[^a-z])host(?:[^a-z]|$)/i, 'host'],
+      [/\bcredit[oi]\b/i, 'crediti'],
+      [/\bkarma\b/i, 'karma'],
+      [/\breferral\b/i, 'referral'],
+      [/\bdelivery\b/i, 'delivery'],
+    ];
+
+    /**
+     * ⚠️ «DELIVERY» DETTO PER NEGARLO NON È UN'INFRAZIONE, È IL MARCHIO.
+     *
+     * La prima slide dell'onboarding si intitola «Non è un delivery», e la
+     * VISION della bible comincia esattamente così. Il glossario vieta di
+     * CHIAMARE un giro «delivery»: non vieta di nominare la cosa che il
+     * progetto dichiara di non essere. Un test che non distingue le due cose
+     * costringerebbe a cancellare la frase più identitaria dell'app.
+     */
+    const negazioni = /non\s+(?:è|e')\s+un\s+delivery/i;
+
+    const colpevoli: string[] = [];
+    for (const area of ['parole', 'voce', 'ingresso', 'giro', 'persone']) {
+      const sorgente = senzaCommenti(leggi(`constants/testi/${area}.ts`));
+      for (const m of sorgente.matchAll(LETTERALE)) {
+        const v = m[1] ?? m[2] ?? m[3] ?? '';
+        if (negazioni.test(v)) continue;
+        for (const [espressione, nome] of vietate) {
+          if (espressione.test(v)) colpevoli.push(`${area}: «${nome}» in ${v.slice(0, 50)}`);
+        }
+      }
+    }
+    expect(colpevoli).toEqual([]);
+
+    // ⚠️ «Per te» NON si controlla qui: è l'etichetta di un ORDINAMENTO, e in
+    // una frase qualsiasi «per te» è italiano normale («ha speso il suo unico
+    // posto per te»). Il posto giusto è il test sui criteri di ordinamento —
+    // `niente-ranking` nel piano — dove si guarda il chip, non il copy.
   });
 
   it('il nome di una persona non si scrive mai in maiuscolo', () => {

@@ -7,8 +7,10 @@ import { EmptyState } from '@/components/empty-state';
 import { ThemedText } from '@/components/themed-text';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { BrandIcon } from '@/components/ui/brand-icon';
+import { GIRO } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { messaggioServer } from '@/lib/errori';
 import type { Message } from '@/types';
 
 /** Separatore mostrato quando tra due messaggi passano più di 15 minuti. */
@@ -53,7 +55,8 @@ export function ChatView({ messages, myId, loading, emptyMessage, onSend, quickR
       await onSend(text);
       setText('');
     } catch (e) {
-      setError((e as { message?: string })?.message ?? 'Messaggio non inviato.');
+      // Il messaggio vero del server, se c'e': dice cosa fare, la riserva no.
+      setError(messaggioServer(e, GIRO.chat.nonInviato));
     } finally {
       setSending(false);
     }
@@ -70,7 +73,7 @@ export function ChatView({ messages, myId, loading, emptyMessage, onSend, quickR
           if (messages.length > 0) listRef.current?.scrollToEnd({ animated: true });
         }}
         ListHeaderComponent={header ? <View style={styles.header}>{header}</View> : null}
-        ListEmptyComponent={loading ? null : <EmptyState title="Nessun messaggio" message={emptyMessage} />}
+        ListEmptyComponent={loading ? null : <EmptyState title={GIRO.chat.nessunMessaggio} message={emptyMessage} />}
         renderItem={({ item, index }) => {
           const mine = item.senderId === myId;
           const prev = index > 0 ? messages[index - 1] : null;

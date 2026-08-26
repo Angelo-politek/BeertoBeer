@@ -16,13 +16,14 @@ import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
 import { BrandIcon } from '@/components/ui/brand-icon';
 import { Chip } from '@/components/ui/chip';
+import { GIRO, PAROLE, VOCE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { acceptOrder, advanceOrder, arriveOrder, cancelActiveOrder, cancelOrder, cancelStaleOrder, confirmExchangeNearby, confirmOrder, getDeliveryCodeState, getOrderEta, getOrderSafetyEvents, getRequestById, regenerateDeliveryCode, releaseAcceptedOrder, reportOrderIssue, reportUser, creaLinkGiro, setOrderEta, updateOrderPresence, verifyDeliveryCode } from '@/data/api';
 import { useSession } from '@/lib/auth-context';
 import { CREDIT_CAP, estimateBonus, FORMATS } from '@/lib/credits';
 import { getCurrentCoords, haversineKm, type Coords } from '@/lib/location';
-import { motivoNonAgibile, ORDER_TIMELINE, STATO_LABEL } from '@/lib/orders';
+import { motivoNonAgibile, ORDER_TIMELINE, REQUEST_TTL_HOURS, STATO_LABEL } from '@/lib/orders';
 import { nextOrderAction } from '@/lib/discovery';
 import type { BeerRequest, DeliveryCodeState, OrderIssueType, OrderSafetyEvent, ReportReason } from '@/types';
 
@@ -63,10 +64,10 @@ export default function RequestDetailScreen() {
     try {
       const link = await creaLinkGiro(id);
       await Share.share({
-        message: `Sto facendo un giro su Beer to Beer. Puoi seguirlo qui, si apre anche senza l'app: ${link}`,
+        message: GIRO.dettaglio.linkMessaggio(link),
       });
     } catch (e) {
-      Alert.alert('Link non creato', messaggioServer(e, 'Riprova fra poco.'));
+      Alert.alert(GIRO.dettaglio.linkNonCreato, messaggioServer(e, VOCE.riserva.riprovaFraPoco));
     } finally {
       setCondividendo(false);
     }
@@ -126,7 +127,7 @@ export default function RequestDetailScreen() {
   // «Non comprare nulla»). messaggioServer lo mostra, e mette una frase di
   // riserva solo quando davvero non c'e' niente da dire.
   function errorMessage(e: unknown): string {
-    return messaggioServer(e, 'Operazione non riuscita. Riprova.');
+    return messaggioServer(e, GIRO.dettaglio.nonRiuscita);
   }
 
   async function runAction(fn: () => Promise<void>) {
@@ -167,11 +168,11 @@ export default function RequestDetailScreen() {
       return;
     }
     Alert.alert(
-      'Annulli il giro?',
-      'Sparisce dal feed e i BeerCoin impegnati tornano tuoi. Nessuna penalità.',
+      GIRO.dettaglio.annulliTitolo,
+      GIRO.dettaglio.annulliTesto,
       [
-        { text: 'Lascio aperto', style: 'cancel' },
-        { text: 'Annulla il giro', style: 'destructive', onPress: () => eseguiAnnullamento('') },
+        { text: GIRO.dettaglio.lascioAperto, style: 'cancel' },
+        { text: GIRO.dettaglio.annullaGiro, style: 'destructive', onPress: () => eseguiAnnullamento('') },
       ],
     );
   }
@@ -183,9 +184,9 @@ export default function RequestDetailScreen() {
       await reportUser(request.host.id, reportReason, reportDetails, request.id);
       setReportOpen(false);
       setReportDetails('');
-      toast.show('Segnalazione inviata: la richiesta è in verifica');
+      toast.show(GIRO.dettaglio.segnalataInviata);
     } catch {
-      toast.show('Segnalazione non inviata (già segnalata?)', 'error');
+      toast.show(GIRO.dettaglio.segnalataNonInviata, 'error');
     } finally {
       setReportLoading(false);
     }
@@ -222,7 +223,7 @@ export default function RequestDetailScreen() {
         // ma una volta sola — non un avviso ogni quindici secondi.
         if (presenzaFallitaRef.current) return;
         presenzaFallitaRef.current = true;
-        toast.show('Non riesco a inviare la tua posizione: usate il codice di consegna.', 'error');
+        toast.show(GIRO.dettaglio.posizioneNonParte, 'error');
       });
     };
     invia();
@@ -234,7 +235,7 @@ export default function RequestDetailScreen() {
   }, [statoCorrente, id, toast]);
 
   async function handleEta(minutes: number) {
-    await runAction(async () => { await setOrderEta(id, minutes); setEtaMinutes(minutes); toast.show(`Arrivo stimato: ${minutes} minuti.`); });
+    await runAction(async () => { await setOrderEta(id, minutes); setEtaMinutes(minutes); toast.show(GIRO.dettaglio.arrivoStimato(minutes)); });
   }
 
   async function handleIssue(type: OrderIssueType, dettagli = '') {
@@ -246,10 +247,10 @@ export default function RequestDetailScreen() {
       // il messaggio dice cosa succede davvero.
       toast.show(
         type === 'unsafe'
-          ? 'Giro fermato. Gli amministratori sono stati avvisati.'
+          ? GIRO.dettaglio.fermatoAvvisati
           : type === 'request_mismatch'
-            ? 'Segnalazione inviata agli amministratori.'
-            : 'L’altra persona lo sa.',
+            ? GIRO.dettaglio.inviataAgliAdmin
+            : GIRO.dettaglio.altroLoSa,
       );
       // «Non mi sento al sicuro» congela il giro: la schermata deve
       // aggiornarsi, o continua a mostrare pulsanti che ora il server rifiuta.
@@ -258,7 +259,7 @@ export default function RequestDetailScreen() {
   }
 
   async function handleRegenerateCode() {
-    await runAction(async () => { await regenerateDeliveryCode(id); setDeliveryCode(await getDeliveryCodeState(id)); toast.show('Nuovo codice pronto.'); });
+    await runAction(async () => { await regenerateDeliveryCode(id); setDeliveryCode(await getDeliveryCodeState(id)); toast.show(GIRO.dettaglio.codicePronto); });
   }
 
   async function handleNearbyConfirm() {
@@ -267,31 +268,31 @@ export default function RequestDetailScreen() {
       const coords = await getCurrentCoords();
       if (!coords) { setHandshakeStatus('code_required'); return; }
       const result = await confirmExchangeNearby(id, coords);
-      if (result.status === 'completed') { toast.show('Scambio confermato. Buona birra!'); await reload(); }
-      else { setHandshakeStatus(result.status); if (result.status === 'waiting') toast.show('Confermato. Manca solo l’altra persona.'); }
+      if (result.status === 'completed') { toast.show(GIRO.dettaglio.scambioFatto); await reload(); }
+      else { setHandshakeStatus(result.status); if (result.status === 'waiting') toast.show(GIRO.dettaglio.confermatoMancaAltro); }
     } catch (e) { setActionError(errorMessage(e)); } finally { setActing(false); }
   }
 
   function askRelease() {
-    Alert.alert('Liberare il giro?', 'La richiesta tornerà disponibile e non ci saranno penalità.', [
-      { text: 'Resta nel giro', style: 'cancel' },
-      { text: 'Libera', style: 'destructive', onPress: () => runAction(() => releaseAcceptedOrder(id)) },
+    Alert.alert(GIRO.dettaglio.liberaTitolo, GIRO.dettaglio.liberaTesto, [
+      { text: GIRO.dettaglio.restaNelGiro, style: 'cancel' },
+      { text: GIRO.dettaglio.liberaConferma, style: 'destructive', onPress: () => runAction(() => releaseAcceptedOrder(id)) },
     ]);
   }
 
   function askSeriousCancel() {
-    Alert.alert('Perché devi fermarti?', 'Dopo la partenza il motivo viene registrato per sicurezza.', [
-      { text: 'Emergenza', onPress: () => runAction(() => cancelActiveOrder(id, 'emergenza')) },
-      { text: 'Guasto o incidente', onPress: () => runAction(() => cancelActiveOrder(id, 'guasto')) },
-      { text: 'Non è sicuro', style: 'destructive', onPress: () => runAction(() => cancelActiveOrder(id, 'non_sicuro')) },
-      { text: 'Annulla', style: 'cancel' },
+    Alert.alert(GIRO.dettaglio.fermartiTitolo, GIRO.dettaglio.fermartiTesto, [
+      { text: GIRO.dettaglio.emergenza, onPress: () => runAction(() => cancelActiveOrder(id, 'emergenza')) },
+      { text: GIRO.dettaglio.guasto, onPress: () => runAction(() => cancelActiveOrder(id, 'guasto')) },
+      { text: GIRO.dettaglio.nonSicuro, style: 'destructive', onPress: () => runAction(() => cancelActiveOrder(id, 'non_sicuro')) },
+      { text: VOCE.azione.annulla, style: 'cancel' },
     ]);
   }
 
   if (loading) {
     return (
       <ThemedView style={styles.container}>
-        <Stack.Screen options={{ title: 'Richiesta' }} />
+        <Stack.Screen options={{ title: GIRO.dettaglio.titolo(PAROLE.giro) }} />
         <View style={styles.center}>
           <ActivityIndicator color={c.accent} size="large" />
         </View>
@@ -302,14 +303,13 @@ export default function RequestDetailScreen() {
   if (!request) {
     return (
       <ThemedView style={styles.container}>
-        <Stack.Screen options={{ title: 'Richiesta' }} />
+        <Stack.Screen options={{ title: GIRO.dettaglio.titolo(PAROLE.giro) }} />
         <View style={styles.center}>
-          <ThemedText type="subtitle">Richiesta scaduta o non disponibile</ThemedText>
+          <ThemedText type="subtitle">{GIRO.dettaglio.scadutoTitolo}</ThemedText>
           <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>
-            Potrebbe essere già stata accettata, scaduta dopo 12 ore o rimossa. Torna al feed per
-            vedere le richieste attive.
+            {GIRO.dettaglio.scadutoTesto(REQUEST_TTL_HOURS)}
           </ThemedText>
-          <Button label="Torna al feed" variant="secondary" onPress={() => router.back()} />
+          <Button label={GIRO.dettaglio.tornaAlFeed} variant="secondary" onPress={() => router.back()} />
         </View>
       </ThemedView>
     );
@@ -348,11 +348,11 @@ export default function RequestDetailScreen() {
 
     if (stato === 'richiesto') {
       if (isHost) {
-        return <Button label="Annulla richiesta" variant="danger" onPress={handleCancel} loading={acting} />;
+        return <Button label={GIRO.dettaglio.annullaGiro} variant="danger" onPress={handleCancel} loading={acting} />;
       }
       return (
         <Button
-          label="Accetta consegna"
+          label={GIRO.dettaglio.accetta}
           onPress={() => runAction(() => acceptOrder(id, driverCoords))}
           loading={acting}
         />
@@ -363,15 +363,15 @@ export default function RequestDetailScreen() {
       if (isDriver) {
         return (
           <View style={styles.footerActions}>
-            <Button label="Inizia consegna" onPress={() => runAction(() => advanceOrder(id, 'in_consegna'))} loading={acting} />
-            <Button label="Ho cambiato idea: libera" variant="secondary" onPress={askRelease} />
+            <Button label={GIRO.dettaglio.parti} onPress={() => runAction(() => advanceOrder(id, 'in_consegna'))} loading={acting} />
+            <Button label={GIRO.dettaglio.libera} variant="secondary" onPress={askRelease} />
           </View>
         );
       }
       return (
         <View style={styles.footerActions}>
-          <StatusNote text={`${chiPorta?.nome ?? 'Chi porta'} ha accettato e si sta organizzando.`} />
-          <Button label="Annulla il giro" variant="secondary" onPress={handleCancel} loading={acting} />
+          <StatusNote text={GIRO.dettaglio.haAccettato(chiPorta?.nome ?? PAROLE.chiPorta)} />
+          <Button label={GIRO.dettaglio.annullaGiro} variant="secondary" onPress={handleCancel} loading={acting} />
         </View>
       );
     }
@@ -380,26 +380,26 @@ export default function RequestDetailScreen() {
       if (isDriver) {
         return (
           <Button
-            label="Sono arrivato"
+            label={GIRO.dettaglio.sonoArrivato}
             onPress={() => runAction(() => arriveOrder(id))}
             loading={acting}
           />
         );
       }
-      return <StatusNote text="La birra è in arrivo." />;
+      return <StatusNote text={GIRO.dettaglio.birraInArrivo} />;
     }
 
     if (stato === 'arrivato') {
       if ((isHost || isDriver) && handshakeStatus === 'idle') {
-        return <View style={styles.codeForm}><ThemedText type="defaultSemiBold">Siete insieme?</ThemedText><ThemedText type="caption">Un tocco a testa. Verifichiamo solo che i telefoni siano vicini.</ThemedText><Button label="Conferma scambio" onPress={handleNearbyConfirm} loading={acting} /><Button label="La posizione non funziona" variant="secondary" onPress={() => setHandshakeStatus('code_required')} /></View>;
+        return <View style={styles.codeForm}><ThemedText type="defaultSemiBold">{GIRO.dettaglio.sieteInsieme}</ThemedText><ThemedText type="caption">{GIRO.dettaglio.unTocco}</ThemedText><Button label={GIRO.dettaglio.confermaScambio} onPress={handleNearbyConfirm} loading={acting} /><Button label={GIRO.dettaglio.posizioneNonVa} variant="secondary" onPress={() => setHandshakeStatus('code_required')} /></View>;
       }
       if (handshakeStatus === 'waiting') {
-        return <View style={styles.codeForm}><ThemedText type="defaultSemiBold">La tua conferma è registrata</ThemedText><ThemedText type="caption">Manca solo l’altra persona. La pagina si aggiorna automaticamente.</ThemedText><Button label="Verifica di nuovo" variant="secondary" onPress={handleNearbyConfirm} /></View>;
+        return <View style={styles.codeForm}><ThemedText type="defaultSemiBold">{GIRO.dettaglio.confermaRegistrata}</ThemedText><ThemedText type="caption">{GIRO.dettaglio.mancaAltro}</ThemedText><Button label={GIRO.dettaglio.verificaDiNuovo} variant="secondary" onPress={handleNearbyConfirm} /></View>;
       }
       if (isDriver) {
         return (
           <View style={styles.codeForm}>
-            <ThemedText type="defaultSemiBold">Chiedi il codice all’host</ThemedText>
+            <ThemedText type="defaultSemiBold">{GIRO.dettaglio.chiediCodice(host.nome)}</ThemedText>
             <TextInput
               value={codeInput}
               onChangeText={(value) => setCodeInput(value.replace(/\D/g, '').slice(0, 3))}
@@ -409,55 +409,57 @@ export default function RequestDetailScreen() {
               placeholderTextColor={c.textSecondary}
               style={[styles.codeInput, { color: c.text, backgroundColor: c.surfaceAlt, borderColor: c.border }]}
             />
-            <Button label="Conferma con codice" disabled={codeInput.length !== 3} onPress={() => runAction(() => verifyDeliveryCode(id, codeInput))} loading={acting} />
+            <Button label={GIRO.dettaglio.confermaConCodice} disabled={codeInput.length !== 3} onPress={() => runAction(() => verifyDeliveryCode(id, codeInput))} loading={acting} />
           </View>
         );
       }
-      return <StatusNote text="Chi porta è arrivato. Comunica il codice solo quando siete insieme." />;
+      return <StatusNote text={GIRO.dettaglio.comunicaCodice} />;
     }
 
     if (stato === 'consegnato') {
       const iConfirmed = isHost ? request.hostConfermato : request.driverConfermato;
       if ((isHost || isDriver) && !iConfirmed) {
         return (
-          <Button label="Conferma scambio" onPress={() => runAction(() => confirmOrder(id))} loading={acting} />
+          <Button label={GIRO.dettaglio.confermaScambio} onPress={() => runAction(() => confirmOrder(id))} loading={acting} />
         );
       }
-      return <StatusNote text="In attesa della conferma dell'altra persona." />;
+      return <StatusNote text={GIRO.dettaglio.inAttesaAltro} />;
     }
 
     if (isHost || isDriver) {
       return (
         <View style={styles.footerActions}>
           <Button
-            label="Apri chat"
+            label={GIRO.dettaglio.apriChat}
             variant="secondary"
             onPress={() => router.push({ pathname: '/chat/[orderId]', params: { orderId: id } } as never)}
           />
-          <Button label="Lascia recensione" onPress={() => router.push({ pathname: '/review', params: { orderId: id } } as never)} />
+          <Button label={GIRO.dettaglio.lasciaRecensione} onPress={() => router.push({ pathname: '/review', params: { orderId: id } } as never)} />
         </View>
       );
     }
 
-    return <StatusNote text="Scambio completato. Crediti trasferiti." />;
+    return <StatusNote text={GIRO.dettaglio.completato} />;
   }
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Dettaglio giro' }} />
+      <Stack.Screen options={{ title: GIRO.dettaglio.titolo(PAROLE.giro) }} />
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.liveHero, { backgroundColor: c.accent }]}>
-          <ThemedText type="label" style={{ color: c.accentText }}>PROSSIMA AZIONE</ThemedText>
+          <ThemedText type="label" style={{ color: c.accentText }}>{GIRO.dettaglio.prossimaAzione}</ThemedText>
           <ThemedText type="title" style={{ color: c.accentText }}>{nextAction.label}</ThemedText>
           <ThemedText style={{ color: c.accentText, opacity: 0.72 }}>{STATO_LABEL[request.stato]}{etaMinutes ? ` · ${etaMinutes} min` : ''}</ThemedText>
         </View>
         {fermo ? (
           <View style={[styles.fermoRow, { backgroundColor: c.dangerSoft, borderColor: c.danger }]}>
-            <ThemedText type="label" style={{ color: c.danger }}>{fermo.toUpperCase()}</ThemedText>
+            {/* Il maiuscolo lo mette type="label": scriverlo anche qui con
+                .toUpperCase() lo mandava urlato pure dove non c'e' foglio di
+                stile. */}
+            <ThemedText type="label" style={{ color: c.danger }}>{fermo}</ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>
-              Finche resta cosi non si puo fare niente su questo giro. Se pensi sia un errore,
-              scrivilo dal profilo: lo legge chi modera.
+              {GIRO.dettaglio.fermoTesto}
             </ThemedText>
           </View>
         ) : null}
@@ -467,7 +469,7 @@ export default function RequestDetailScreen() {
           <Badge label={STATO_LABEL[request.stato]} tone="accent" />
           {!isHost && request.stato === 'richiesto' ? (
             <Pressable onPress={() => setReportOpen(true)} hitSlop={8}>
-              <ThemedText style={{ color: c.danger, fontSize: 13 }}>Segnala</ThemedText>
+              <ThemedText style={{ color: c.danger, fontSize: 13 }}>{GIRO.dettaglio.segnala}</ThemedText>
             </Pressable>
           ) : null}
         </View>
@@ -478,9 +480,10 @@ export default function RequestDetailScreen() {
           style={({ pressed }) => [styles.hostRow, { opacity: pressed ? 0.6 : 1 }]}>
           <Avatar name={host.nome} size={56} uri={host.fotoUrl} />
           <View style={styles.hostInfo}>
-            <ThemedText type="subtitle">{host.nome}</ThemedText>
+            {/* type="nome": il nome di una persona non si urla. */}
+            <ThemedText type="nome">{host.nome}</ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>
-              {host.eta} anni · {host.ratingMedio.toFixed(1)} su 5 · {host.scambiCompletati} giri
+              {GIRO.dettaglio.fattiPersona(host.eta, host.scambiCompletati)}
             </ThemedText>
           </View>
           <BrandIcon name="arrow-right" size={20} color={c.textSecondary} />
@@ -501,10 +504,10 @@ export default function RequestDetailScreen() {
             style={({ pressed }) => [styles.hostRow, { opacity: pressed ? 0.6 : 1 }]}>
             <Avatar name={chiPorta.nome} size={56} uri={chiPorta.fotoUrl} />
             <View style={styles.hostInfo}>
-              <ThemedText type="label" style={{ color: c.textSecondary }}>PORTA LE BIRRE</ThemedText>
-              <ThemedText type="subtitle">{chiPorta.nome}</ThemedText>
+              <ThemedText type="label" style={{ color: c.textSecondary }}>{GIRO.dettaglio.portaLeBirre}</ThemedText>
+              <ThemedText type="nome">{chiPorta.nome}</ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>
-                {chiPorta.eta} anni · {chiPorta.scambiCompletati} giri
+                {GIRO.dettaglio.fattiPersona(chiPorta.eta, chiPorta.scambiCompletati)}
               </ThemedText>
             </View>
             <BrandIcon name="arrow-right" size={20} color={c.textSecondary} />
@@ -514,28 +517,29 @@ export default function RequestDetailScreen() {
         {/* Banner vibe mode */}
         {request.vibeMode ? (
           <View style={[styles.vibeBanner, { backgroundColor: c.accentSoft }]}>
-            <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong }}>
-              VIBE MODE ATTIVA
+            {/* type="label" e non defaultSemiBold: cosi' il maiuscolo lo mette
+                il foglio di stile, e la stringa resta scritta in tondo. */}
+            <ThemedText type="label" style={{ color: c.accentStrong }}>
+              {GIRO.dettaglio.vibeTitolo}
             </ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>
-              {host.nome} ti invita a fermarti a bere insieme una volta consegnate le birre. È sempre
-              facoltativo: puoi anche consegnare e andare via.
+              {GIRO.dettaglio.vibeTesto(host.nome)}
             </ThemedText>
           </View>
         ) : null}
 
         {isDriver && ['accettato', 'in_consegna'].includes(request.stato) ? (
-          <Section title="Quanto manca?">
-            <View style={styles.quickRow}>{[10, 20, 30, 45].map((minutes) => <Chip key={minutes} label={`${minutes} min`} active={etaMinutes === minutes} onPress={() => handleEta(minutes)} />)}</View>
-            <Button label="Sono in ritardo" size="md" variant="secondary" onPress={() => handleIssue('delay')} />
+          <Section title={GIRO.dettaglio.quantoManca}>
+            <View style={styles.quickRow}>{[10, 20, 30, 45].map((minutes) => <Chip key={minutes} label={GIRO.dettaglio.minuti(minutes)} active={etaMinutes === minutes} onPress={() => handleEta(minutes)} />)}</View>
+            <Button label={GIRO.dettaglio.sonoInRitardo} size="md" variant="secondary" onPress={() => handleIssue('delay')} />
           </Section>
         ) : null}
 
         {(isHost || isDriver) && ['in_consegna', 'arrivato'].includes(request.stato) ? (
-          <Button label="Devo fermare il giro" variant="danger" onPress={askSeriousCancel} />
+          <Button label={GIRO.dettaglio.devoFermare} variant="danger" onPress={askSeriousCancel} />
         ) : null}
 
-        <Section title="Stato del giro">
+        <Section title={GIRO.dettaglio.statoDelGiro}>
           <View style={styles.timeline}>
             {ORDER_TIMELINE.map((step, index) => {
               const current = ORDER_TIMELINE.indexOf(request.stato);
@@ -554,16 +558,16 @@ export default function RequestDetailScreen() {
         </Section>
 
         {isHost && deliveryCode?.code && ['accettato', 'in_consegna', 'arrivato'].includes(request.stato) ? (
-          <Section title="Codice di consegna">
+          <Section title={GIRO.dettaglio.codiceTitolo}>
             <ThemedText style={[styles.deliveryCode, { color: c.accent }]}>{deliveryCode.code}</ThemedText>
-            <ThemedText style={{ color: c.textSecondary }}>Comunicalo solo quando chi porta è davanti a te.</ThemedText>
-            <ThemedText type="caption">Tentativi disponibili: {deliveryCode.attemptsRemaining}. Il codice scade automaticamente.</ThemedText>
-            <Button label="Genera nuovo codice" size="md" variant="secondary" onPress={handleRegenerateCode} />
+            <ThemedText style={{ color: c.textSecondary }}>{GIRO.dettaglio.codiceNota}</ThemedText>
+            <ThemedText type="caption">{GIRO.dettaglio.codiceTentativi(deliveryCode.attemptsRemaining)}</ThemedText>
+            <Button label={GIRO.dettaglio.codiceNuovo} size="md" variant="secondary" onPress={handleRegenerateCode} />
           </Section>
         ) : null}
 
         {/* Birre richieste */}
-        <Section title="Birre richieste">
+        <Section title={GIRO.dettaglio.birre}>
           {request.birre.map((b, i) => (
             <View
               key={`${b.nome}-${i}`}
@@ -581,23 +585,23 @@ export default function RequestDetailScreen() {
         </Section>
 
         {/* Consegna */}
-        <Section title="Consegna">
+        <Section title={GIRO.dettaglio.dove}>
           {canSeeAddress ? (
             <ThemedText>{request.indirizzo}</ThemedText>
           ) : (
             <ThemedText style={{ color: c.textSecondary }}>
-              Indirizzo esatto visibile dopo l’accettazione.
+              {GIRO.dettaglio.indirizzoDopo}
             </ThemedText>
           )}
           {request.fascia ? (
-            <ThemedText style={{ color: c.textSecondary }}>Quando: {request.fascia}</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>{GIRO.dettaglio.quando(request.fascia)}</ThemedText>
           ) : null}
           {distanceKm != null ? (
-            <ThemedText style={{ color: c.textSecondary }}>~{distanceKm.toFixed(1)} km da te</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>{GIRO.dettaglio.distanza(distanceKm.toFixed(1))}</ThemedText>
           ) : null}
           {!canSeeAddress && hasCoords ? (
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-              La mappa mostra la zona approssimativa; l’indirizzo esatto dopo l’accettazione.
+              {GIRO.dettaglio.mappaApprossimativa}
             </ThemedText>
           ) : null}
           {hasCoords ? (
@@ -613,15 +617,15 @@ export default function RequestDetailScreen() {
           {request.stato === 'richiesto' && !isHost ? (
             <ThemedText style={{ color: c.textSecondary }}>
               {distanceKm != null
-                ? `Se accetti tu si aggiunge un bonus distanza di circa ${estimateBonus(distanceKm)} crediti (massimo ${CREDIT_CAP} totali).`
-                : `Quando accetti si aggiunge un bonus in base alla tua distanza (massimo ${CREDIT_CAP} totali).`}
+                ? GIRO.dettaglio.bonusSeAccetti(estimateBonus(distanceKm), CREDIT_CAP)
+                : GIRO.dettaglio.bonusQuandoAccetti(CREDIT_CAP)}
             </ThemedText>
           ) : null}
-          <ThemedText style={{ color: c.textSecondary }}>Credito chiuso: non si compra, non si trasferisce, non si converte.</ThemedText>
+          <ThemedText style={{ color: c.textSecondary }}>{GIRO.dettaglio.monetaChiusa}</ThemedText>
         </Section>
 
         {canSeeAddress && request.stato !== 'richiesto' && request.stato !== 'confermato' ? (
-          <Section title="Se qualcosa non va">
+          <Section title={GIRO.dettaglio.seQualcosaNonVa}>
             {/* Via il CONTATTO FIDATO: si salvava davvero in
                 order_trusted_contacts, ma nessuno leggeva quella tabella. Un
                 campo che chiede il numero di una persona cara e poi non lo usa
@@ -633,15 +637,15 @@ export default function RequestDetailScreen() {
                 apriva l'app, e solo a chi partecipava a quel giro. Un genitore
                 senza app vedeva un link morto. */}
             <Button
-              label={condividendo ? 'Preparo il link...' : 'Fai seguire il giro a qualcuno'}
+              label={condividendo ? GIRO.dettaglio.linkInCorso : GIRO.dettaglio.faiSeguire(PAROLE.giro)}
               variant="secondary"
               loading={condividendo}
               onPress={condividiGiro}
             />
             <ThemedText type="caption" style={{ color: c.textSecondary }}>
               {isDriver
-                ? 'Si apre da qualsiasi telefono, anche senza app. Mostra dove sei e a che punto è il giro. Scade dopo 12 ore.'
-                : 'Si apre da qualsiasi telefono, anche senza app. Mostra a che punto è il giro, mai il tuo indirizzo. La posizione di chi porta può condividerla solo lui.'}
+                ? GIRO.dettaglio.linkChiPorta(REQUEST_TTL_HOURS)
+                : GIRO.dettaglio.linkChiChiede}
             </ThemedText>
 
             {/*
@@ -658,33 +662,33 @@ export default function RequestDetailScreen() {
             <View style={styles.issueGrid}>
               {isDriver ? (
                 <Button
-                  label="Sono in ritardo"
+                  label={GIRO.dettaglio.sonoInRitardo}
                   size="md"
                   variant="secondary"
                   onPress={() => handleIssue('delay')}
                 />
               ) : null}
               <Button
-                label="Non trovo la persona"
+                label={GIRO.dettaglio.nonTrovoPersona}
                 size="md"
                 variant="secondary"
                 onPress={() => handleIssue('person_absent')}
               />
               <Button
-                label="Non è il giro concordato"
+                label={GIRO.dettaglio.nonEIlGiro}
                 size="md"
                 variant="secondary"
                 onPress={() => setChiediDettagli('request_mismatch')}
               />
               <Button
-                label="Non mi sento al sicuro"
+                label={GIRO.dettaglio.nonMiSentoAlSicuro}
                 size="md"
                 variant="danger"
                 onPress={() => setChiediDettagli('unsafe')}
               />
               {canCloseStale ? (
                 <Button
-                  label="Chiudi giro bloccato"
+                  label={GIRO.dettaglio.chiudiBloccato}
                   size="md"
                   variant="secondary"
                   onPress={() => runAction(() => cancelStaleOrder(id))}
@@ -693,12 +697,12 @@ export default function RequestDetailScreen() {
             </View>
             ) : (
               <ThemedText type="caption" style={{ color: c.textSecondary }}>
-                Quando qualcuno accetta, qui compaiono i modi per segnalare un problema.
+                {GIRO.dettaglio.guaiPiuTardi}
               </ThemedText>
             )}
             {request.driverId ? (
               <ThemedText type="caption" style={{ color: c.textSecondary }}>
-                Le ultime due arrivano agli amministratori. «Non mi sento al sicuro» ferma subito il giro.
+                {GIRO.dettaglio.guaiNota}
               </ThemedText>
             ) : null}
           </Section>
@@ -714,7 +718,7 @@ export default function RequestDetailScreen() {
         ) : null}
         {canSeeAddress && request.stato !== 'richiesto' && request.stato !== 'confermato' ? (
           <Button
-            label="Apri chat"
+            label={GIRO.dettaglio.apriChat}
             variant="secondary"
             onPress={() => router.push({ pathname: '/chat/[orderId]', params: { orderId: id } } as never)}
           />
@@ -724,10 +728,10 @@ export default function RequestDetailScreen() {
 
       <TestoModal
         visible={annullaOpen}
-        titolo="Perché annulli?"
-        spiegazione={`${chiPorta?.nome ?? 'Chi porta'} ha già accettato e potrebbe essere già uscito. Due parole bastano: le legge solo lui.`}
-        placeholder="Es. mi si sono presentati degli amici con le birre"
-        etichettaConferma="Annulla il giro"
+        titolo={GIRO.dettaglio.percheAnnulliTitolo}
+        spiegazione={GIRO.dettaglio.percheAnnulliTesto(chiPorta?.nome ?? PAROLE.chiPorta)}
+        placeholder={GIRO.dettaglio.percheAnnulliSegnaposto}
+        etichettaConferma={GIRO.dettaglio.annullaGiro}
         minimo={3}
         pericolo
         loading={acting}
@@ -740,7 +744,7 @@ export default function RequestDetailScreen() {
 
       <ReportModal
         visible={reportOpen}
-        title="Segnala richiesta"
+        title={GIRO.dettaglio.segnalaGiro}
         reason={reportReason}
         details={reportDetails}
         loading={reportLoading}
@@ -756,14 +760,14 @@ export default function RequestDetailScreen() {
           dalla porta. */}
       <TestoModal
         visible={chiediDettagli != null}
-        titolo={chiediDettagli === 'unsafe' ? 'Cosa sta succedendo?' : 'Cosa non torna?'}
+        titolo={chiediDettagli === 'unsafe' ? GIRO.dettaglio.cosaSuccedeTitolo : GIRO.dettaglio.cosaNonTornaTitolo}
         spiegazione={
           chiediDettagli === 'unsafe'
-            ? 'Il giro viene fermato subito e la segnalazione arriva agli amministratori. Scrivi cosa sta succedendo: senza sapere cosa è successo non possono aiutarti davvero. Se sei in pericolo immediato chiama il 112.'
-            : 'La segnalazione arriva agli amministratori, e l’altra persona potrà dare la sua versione. Scrivi cosa era stato concordato e cosa è arrivato.'
+            ? GIRO.dettaglio.unsafeSpiegazione
+            : GIRO.dettaglio.mismatchSpiegazione
         }
-        placeholder={chiediDettagli === 'unsafe' ? 'Es. non se ne va da davanti al portone' : 'Es. avevo chiesto sei birre, ne sono arrivate due'}
-        etichettaConferma={chiediDettagli === 'unsafe' ? 'Ferma il giro' : 'Segnala'}
+        placeholder={chiediDettagli === 'unsafe' ? GIRO.dettaglio.unsafeSegnaposto : GIRO.dettaglio.mismatchSegnaposto}
+        etichettaConferma={chiediDettagli === 'unsafe' ? GIRO.dettaglio.fermaIlGiro : GIRO.dettaglio.segnala}
         pericolo={chiediDettagli === 'unsafe'}
         loading={acting}
         onClose={() => setChiediDettagli(null)}
@@ -781,12 +785,7 @@ function StatusNote({ text }: { text: string }) {
 }
 
 function eventLabel(type: OrderSafetyEvent['eventType']): string {
-  const labels: Record<OrderSafetyEvent['eventType'], string> = {
-    accepted: 'Giro accettato', started: 'Partenza o ETA aggiornata', arrived: 'Arrivo registrato',
-    code_failed: 'Codice non valido', code_verified: 'Codice verificato', exited: 'Uscita dal giro',
-    shared: 'Stato condiviso', reported: 'Imprevisto registrato', completed: 'Giro completato',
-  };
-  return labels[type];
+  return GIRO.dettaglio.evento[type];
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {

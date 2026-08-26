@@ -6,12 +6,12 @@
 
 ## STATO — aggiornato il 26/08/2026
 
-**24 commit, 10 migrazioni, 368 test verdi.** Versione in circolazione:
+**25 commit, 10 migrazioni, 369 test verdi.** Versione in circolazione:
 **3.0.0-beta.2** (`constants/versione.ts`).
 
 > **C6 è cominciato.** `constants/testi/` esiste, il contatore è in
 > `glossario.test.ts`, e la soglia parla dai testi. Il rendiconto lo stampa
-> `npm test`: **38 file su 103, ne mancano 65.** Il dettaglio è in
+> `npm test`: **44 file su 103, ne mancano 59.** Il dettaglio è in
 > «Ondata 1 · C6 · stato del cantiere», più sotto.
 
 ### Scudo beta — completo
@@ -397,8 +397,29 @@ letto a schermo da home, dettaglio e «I miei giri» insieme. Ora stanno in
 `constants/testi/giro.ts`, dove si rileggono di fila. Più `my-orders.tsx` e
 `review.tsx`.
 
-Restano di S2: `create-request.tsx`, **`request/[id].tsx` (84 frasi, la
-schermata più grossa dell'app)** e le tre chat.
+**S2 è chiusa**: più `create-request.tsx`, **`request/[id].tsx` (875 righe,
+84 frasi)** e le tre chat.
+
+> ⚠️ **`request/[id].tsx` era la schermata più fuori glossario dell'app, e non
+> per caso: è cresciuta a strati.** Diceva **«host»**, **«consegna»** e
+> **«richiesta»** come oggetto, **«crediti»**; parlava in prima persona due
+> volte («Non riesco a inviare la tua posizione», «Preparo il link…»); diceva
+> «Verifichiamo» al plurale maiestatis; aveva un punto esclamativo («Buona
+> birra!») e **tre parole senza accento — «Finche», «cosi», «puo» — nella
+> banda che compare quando un giro è fermo**, cioè nel punto in cui una
+> persona è già in ansia.
+>
+> Adesso c'è una guardia che impedisce alle parole vietate di rientrare in
+> `testi/`, ed è stata vista fallire apposta. ⚠️ Con un'eccezione dichiarata:
+> **«non è un delivery» non è un'infrazione, è il marchio** — la VISION della
+> bible comincia proprio così. Il glossario vieta di *chiamare* un giro
+> «delivery», non di nominare la cosa che il progetto dichiara di non essere.
+
+> 📌 **Da segnalare per D5**: la lista del piano («via il numero da
+> `user/[id].tsx`, `request-card.tsx`, `feed-map.tsx`») **è incompleta**.
+> Anche `app/request/[id].tsx` mostra `ratingMedio.toFixed(1)} su 5` sul
+> profilo di chi ha lanciato il giro. Non l'ho tolto qui: D5 è una voce a sé,
+> e toglierlo da un posto solo lascerebbe l'app a metà.
 
 **Due difetti corretti passando:** `motivoNonAgibile` diceva «una segnalazione
 **e** in verifica», senza accento (una delle 18 stringhe senza accenti che il

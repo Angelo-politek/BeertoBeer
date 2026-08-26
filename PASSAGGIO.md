@@ -140,15 +140,17 @@ che misura il resto.
 
 **S1 · la soglia è chiusa**: accesso, registrazione, recupero password,
 conferma email, onboarding, invito — più `lib/auth-errors.ts`.
-**S2 · il giro è cominciata**: fatto il vocabolario condiviso (gli stati, i
-motivi per cui un giro è fermo, le etichette della prossima azione), più
-«I miei giri» e la recensione. Restano `create-request`, `request/[id]` — la
-schermata più grossa dell'app — e le tre chat.
+**S2 · il giro è chiusa**: il vocabolario condiviso (gli stati, i motivi per
+cui un giro è fermo, le etichette della prossima azione), «I miei giri», la
+recensione, `create-request`, `request/[id]` — 875 righe e 84 frasi, la più
+grossa dell'app — e le tre chat.
+
+Il prossimo è **S3**: le persone, il sistema e il pannello.
 
 Il rendiconto lo stampa `npm test`, una riga sola:
 
 ```
-C6 · 38 file su 103 parlano dai testi. Mancano 65.
+C6 · 44 file su 103 parlano dai testi. Mancano 59.
 ```
 
 Quando la lista `IN_DEROGA` di `lib/__tests__/glossario.test.ts` è vuota, C6 è

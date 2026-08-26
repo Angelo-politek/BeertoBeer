@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 import { ChatView } from '@/components/chat-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PERSONE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { getEventById, getEventMessages, sendEventMessage } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
@@ -48,7 +49,7 @@ export default function ChatEventoScreen() {
       setMessaggi(m);
       setErrore(null);
     } catch (e) {
-      setErrore(messaggioServer(e, 'Chat non disponibile.'));
+      setErrore(messaggioServer(e, PERSONE.chat.gruppoNonDisponibile));
     } finally {
       setLoading(false);
     }
@@ -67,7 +68,7 @@ export default function ChatEventoScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: evento?.titolo ?? 'Chat del gruppo' }} />
+      <Stack.Screen options={{ title: evento?.titolo ?? PERSONE.chat.gruppoTitolo }} />
       {errore ? (
         <ThemedText style={[styles.errore, { color: c.danger }]}>{errore}</ThemedText>
       ) : null}
@@ -75,9 +76,9 @@ export default function ChatEventoScreen() {
         messages={messaggi}
         myId={myId}
         loading={loading}
-        emptyMessage="Ancora nessun messaggio. Mettetevi d’accordo su chi porta cosa."
+        emptyMessage={PERSONE.chat.gruppoVuota}
         onSend={invia}
-        quickReplies={['Ci sono!', 'Arrivo tardi di 10 minuti', 'Che porto?', 'Dove ci troviamo di preciso?']}
+        quickReplies={[...PERSONE.chat.gruppoRapide]}
       />
     </ThemedView>
   );

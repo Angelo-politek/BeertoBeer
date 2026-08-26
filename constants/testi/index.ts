@@ -68,3 +68,4 @@ export { PAROLE } from './parole';
 export { VOCE } from './voce';
 export { INGRESSO, type SlideOnboarding } from './ingresso';
 export { GIRO } from './giro';
+export { PERSONE } from './persone';
