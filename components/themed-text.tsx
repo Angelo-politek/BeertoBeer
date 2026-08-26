@@ -10,6 +10,7 @@ export type ThemedTextProps = TextProps & {
   type?:
     | 'default'
     | 'title'
+    | 'nome'
     | 'display'
     | 'defaultSemiBold'
     | 'subtitle'
@@ -52,6 +53,7 @@ export function ThemedText({
         { color },
         type === 'default' ? styles.default : undefined,
         type === 'title' ? styles.title : undefined,
+        type === 'nome' ? styles.nome : undefined,
         type === 'display' ? styles.display : undefined,
         type === 'defaultSemiBold' ? styles.defaultSemiBold : undefined,
         type === 'subtitle' ? styles.subtitle : undefined,
@@ -89,6 +91,24 @@ const styles = StyleSheet.create({
     lineHeight: 38,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+  },
+  /**
+   * IL NOME DI UNA PERSONA. Bebas come un titolo, ma SENZA `textTransform`.
+   *
+   * ⚠️ Perché esiste: `app/review.tsx` passava il nome di chi hai appena
+   * incontrato a `type="title"`, e `title` è maiuscolo. Il risultato era che
+   * la schermata in cui racconti com'è andato uno scambio con una persona ti
+   * urlava addosso il suo nome — «GIULIA» — che è il modo in cui si scrive un
+   * cognome su un modulo, non il modo in cui si chiama qualcuno.
+   *
+   * Il maiuscolo del marchio è per le AFFERMAZIONI dell'app. Un nome non è
+   * un'affermazione dell'app: è di chi ce l'ha, e si scrive come lo scrive lui.
+   */
+  nome: {
+    fontFamily: Fonts.display,
+    fontSize: 32,
+    lineHeight: 34,
+    letterSpacing: 0.5,
   },
   subtitle: {
     fontFamily: Fonts.sansBold,

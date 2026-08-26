@@ -6,12 +6,12 @@
 
 ## STATO — aggiornato il 26/08/2026
 
-**22 commit, 10 migrazioni, 355 test verdi.** Versione in circolazione:
+**24 commit, 10 migrazioni, 368 test verdi.** Versione in circolazione:
 **3.0.0-beta.2** (`constants/versione.ts`).
 
 > **C6 è cominciato.** `constants/testi/` esiste, il contatore è in
 > `glossario.test.ts`, e la soglia parla dai testi. Il rendiconto lo stampa
-> `npm test`: **32 file su 104, ne mancano 72.** Il dettaglio è in
+> `npm test`: **38 file su 103, ne mancano 65.** Il dettaglio è in
 > «Ondata 1 · C6 · stato del cantiere», più sotto.
 
 ### Scudo beta — completo
@@ -376,10 +376,36 @@ Tre regole di forma: `as const` con chiavi che nominano la cosa; **se un valore 
    `computeAge` ora accetta la data, e il test ne fissa una lontana da
    qualunque «oggi».
 
-**I due prossimi, che chiudono la soglia:** `app/onboarding.tsx` e
-`app/invite.tsx`. Erano bloccati da due decisioni del fondatore, **prese il
-26/08/2026** (vedi «Decisioni prese» in cima): non sono più bloccati, sono solo
-non ancora fatti.
+**S1 è chiusa.** Onboarding e invito erano bloccati dalle due decisioni del
+fondatore, prese il 26/08 (vedi in cima), e sono entrati subito dopo.
+L'onboarding ha acquistato le due cose che il piano chiedeva: **che riceverai
+un invito da spendere** (slide nuova, zero asset: icona `profile`) e **che
+questa è una beta** — quest'ultima sull'ultima schermata e non su una slide
+sua, perché il momento in cui serve è quello immediatamente prima del feed.
+
+> ⚠️ La riga della beta non è quella del piano alla lettera. Il piano scriveva
+> «Siamo pochi, ed è normale: certe sere il feed è vuoto»; «siamo» è un «noi»,
+> che la regola della voce elimina. Vale «Certe sere il feed è vuoto, ed è
+> normale: qui si comincia adesso» — il «si» impersonale è ammesso perché
+> **enuncia una regola del mondo**, che è l'unica eccezione prevista.
+
+**S2 · il giro, cominciata.** Fatto il **vocabolario condiviso**, che è la
+parte che valeva la pena fare per prima: `STATO_LABEL`, i motivi per cui un
+giro è fermo e le dodici etichette di `nextOrderAction` stavano dentro
+`lib/orders.ts` e `lib/discovery.ts` — due file di logica — pur essendo testo
+letto a schermo da home, dettaglio e «I miei giri» insieme. Ora stanno in
+`constants/testi/giro.ts`, dove si rileggono di fila. Più `my-orders.tsx` e
+`review.tsx`.
+
+Restano di S2: `create-request.tsx`, **`request/[id].tsx` (84 frasi, la
+schermata più grossa dell'app)** e le tre chat.
+
+**Due difetti corretti passando:** `motivoNonAgibile` diceva «una segnalazione
+**e** in verifica», senza accento (una delle 18 stringhe senza accenti che il
+piano elencava); e `review.tsx` passava il nome di chi hai appena incontrato a
+`type="title"`, che è maiuscolo — la schermata in cui racconti com'è andato uno
+scambio ti urlava addosso il nome della persona. Esiste ora `type="nome"`,
+Bebas senza `textTransform`, con la sua guardia.
 
 **Le quattro emoji vere nel sorgente** (le altre 15 occorrenze trovate sono
 segni tipografici monocromatici — `→ ✓ ★ ▾` — che prendono il colore del testo

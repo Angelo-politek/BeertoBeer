@@ -11,9 +11,11 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { COMPLIMENTS } from '@/constants/compliments';
+import { GIRO } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { getReviewContext, sendCompliment, submitReview, type ReviewContext } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
+import { messaggioServer } from '@/lib/errori';
 
 export default function ReviewScreen() {
   const { orderId } = useLocalSearchParams<{ orderId: string }>();
@@ -43,7 +45,7 @@ export default function ReviewScreen() {
         }
       })
       .catch(() => {
-        if (active) setError('Impossibile caricare la recensione.');
+        if (active) setError(GIRO.recensione.nonCaricata);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -62,13 +64,15 @@ export default function ReviewScreen() {
       if (compliment && context) {
         // Un complimento che sparisce in silenzio fa credere di averlo mandato.
         await sendCompliment(orderId, context.target.id, compliment).catch(() => {
-          toast.show('Il complimento non è partito, ma la recensione sì.', 'error');
+          toast.show(GIRO.recensione.complimentoNonPartito, 'error');
         });
       }
-      toast.show('Recensione salvata');
+      toast.show(GIRO.recensione.salvata);
       router.back();
     } catch (e) {
-      setError((e as { message?: string })?.message ?? 'Recensione non salvata.');
+      // Il messaggio vero del server, se c'e': una frase di riserva al suo
+      // posto costa due volte — a chi legge e a chi deve trovare il difetto.
+      setError(messaggioServer(e, GIRO.recensione.nonSalvata));
     } finally {
       setSaving(false);
     }
@@ -77,7 +81,7 @@ export default function ReviewScreen() {
   if (loading) {
     return (
       <ThemedView style={styles.container}>
-        <Stack.Screen options={{ title: 'Recensione' }} />
+        <Stack.Screen options={{ title: GIRO.recensione.titoloBreve }} />
         <View style={styles.center}>
           <ActivityIndicator color={c.accent} size="large" />
         </View>
@@ -88,9 +92,9 @@ export default function ReviewScreen() {
   if (!context) {
     return (
       <ThemedView style={styles.container}>
-        <Stack.Screen options={{ title: 'Recensione' }} />
+        <Stack.Screen options={{ title: GIRO.recensione.titoloBreve }} />
         <View style={styles.center}>
-          <ThemedText type="subtitle">Recensione non disponibile</ThemedText>
+          <ThemedText type="subtitle">{GIRO.recensione.nonDisponibile}</ThemedText>
           {error ? <ThemedText style={{ color: c.danger }}>{error}</ThemedText> : null}
         </View>
       </ThemedView>
@@ -99,25 +103,27 @@ export default function ReviewScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Lascia recensione' }} />
+      <Stack.Screen options={{ title: GIRO.recensione.titolo }} />
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.header}>
             <Avatar name={context.target.nome} uri={context.target.fotoUrl} size={82} />
-            <ThemedText type="title">{context.target.nome}</ThemedText>
-            <ThemedText style={{ color: c.textSecondary }}>Com’è andato lo scambio?</ThemedText>
+            {/* type="nome" e non "title": «title» e' maiuscolo, e il nome di
+                chi hai appena incontrato non si urla. */}
+            <ThemedText type="nome">{context.target.nome}</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>{GIRO.recensione.comeAndata}</ThemedText>
           </View>
           <View style={styles.ratingWrap}>
             <StarRating value={rating} onChange={setRating} size={42} />
           </View>
           <View style={styles.dimensions}>
-            <Dimension label="Puntualità" value={puntualita} onChange={setPuntualita} />
-            <Dimension label="Comunicazione" value={comunicazione} onChange={setComunicazione} />
-            <Dimension label="Rispetto" value={rispetto} onChange={setRispetto} />
+            <Dimension label={GIRO.recensione.puntualita} value={puntualita} onChange={setPuntualita} />
+            <Dimension label={GIRO.recensione.comunicazione} value={comunicazione} onChange={setComunicazione} />
+            <Dimension label={GIRO.recensione.rispetto} value={rispetto} onChange={setRispetto} />
           </View>
 
           <View style={styles.field}>
-            <ThemedText type="defaultSemiBold">Un complimento? (facoltativo)</ThemedText>
+            <ThemedText type="defaultSemiBold">{GIRO.recensione.complimento}</ThemedText>
             <View style={styles.chips}>
               {COMPLIMENTS.map((comp) => {
                 const active = compliment === comp.key;
@@ -134,14 +140,14 @@ export default function ReviewScreen() {
           </View>
 
           <TextField
-            label="Commento"
+            label={GIRO.recensione.commento}
             value={comment}
             onChangeText={setComment}
-            placeholder="Racconta com'è andata"
+            placeholder={GIRO.recensione.commentoSegnaposto}
             multiline
           />
           {error ? <ThemedText style={{ color: c.danger }}>{error}</ThemedText> : null}
-          <Button label="Salva recensione" onPress={handleSubmit} loading={saving} />
+          <Button label={GIRO.recensione.salva} onPress={handleSubmit} loading={saving} />
         </ScrollView>
       </KeyboardAvoidingView>
     </ThemedView>

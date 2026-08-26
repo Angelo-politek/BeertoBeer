@@ -114,10 +114,25 @@ const FILE_SORVEGLIATI_FUORI = [
   'lib/push-notifications.ts',
   'lib/supabase.ts',
   'lib/uscite.ts',
-  'constants/branding.ts',
   'constants/compliments.ts',
   'constants/novita.ts',
 ];
+
+/*
+ * ⚠️ `constants/branding.ts` NON è sorvegliato, e non è una dimenticanza.
+ *
+ * Contiene il glossario e le frasi del marchio — «Lancia un giro», «chi
+ * porta», «SOLO BEERCOIN, MAI SOLDI» — che sono parole ufficiali, non copy di
+ * una schermata: è la loro CASA, esattamente come `constants/testi/`, e
+ * `testi/parole.ts` non fa che rimandarci. Metterlo in lista significherebbe
+ * una deroga che non può mai essere tolta, e una lista che non può arrivare a
+ * zero è una lista che nessuno finisce di svuotare.
+ *
+ * Il confine è questo: **identità** (che si cambia con un commit in
+ * `Brand/CORREZIONI.md`) sta in `branding.ts`; **copy** (che si riscrive
+ * quando serve) sta in `testi/`. Le slide dell'onboarding erano dalla parte
+ * sbagliata del confine, e sono state spostate.
+ */
 
 /**
  * LA LISTA CHE SI SVUOTA.
@@ -128,16 +143,20 @@ const FILE_SORVEGLIATI_FUORI = [
  * brutta congelata per due anni.
  *
  * Fatti finora:
- *   S1 · la soglia — `app/(auth)/` per intero e `lib/auth-errors.ts`.
+ *   S1 · LA SOGLIA, COMPLETA — `app/(auth)/` per intero, `lib/auth-errors.ts`,
+ *        `app/onboarding.tsx` e `app/invite.tsx`.
  *
- * `app/onboarding.tsx` e `app/invite.tsx` completano la soglia e sono i due
- * prossimi. Erano bloccati da due decisioni, che il 26/08/2026 sono state
- * prese e non bloccano più:
- *   · «VIBE, SE VUOI» RESTA. La funzione andava bene: il difetto segnalato
- *     stava nei filtri, ed è quello chiuso da `filtri-non-si-perdono.test.ts`.
- *   · L'INVITO NON HA PREZZO — darlo è gratis — e il premio va a entrambi
- *     solo dopo il primo giro concluso di chi è entrato. Il numero vive in
- *     `lib/credits.ts` e lo verifica `formula-crediti.test.ts`.
+ * Onboarding e invito erano bloccati da due decisioni del fondatore, prese il
+ * 26/08/2026 — «vibe» resta (il difetto era nei filtri, ed è chiuso da
+ * `filtri-non-si-perdono.test.ts`) e l'invito non ha prezzo — e sono entrati
+ * subito dopo.
+ *
+ *   S2 · IL GIRO, in corso. Fatto il vocabolario condiviso — gli stati, i
+ *        motivi per cui un giro è fermo, le etichette della prossima azione,
+ *        che stavano sparsi in `lib/orders.ts` e `lib/discovery.ts` — più
+ *        `app/my-orders.tsx` e `app/review.tsx`.
+ *        Restano `app/create-request.tsx`, `app/request/[id].tsx` (la
+ *        schermata più grossa dell'app, 84 frasi) e le chat.
  */
 const IN_DEROGA = [
   'app/(tabs)/community.tsx',
@@ -168,15 +187,11 @@ const IN_DEROGA = [
   'app/event/modifica/[id].tsx',
   'app/event/new.tsx',
   'app/feedback.tsx',
-  'app/invite.tsx',
-  'app/my-orders.tsx',
   'app/notification-settings.tsx',
   'app/notifications.tsx',
   'app/novita.tsx',
-  'app/onboarding.tsx',
   'app/profile-customize.tsx',
   'app/request/[id].tsx',
-  'app/review.tsx',
   'app/segnalazione/[id].tsx',
   'app/settings.tsx',
   'app/terms.tsx',
@@ -197,17 +212,14 @@ const IN_DEROGA = [
   'components/report-modal.tsx',
   'components/request-card.tsx',
   'components/tessera-invito.tsx',
-  'constants/branding.ts',
   'constants/compliments.ts',
   'constants/novita.ts',
   'lib/age.ts',
   'lib/avatar-upload.ts',
-  'lib/discovery.ts',
   'lib/errori.ts',
   'lib/format.ts',
   'lib/load.ts',
   'lib/locandina-upload.ts',
-  'lib/orders.ts',
   'lib/posizione.ts',
   'lib/push-notifications.ts',
   'lib/supabase.ts',
@@ -428,6 +440,22 @@ describe('C6 · le regole di forma dei testi', () => {
     expect(PAROLE.giro).toBe(GLOSSARY.delivery);
     expect(PAROLE.chiPorta).toBe(GLOSSARY.roleCarrier);
     expect(PAROLE.chiChiede).toBe(GLOSSARY.roleAsker);
+  });
+
+  it('il nome di una persona non si scrive mai in maiuscolo', () => {
+    // ⚠️ `app/review.tsx` passava il nome di chi hai appena incontrato a
+    // `type="title"`, e `title` applica textTransform: uppercase. La schermata
+    // in cui racconti com'è andato uno scambio con una persona ti urlava
+    // addosso il suo nome. Il maiuscolo del marchio è per le affermazioni
+    // dell'app; un nome è di chi ce l'ha.
+    const stile = senzaCommenti(leggi('components/themed-text.tsx'));
+    const blocco = stile.slice(stile.indexOf('nome: {'), stile.indexOf('subtitle: {'));
+    expect(blocco).toContain('Fonts.display');
+    expect(blocco).not.toContain('textTransform');
+
+    const recensione = senzaCommenti(leggi('app/review.tsx'));
+    expect(recensione).toContain('type="nome"');
+    expect(recensione).not.toMatch(/type="title">\{context\.target\.nome\}/);
   });
 
   it('«login» non è tornato: la porta si chiama accesso', () => {

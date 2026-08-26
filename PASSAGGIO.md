@@ -134,15 +134,21 @@ Prima di allora no: i telefoni che non hanno ancora ricevuto l'aggiornamento
 chiamano ancora la DELETE, e revocarla farebbe esplodere il loro pulsante
 «Annulla richiesta» con un errore grezzo.
 
-**c) `C6`, le parole. — COMINCIATO il 26/08/2026.** Le ~90 stringhe del
-database erano già riscritte. Adesso esiste anche `constants/testi/`, il
-**contatore** che misura il resto, e **la soglia** (`app/(auth)/` e
-`lib/auth-errors.ts`) parla dai testi.
+**c) `C6`, le parole. — IN CORSO dal 26/08/2026.** Le ~90 stringhe del database
+erano già riscritte. Adesso esiste anche `constants/testi/` e il **contatore**
+che misura il resto.
+
+**S1 · la soglia è chiusa**: accesso, registrazione, recupero password,
+conferma email, onboarding, invito — più `lib/auth-errors.ts`.
+**S2 · il giro è cominciata**: fatto il vocabolario condiviso (gli stati, i
+motivi per cui un giro è fermo, le etichette della prossima azione), più
+«I miei giri» e la recensione. Restano `create-request`, `request/[id]` — la
+schermata più grossa dell'app — e le tre chat.
 
 Il rendiconto lo stampa `npm test`, una riga sola:
 
 ```
-C6 · 32 file su 104 parlano dai testi. Mancano 72.
+C6 · 38 file su 103 parlano dai testi. Mancano 65.
 ```
 
 Quando la lista `IN_DEROGA` di `lib/__tests__/glossario.test.ts` è vuota, C6 è

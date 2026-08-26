@@ -9,6 +9,7 @@ import { SkeletonCard } from '@/components/skeleton';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
+import { GIRO, VOCE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { getMyOrders, getReviewedOrderIds } from '@/data/api';
@@ -59,7 +60,7 @@ export default function MyOrdersScreen() {
       setReviewedIds(new Set(reviewed));
       setError(null);
     } catch {
-      setError('Impossibile caricare i tuoi giri. Riprova.');
+      setError(GIRO.miei.erroreTesto);
     } finally {
       maiCaricato.current = false;
       setLoading(false);
@@ -100,7 +101,7 @@ export default function MyOrdersScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'I miei giri' }} />
+      <Stack.Screen options={{ title: GIRO.miei.titolo }} />
       {loading ? (
         <View style={styles.skeletons}>
           <SkeletonCard />
@@ -109,7 +110,13 @@ export default function MyOrdersScreen() {
         </View>
       ) : error ? (
         <View style={styles.center}>
-          <EmptyState icon="x-mark" title="Giri non disponibili" message={error} />
+          <EmptyState
+            icon="x-mark"
+            title={GIRO.miei.erroreTitolo}
+            message={error}
+            actionLabel={VOCE.azione.riprova}
+            onAction={() => load(true)}
+          />
         </View>
       ) : (
         <FlatList
@@ -119,10 +126,10 @@ export default function MyOrdersScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}
           ListHeaderComponent={
             <View style={styles.filters}>
-              <Chip label="Da fare" active={section === 'todo'} onPress={() => setSection('todo')} />
-              <Chip label="In corso" active={section === 'progress'} onPress={() => setSection('progress')} />
-              <Chip label="In attesa" active={section === 'waiting'} onPress={() => setSection('waiting')} />
-              <Chip label="Conclusi" active={section === 'done'} onPress={() => setSection('done')} />
+              <Chip label={GIRO.miei.daFare} active={section === 'todo'} onPress={() => setSection('todo')} />
+              <Chip label={GIRO.miei.inCorso} active={section === 'progress'} onPress={() => setSection('progress')} />
+              <Chip label={GIRO.miei.inAttesa} active={section === 'waiting'} onPress={() => setSection('waiting')} />
+              <Chip label={GIRO.miei.conclusi} active={section === 'done'} onPress={() => setSection('done')} />
             </View>
           }
           renderItem={({ item }) => {
@@ -132,17 +139,17 @@ export default function MyOrdersScreen() {
             // Stati speciali: moderazione e scadenza vincono sull'etichetta di stato.
             const badge =
               item.statoModerazione === 'rimosso'
-                ? { label: 'Rimossa', tone: 'danger' as const }
+                ? { label: GIRO.miei.rimossa, tone: 'danger' as const }
                 : item.statoModerazione === 'oscurato'
-                  ? { label: 'In verifica', tone: 'danger' as const }
+                  ? { label: GIRO.miei.inVerifica, tone: 'danger' as const }
                   : isExpired(item)
-                    ? { label: 'Scaduta', tone: 'neutral' as const }
+                    ? { label: GIRO.miei.scaduta, tone: 'neutral' as const }
                     : { label: STATO_LABEL[item.stato], tone: 'accent' as const };
             return (
               <Card onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })} style={styles.card}>
                 <View style={styles.cardHeader}>
                   <ThemedText type="defaultSemiBold">
-                    {isHost ? 'Hai chiesto' : `Stai portando a ${item.host.nome}`}
+                    {isHost ? GIRO.miei.haiChiesto : GIRO.miei.staiPortando(item.host.nome)}
                   </ThemedText>
                   <Badge label={badge.label} tone={badge.tone} />
                 </View>
@@ -156,7 +163,12 @@ export default function MyOrdersScreen() {
             );
           }}
           ListEmptyComponent={
-            <EmptyState title="Niente da mostrare" message="I giri compariranno qui in base alla prossima azione." />
+            <EmptyState
+              title={GIRO.miei.vuotoTitolo}
+              message={GIRO.miei.vuotoTesto}
+              actionLabel={GIRO.miei.vuotoAzione}
+              onAction={() => router.push('/create-request')}
+            />
           }
         />
       )}

@@ -11,6 +11,7 @@ import { TesseraInvito } from '@/components/tessera-invito';
 import { TestoModal } from '@/components/testo-modal';
 import { useToast } from '@/components/toast';
 import { APK_URL } from '@/constants/branding';
+import { INGRESSO, VOCE } from '@/constants/testi';
 import { Fonts, Spacing } from '@/constants/theme';
 import { getMyInvites, nominaInvito } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
@@ -28,38 +29,6 @@ import type { Invite } from '@/types';
  * scelta da far pesare. Per questo il codice non si mostra prima di aver detto
  * cosa comporta, e il testo condiviso lo ripete a chi lo riceve.
  */
-/**
- * IL MESSAGGIO CHE ESCE DALL'APP.
- *
- * È l'unico testo di Beer to Beer che una persona legge PRIMA di avere l'app,
- * e finora era un blocco anonimo: non diceva chi lo mandava — «ti porto
- * dentro», ma chi? — né a chi era destinato, mentre la schermata prometteva
- * «ho scelto te». Su WhatsApp, un testo così somiglia a una catena di
- * Sant'Antonio, che è esattamente il contrario di quello che è.
- *
- * E diceva «community di Torino» scritto a mano, in un'app che ha quattro
- * città: chi invitava da Milano mandava un messaggio falso.
- */
-function messaggioInvito(
-  code: string,
-  nominativo: string | undefined,
-  citta: string,
-  mittente: string,
-): string {
-  return [
-    nominativo ? `${nominativo}, ti porto dentro Beer to Beer.` : 'Ti porto dentro Beer to Beer.',
-    '',
-    `È una community di ${citta}: ci si porta le birre a vicenda fra chi abita vicino. Nessuno ci guadagna niente. Chi porta si fa rimborsare la spesa e prende BeerCoin, che valgono solo qui dentro e non diventano soldi.`,
-    '',
-    'Si entra solo su invito e ognuno ne ha uno. Il mio l’ho dato a te.',
-    '',
-    `Il tuo codice: ${code}`,
-    APK_URL ? `L’app: ${APK_URL}` : 'Chiedimi il link per scaricarla.',
-    '',
-    `— ${mittente}`,
-  ].join('\n');
-}
-
 export default function InviteScreen() {
   const c = useColors();
   const toast = useToast();
@@ -91,17 +60,23 @@ export default function InviteScreen() {
     // (Il link continua a funzionare se qualcuno lo apre: non lo proponiamo più.)
     try {
       await Share.share({
-        message: messaggioInvito(code, nominativo, city.label, session?.user.user_metadata?.nome ?? 'un amico'),
+        message: INGRESSO.invito.messaggio(
+          code,
+          nominativo,
+          city.label,
+          session?.user.user_metadata?.nome ?? INGRESSO.invito.mittenteIgnoto,
+          APK_URL,
+        ),
       });
     } catch {
-      toast.show('La condivisione non si è aperta. Riprova.', 'error');
+      toast.show(INGRESSO.invito.condivisioneFallita, 'error');
     }
   }
 
   if (loading) {
     return (
       <ThemedView style={styles.container}>
-        <Stack.Screen options={{ title: 'Il tuo invito' }} />
+        <Stack.Screen options={{ title: INGRESSO.invito.titolo }} />
         <View style={styles.center}><ActivityIndicator color={c.accent} /></View>
       </ThemedView>
     );
@@ -112,31 +87,30 @@ export default function InviteScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Il tuo invito' }} />
+      <Stack.Screen options={{ title: INGRESSO.invito.titolo }} />
       {/* ScrollView e non View: con i caratteri di sistema ingranditi il
           contenuto non ci sta in altezza e senza scorrimento resta tagliato. */}
       <ScrollView contentContainerStyle={styles.content}>
         {error ? (
-          <EmptyState icon="x-mark" title="Inviti non disponibili" message="Controlla la connessione e riprova." />
+          <EmptyState
+            icon="x-mark"
+            title={INGRESSO.invito.nonDisponibiliTitolo}
+            message={INGRESSO.invito.nonDisponibiliTesto}
+          />
         ) : (
           <>
             <View>
-              <ThemedText type="label">COME SI ENTRA</ThemedText>
-              <ThemedText type="title">
-                {liberi.length === 0 ? 'HAI GIÀ SCELTO' : liberi.length === 1 ? 'HAI UN INVITO' : `HAI ${liberi.length} INVITI`}
-              </ThemedText>
+              <ThemedText type="label">{INGRESSO.invito.occhiello}</ThemedText>
+              <ThemedText type="title">{INGRESSO.invito.quanti(liberi.length)}</ThemedText>
               <ThemedText style={[styles.intro, { color: c.textSecondary }]}>
-                In Beer to Beer si entra solo se qualcuno ti porta dentro. Per questo qui non
-                troverai un pulsante “invita tutti”: hai un posto solo, e quando lo usi è speso.
+                {INGRESSO.invito.intro}
               </ThemedText>
             </View>
 
             <Card style={styles.nota}>
-              <ThemedText type="defaultSemiBold">A chi darlo</ThemedText>
+              <ThemedText type="defaultSemiBold">{INGRESSO.invito.aChiDarloTitolo}</ThemedText>
               <ThemedText style={{ color: c.textSecondary, lineHeight: 22 }}>
-                A qualcuno che vive la tua zona e che ti farebbe piacere incontrare sul pianerottolo
-                alle undici di sera. Questa community regge finché le persone dentro si comportano
-                bene: ogni invito è una tua garanzia su chi entra.
+                {INGRESSO.invito.aChiDarloTesto}
               </ThemedText>
             </Card>
 
@@ -144,28 +118,28 @@ export default function InviteScreen() {
               <View key={inv.code} style={styles.blocco}>
                 <TesseraInvito invito={inv} onPress={() => setDaNominare(inv)} />
                 <Button
-                  label={inv.nominativo ? 'Cambia il nome' : 'Scrivi a chi lo dai'}
+                  label={inv.nominativo ? INGRESSO.invito.cambiaNome : INGRESSO.invito.scriviNome}
                   variant="secondary"
                   onPress={() => setDaNominare(inv)}
                 />
                 <Button
-                  label="Copia il codice"
+                  label={INGRESSO.invito.copiaCodice}
                   variant="secondary"
                   onPress={() => {
                     Clipboard.setString(inv.code);
-                    toast.show('Codice copiato.');
+                    toast.show(INGRESSO.invito.codiceCopiato);
                   }}
                 />
-                <Button label="Condividi l’invito" onPress={() => condividi(inv.code, inv.nominativo)} />
+                <Button label={INGRESSO.invito.condividi} onPress={() => condividi(inv.code, inv.nominativo)} />
                 <ThemedText type="caption" style={{ color: c.textSecondary }}>
-                  {`Quando chi inviti chiude il suo primo giro, prendete ${REWARDS.referral} BeerCoin a testa.`}
+                  {INGRESSO.invito.premio(REWARDS.referral)}
                 </ThemedText>
               </View>
             ))}
 
             {usati.length > 0 ? (
               <View style={styles.blocco}>
-                <ThemedText type="label">CHI HAI PORTATO DENTRO</ThemedText>
+                <ThemedText type="label">{INGRESSO.invito.portatiDentro}</ThemedText>
                 {usati.map((inv) => (
                   <TesseraInvito key={inv.code} invito={inv} />
                 ))}
@@ -174,7 +148,7 @@ export default function InviteScreen() {
 
             {liberi.length === 0 && usati.length > 0 ? (
               <ThemedText style={{ color: c.textSecondary }}>
-                Il tuo invito è stato speso. Non ne arrivano altri: è così per tutti.
+                {INGRESSO.invito.speso}
               </ThemedText>
             ) : null}
           </>
@@ -183,10 +157,10 @@ export default function InviteScreen() {
 
       <TestoModal
         visible={daNominare != null}
-        titolo="A chi lo dai?"
-        spiegazione="Serve solo a scrivere il messaggio e a ricordartelo. Non lo vede nessun altro."
-        placeholder="Il suo nome"
-        etichettaConferma="Salva"
+        titolo={INGRESSO.invito.nominaTitolo}
+        spiegazione={INGRESSO.invito.nominaSpiegazione}
+        placeholder={INGRESSO.invito.nominaSegnaposto}
+        etichettaConferma={INGRESSO.invito.nominaConferma}
         minimo={1}
         loading={salvando}
         onClose={() => setDaNominare(null)}
@@ -198,7 +172,7 @@ export default function InviteScreen() {
             setDaNominare(null);
             await load();
           } catch (e) {
-            toast.show(messaggioServer(e, 'Non è stato salvato.'), 'error');
+            toast.show(messaggioServer(e, VOCE.riserva.nonSalvato), 'error');
           } finally {
             setSalvando(false);
           }

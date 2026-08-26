@@ -1,15 +1,15 @@
+import { GIRO } from '@/constants/testi';
+
 import type { BeerRequest, OrderStatus } from '@/types';
 
-/** Etichetta leggibile dello stato di un ordine. */
-export const STATO_LABEL: Record<OrderStatus, string> = {
-  richiesto: 'In attesa',
-  accettato: 'Accettato',
-  in_consegna: 'In arrivo',
-  arrivato: 'Arrivato',
-  consegnato: 'Consegnato',
-  confermato: 'Completato',
-  annullato: 'Annullato',
-};
+/**
+ * Etichetta leggibile dello stato di un ordine.
+ *
+ * ⚠️ Le CHIAVI sono i valori di `orders.stato` nel database e non si toccano:
+ * il vincolo `orders_stato_chk` è chiuso e `ORDER_TIMELINE` ci indicizza
+ * dentro. Le FRASI stanno in `constants/testi/giro.ts`.
+ */
+export const STATO_LABEL: Record<OrderStatus, string> = GIRO.stato;
 
 export const ORDER_TIMELINE: OrderStatus[] = ['richiesto', 'accettato', 'in_consegna', 'arrivato', 'consegnato', 'confermato'];
 
@@ -47,10 +47,10 @@ export function isExpired(request: BeerRequest): boolean {
  * frase da mostrare — non un booleano da interpretare.
  */
 export function motivoNonAgibile(request: BeerRequest): string | null {
-  if (request.congelato) return 'Fermo: una segnalazione e in verifica';
-  if (request.statoModerazione === 'rimosso') return 'Rimosso dalla moderazione';
-  if (request.statoModerazione === 'oscurato') return 'In verifica';
-  if (isExpired(request)) return 'Scaduto';
+  if (request.congelato) return GIRO.fermo.congelato;
+  if (request.statoModerazione === 'rimosso') return GIRO.fermo.rimosso;
+  if (request.statoModerazione === 'oscurato') return GIRO.fermo.oscurato;
+  if (isExpired(request)) return GIRO.fermo.scaduto;
   return null;
 }
 

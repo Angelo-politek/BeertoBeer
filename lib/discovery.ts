@@ -1,3 +1,4 @@
+import { GIRO } from '@/constants/testi';
 import { motivoNonAgibile } from '@/lib/orders';
 
 import type { BeerRequest, DiscoveryFilters, OrderNextAction } from '@/types';
@@ -124,13 +125,13 @@ export function sortDiscovery(requests: BeerRequest[], filters: DiscoveryFilters
  * via, ed e' sparita insieme a lui.
  */
 export function whyThisRequest(request: BeerRequest): string | null {
-  if (request.distanzaKm != null && request.distanzaKm <= 1.5) return 'Molto vicino a te';
-  if (request.fascia) return `Serve ${request.fascia.toLowerCase()}`;
+  if (request.distanzaKm != null && request.distanzaKm <= 1.5) return GIRO.perche.vicino;
+  if (request.fascia) return GIRO.perche.fascia(request.fascia);
   return null;
 }
 
 export function nextOrderAction(request: BeerRequest, myId?: string): OrderNextAction {
-  if (request.stato === 'annullato') return { key: 'open', label: 'Giro annullato', priority: 0 };
+  if (request.stato === 'annullato') return { key: 'open', label: GIRO.azione.annullato, priority: 0 };
   // Prima di chiedersi «a che punto siamo», chiedersi «si puo' ancora fare
   // qualcosa». Un giro fermo per sicurezza o tolto dal feed non ha una
   // prossima azione: il server rifiuta ogni transizione, e un pulsante che
@@ -139,13 +140,13 @@ export function nextOrderAction(request: BeerRequest, myId?: string): OrderNextA
   if (fermo) return { key: 'open', label: fermo, priority: 0 };
   const host = request.host.id === myId;
   const driver = request.driverId === myId;
-  if (request.stato === 'richiesto') return host ? { key: 'wait', label: 'Aspetta chi porta', priority: 35 } : { key: 'accept', label: 'Puoi accettare', priority: 90 };
-  if (request.stato === 'accettato') return driver ? { key: 'start', label: 'Parti quando sei pronto', priority: 100 } : { key: 'wait', label: 'Chi porta si sta organizzando', priority: 55 };
-  if (request.stato === 'in_consegna') return driver ? { key: 'arrive', label: 'Segna il tuo arrivo', priority: 100 } : { key: 'wait', label: 'La birra è in arrivo', priority: 70 };
-  if (request.stato === 'arrivato') return driver ? { key: 'verify', label: 'Inserisci il codice', priority: 110 } : { key: 'open', label: 'Comunica il codice', priority: 110 };
+  if (request.stato === 'richiesto') return host ? { key: 'wait', label: GIRO.azione.aspettaChiPorta, priority: 35 } : { key: 'accept', label: GIRO.azione.puoiAccettare, priority: 90 };
+  if (request.stato === 'accettato') return driver ? { key: 'start', label: GIRO.azione.parti, priority: 100 } : { key: 'wait', label: GIRO.azione.siStaOrganizzando, priority: 55 };
+  if (request.stato === 'in_consegna') return driver ? { key: 'arrive', label: GIRO.azione.segnaArrivo, priority: 100 } : { key: 'wait', label: GIRO.azione.inArrivo, priority: 70 };
+  if (request.stato === 'arrivato') return driver ? { key: 'verify', label: GIRO.azione.inserisciCodice, priority: 110 } : { key: 'open', label: GIRO.azione.comunicaCodice, priority: 110 };
   if (request.stato === 'consegnato') {
     const confirmed = host ? request.hostConfermato : request.driverConfermato;
-    return confirmed ? { key: 'wait', label: 'Attendi l’altra conferma', priority: 60 } : { key: 'confirm', label: 'Conferma lo scambio', priority: 105 };
+    return confirmed ? { key: 'wait', label: GIRO.azione.attendiConferma, priority: 60 } : { key: 'confirm', label: GIRO.azione.confermaScambio, priority: 105 };
   }
-  return { key: 'review', label: 'Lascia un feedback', priority: 20 };
+  return { key: 'review', label: GIRO.azione.lasciaRecensione, priority: 20 };
 }

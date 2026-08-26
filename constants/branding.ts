@@ -59,7 +59,7 @@ export const SLOGAN = {
   moneta: 'SOLO BEERCOIN, MAI SOLDI',
 } as const;
 
-export const PHILOSOPHY_TAGLINE = 'Non è un delivery. È uno scambio di favori tra persone della stessa città.';
+/* La riga di filosofia dell'onboarding e' in `constants/testi/ingresso.ts`. */
 
 /** Compatibilità V1: livelli e badge non avanzano più e non sono mostrati nella V2. */
 export type LevelDef = { level: number; titolo: string; emoji: string; scambiRichiesti: number; bonusPt: number };
@@ -86,13 +86,16 @@ export const BADGE_BY_KEY: Record<string, BadgeDef> = {};
 export const BANNED_BEERS: string[] = [];
 export function containsBannedBeer(_names: string[]): boolean { return false; }
 
-export type OnboardingSlide = { icon: BrandIconName; titolo: string; testo: string };
-export const ONBOARDING_SLIDES: OnboardingSlide[] = [
-  { icon: 'cheers', titolo: 'NON È UN DELIVERY', testo: 'Oggi porti tu una birra. Domani qualcuno la porta a te. Nessuno ci guadagna sopra.' },
-  { icon: 'wallet', titolo: 'SOLO BEERCOIN', testo: 'Si guadagnano contribuendo. Non si comprano, non si trasferiscono e non diventano denaro.' },
-  { icon: 'pin', titolo: 'PRIMA LA SICUREZZA', testo: 'L’indirizzo resta protetto. Il codice chiude il giro solo quando siete davvero insieme.' },
-  { icon: 'smile', titolo: 'VIBE, SE VUOI', testo: 'Puoi invitare chi porta a fermarsi. È sempre facoltativo e puoi cambiare idea.' },
-];
+/*
+ * LE SLIDE DELL'ONBOARDING SONO IN `constants/testi/ingresso.ts`.
+ *
+ * Stavano qui, ma non sono marchio: sono il copy di una schermata. La
+ * differenza non e' accademica — il marchio si cambia con un commit in
+ * `Brand/CORREZIONI.md` e la firma di chi lo custodisce, il copy si riscrive
+ * quando serve. Tenerli insieme rendeva l'uno pesante come l'altro.
+ *
+ * Restano qui SLOGAN, il glossario e i link: quelli sono identita'.
+ */
 
 /**
  * Dove si scarica l'APK, per il messaggio d'invito.

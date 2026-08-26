@@ -17,10 +17,11 @@ import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { BrandIcon } from '@/components/ui/brand-icon';
-import { ONBOARDING_SLIDES, PHILOSOPHY_TAGLINE, type OnboardingSlide } from '@/constants/branding';
+import { INGRESSO, type SlideOnboarding } from '@/constants/testi';
 import { Radii, Spacing, Springs } from '@/constants/theme';
 import { completeOnboarding } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
+import { ETA_MINIMA } from '@/lib/age';
 import { CITIES, nearestCity } from '@/lib/cities';
 import { useCity } from '@/lib/city-context';
 import { getCurrentCoords } from '@/lib/location';
@@ -28,7 +29,7 @@ import { markOnboardingDone } from '@/lib/onboarding-signal';
 
 const { width } = Dimensions.get('window');
 
-type Page = { kind: 'slide'; slide: OnboardingSlide } | { kind: 'setup' };
+type Page = { kind: 'slide'; slide: SlideOnboarding } | { kind: 'setup' };
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<Page>);
 
@@ -54,7 +55,7 @@ export default function OnboardingScreen() {
 
   // Gli slide della filosofia + un ultimo step "setup" (città/gate).
   const pages: Page[] = [
-    ...ONBOARDING_SLIDES.map((s) => ({ kind: 'slide' as const, slide: s })),
+    ...INGRESSO.onboarding.slide.map((s) => ({ kind: 'slide' as const, slide: s })),
     { kind: 'setup' as const },
   ];
   const isLast = index === pages.length - 1;
@@ -128,13 +129,13 @@ export default function OnboardingScreen() {
         <View style={styles.footer}>
           {isLast ? (
             <Button
-              label="Entra nella community"
+              label={INGRESSO.onboarding.entra}
               onPress={finish}
               disabled={!canContinue}
               loading={finishing}
             />
           ) : (
-            <Button label="Avanti" onPress={goNext} />
+            <Button label={INGRESSO.onboarding.avanti} onPress={goNext} />
           )}
         </View>
       </SafeAreaView>
@@ -163,7 +164,7 @@ function SlideView({
   pageIndex,
   scrollX,
 }: {
-  slide: OnboardingSlide;
+  slide: SlideOnboarding;
   pageIndex: number;
   scrollX: SharedValue<number>;
 }) {
@@ -209,12 +210,12 @@ function SetupView({
     <View style={[styles.page, { width }]}>
       <View style={styles.setupContent}>
         <ThemedText type="title" style={styles.slideTitle}>
-          CI SIAMO QUASI
+          {INGRESSO.onboarding.setupTitolo}
         </ThemedText>
-        <ThemedText style={[styles.slideText, { color: c.textSecondary }]}>{PHILOSOPHY_TAGLINE}</ThemedText>
+        <ThemedText style={[styles.slideText, { color: c.textSecondary }]}>{INGRESSO.onboarding.filosofia}</ThemedText>
 
         <View style={styles.citySection}>
-          <ThemedText type="label">La tua città</ThemedText>
+          <ThemedText type="label">{INGRESSO.onboarding.citta}</ThemedText>
           <View style={styles.cityChips}>
             {CITIES.map((item) => (
               <Chip
@@ -225,30 +226,40 @@ function SetupView({
               />
             ))}
           </View>
-          <Button label="Trova la mia città" size="md" variant="secondary" onPress={onUseLocation} />
+          <Button label={INGRESSO.onboarding.trovaCitta} size="md" variant="secondary" onPress={onUseLocation} />
         </View>
 
         <View style={styles.checklist}>
           <ToggleRow
             checked={over18}
             onPress={onToggle18}
-            title="Dichiaro di avere almeno 18 anni"
-            subtitle="Beer to Beer è riservato a utenti maggiorenni."
+            title={INGRESSO.onboarding.maggiorenne(ETA_MINIMA)}
+            subtitle={INGRESSO.onboarding.maggiorenneNota}
           />
           <ToggleRow
             checked={acceptedRules}
             onPress={onToggleRules}
-            title="Accetto le regole della community"
-            subtitle="Uso responsabile, niente vendita di alcol e rispetto della moderazione."
+            title={INGRESSO.onboarding.regole}
+            subtitle={INGRESSO.onboarding.regoleNota}
           />
           {/* Si chiedeva di accettare regole che non si potevano leggere. */}
           <Button
-            label="Leggi le regole e la privacy"
+            label={INGRESSO.onboarding.leggiRegole}
             size="md"
             variant="secondary"
             onPress={() => router.push('/terms' as never)}
           />
         </View>
+
+        {/*
+          LA BETA, DETTA AD ALTA VOCE, e nell'ultimo posto utile per dirla.
+          Chi entra su invito si aspetta una festa: se apre il feed e non trova
+          niente conclude che l'app e' rotta, e non torna. Dirlo qui — un
+          istante prima del feed, non tre schermate prima — costa una riga.
+        */}
+        <ThemedText type="caption" style={styles.beta}>
+          {INGRESSO.onboarding.beta}
+        </ThemedText>
       </View>
     </View>
   );
@@ -324,6 +335,7 @@ const styles = StyleSheet.create({
   citySection: { gap: Spacing.sm },
   cityChips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   checklist: { gap: Spacing.sm },
+  beta: { textAlign: 'center' },
   toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',

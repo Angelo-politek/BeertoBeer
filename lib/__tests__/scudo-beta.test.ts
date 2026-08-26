@@ -356,22 +356,33 @@ describe('le push parlano la lingua dell app', () => {
 describe('l invito è una tessera, non una riga di testo', () => {
   const INVITI = leggi('supabase/migrations/20260913_inviti.sql');
   const schermata = leggi('app/invite.tsx');
+  /**
+   * ⚠️ Il testo del messaggio si è spostato da `app/invite.tsx` a
+   * `constants/testi/ingresso.ts` con C6. Le protezioni sono le stesse: si
+   * guarda dove il testo vive ADESSO, non dove viveva. Estendere, mai
+   * aggirare — se un giorno il messaggio si sposta ancora, questa riga cambia
+   * e le asserzioni restano.
+   */
+  const testoInvito = leggi('constants/testi/ingresso.ts');
 
   it('il messaggio dice chi lo manda e a chi', () => {
     // Era un blocco anonimo: non diceva chi lo mandava — «ti porto dentro»,
     // ma chi? — mentre la schermata prometteva «ho scelto te». Su WhatsApp
     // somigliava a una catena di Sant'Antonio.
-    expect(schermata).toContain('function messaggioInvito');
-    expect(schermata).toMatch(/nominativo \? `\$\{nominativo\}, ti porto dentro/);
-    expect(schermata).toContain('— ${mittente}');
+    expect(testoInvito).toContain('messaggio: (');
+    expect(testoInvito).toMatch(/nominativo\s*\n?\s*\?\s*`\$\{nominativo\}, ti porto dentro/);
+    expect(testoInvito).toContain('— ${mittente}');
   });
 
   it('la città non è più scritta a mano', () => {
     // Diceva «community di Torino» in un'app che ha quattro città: chi
     // invitava da Milano mandava un messaggio falso.
-    const senzaCommenti = schermata.replace(/\/\*[\s\S]*?\*\//g, '');
-    expect(senzaCommenti).not.toContain('community di Torino');
-    expect(senzaCommenti).toContain('city.label');
+    const senzaCommenti = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(senzaCommenti(testoInvito)).not.toContain('community di Torino');
+    // La città arriva come parametro alla voce, e la schermata le passa quella
+    // scelta: sono due metà della stessa garanzia, e servono entrambe.
+    expect(senzaCommenti(testoInvito)).toContain('citta: string');
+    expect(senzaCommenti(schermata)).toContain('city.label');
   });
 
   it('il codice si può copiare', () => {
