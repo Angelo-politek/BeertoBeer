@@ -178,6 +178,36 @@ export const GIRO = {
     nonPubblicatoTesto: `Il ${PAROLE.giro} non è stato pubblicato. Riprova fra poco.`,
   },
 
+  /**
+   * I TRE ORDINAMENTI, e i filtri del feed.
+   *
+   * ⚠️ «Più vicini» era scritto «Piu vicini», SENZA ACCENTO — ed è uno dei tre
+   *    nomi ufficiali del glossario. Un termine di glossario scritto male è
+   *    peggio di una frase qualsiasi scritta male: è quello che tutti gli
+   *    altri testi devono copiare.
+   *
+   * ⚠️ E qui NON deve mai ricomparire «Per te»: era il nome di `smartScore`,
+   *    cioè la parola delle piattaforme che questo progetto dice di rifiutare.
+   */
+  ordina: {
+    scadenza: 'Chi finisce prima',
+    distanza: 'Più vicini',
+    recenti: 'Appena arrivati',
+  },
+  filtri: {
+    tutti: 'Tutti',
+    adesso: 'Adesso',
+    stasera: 'Stasera',
+    vibe: 'Vibe mode',
+    entroKm: (km: number) => `Entro ${km} km`,
+  },
+
+  /** La card di un giro nel feed. */
+  card: {
+    vibe: 'Vibe mode',
+    vedi: `Vedi il ${PAROLE.giro}`,
+  },
+
   /** «I miei giri»: le quattro categorie e le card. */
   miei: {
     titolo: `I miei ${PAROLE.giri}`,

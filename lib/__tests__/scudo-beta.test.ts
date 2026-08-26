@@ -238,9 +238,17 @@ describe('più community, meno algoritmi', () => {
   });
 
   it('i tre ordinamenti dicono cosa fanno, e «Per te» non c e piu', () => {
+    // ⚠️ Le PAROLE si sono spostate in `constants/testi/giro.ts` con C6: si
+    // guarda dove vivono adesso. La barra continua a essere controllata per
+    // quello che ancora la riguarda — che «Per te» non ricompaia a mano.
     const barra = senzaCommenti(leggi('components/discovery-filter-bar.tsx'));
     expect(barra).not.toContain('Per te');
-    expect(barra).toContain('Chi finisce prima');
+    const testi = senzaCommenti(leggi('constants/testi/giro.ts'));
+    expect(testi).not.toContain("'Per te'");
+    expect(testi).toContain('Chi finisce prima');
+    // ⚠️ E l'accento: «Più vicini» era scritto «Piu vicini», ed è uno dei tre
+    // nomi ufficiali del glossario.
+    expect(testi).toContain('Più vicini');
   });
 
   it('le preferenze salvate sui telefoni non riportano il vecchio criterio', () => {

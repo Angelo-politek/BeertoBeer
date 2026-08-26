@@ -7,6 +7,7 @@ import { LocationPickerMap } from '@/components/location-picker-map';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { FUORI, VOCE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { City } from '@/lib/cities';
@@ -44,33 +45,33 @@ export function AddShopModal({ visible, city, loading, userCoords, onClose, onSu
       <ThemedView style={styles.container}>
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
           <View style={styles.header}>
-            <ThemedText type="subtitle">Segnala un negozio</ThemedText>
+            <ThemedText type="subtitle">{FUORI.negozio.segnala}</ThemedText>
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
               Segnala un negozio a {city.label}: aiuti la community a trovare quello più vicino.
             </ThemedText>
           </View>
           <View style={styles.form}>
             <TextField
-              label="Nome del negozio"
+              label={FUORI.negozio.nome}
               value={nome}
               onChangeText={setNome}
-              placeholder="Es. Minimarket Via Po"
+              placeholder={FUORI.negozio.nomeSegnaposto}
             />
             <TextField
-              label="Orari stimati (facoltativo)"
+              label={FUORI.negozio.orari}
               value={orari}
               onChangeText={setOrari}
-              placeholder="Es. 9–24, anche la domenica"
+              placeholder={FUORI.negozio.orariSegnaposto}
             />
             <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-              {coords ? 'Punto selezionato' : 'Tocca la posizione del negozio sulla mappa:'}
+              {coords ? FUORI.negozio.puntoScelto : FUORI.negozio.toccaPosizione}
             </ThemedText>
           </View>
           <LocationPickerMap center={userCoords ?? city.center} userCoords={userCoords} value={coords} onPick={setCoords} zoom={15} />
           <View style={styles.footer}>
-            <Button label="Annulla" variant="secondary" onPress={onClose} style={styles.button} />
+            <Button label={VOCE.azione.annulla} variant="secondary" onPress={onClose} style={styles.button} />
             <Button
-              label="Aggiungi"
+              label={FUORI.negozio.aggiungi}
               onPress={handleSubmit}
               loading={loading}
               disabled={!nome.trim() || !coords}

@@ -8,17 +8,18 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
+import { SISTEMA } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { ReportReason } from '@/types';
 
 const REASONS: { value: ReportReason; label: string }[] = [
-  { value: 'comportamento_scorretto', label: 'Comportamento scorretto' },
-  { value: 'ordine_falso', label: 'Giro falso' },
-  { value: 'molestie', label: 'Molestie' },
+  { value: 'comportamento_scorretto', label: SISTEMA.segnala.motivo.comportamento_scorretto },
+  { value: 'ordine_falso', label: SISTEMA.segnala.motivo.ordine_falso },
+  { value: 'molestie', label: SISTEMA.segnala.motivo.molestie },
   { value: 'spam', label: 'Spam' },
-  { value: 'sicurezza', label: 'Sicurezza' },
-  { value: 'altro', label: 'Altro' },
+  { value: 'sicurezza', label: SISTEMA.segnala.motivo.sicurezza },
+  { value: 'altro', label: SISTEMA.segnala.motivo.altro },
 ];
 
 type Props = {
@@ -59,7 +60,7 @@ export function ReportModal({
   reason,
   details,
   loading,
-  title = 'Segnala persona',
+  title = SISTEMA.segnala.titolo,
   onReasonChange,
   onDetailsChange,
   onClose,
@@ -90,16 +91,16 @@ export function ReportModal({
             </View>
 
             <TextField
-              label="Cosa è successo"
+              label={SISTEMA.segnala.cosaSuccesso}
               value={details}
               onChangeText={onDetailsChange}
-              placeholder="Racconta i fatti: senza sapere cosa è successo non possono aiutarti"
+              placeholder={SISTEMA.segnala.segnaposto}
               multiline
             />
 
             <View style={styles.actions}>
-              <Button label="Lascio stare" variant="secondary" onPress={onClose} disabled={loading} style={styles.action} />
-              <Button label="Segnala" variant="danger" onPress={onSubmit} loading={loading} style={styles.action} />
+              <Button label={SISTEMA.segnala.lascioStare} variant="secondary" onPress={onClose} disabled={loading} style={styles.action} />
+              <Button label={SISTEMA.segnala.conferma} variant="danger" onPress={onSubmit} loading={loading} style={styles.action} />
             </View>
           </ScrollView>
         </ThemedView>

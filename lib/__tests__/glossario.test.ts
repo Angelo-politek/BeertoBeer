@@ -187,21 +187,6 @@ const IN_DEROGA = [
   'app/event/[id].tsx',
   'app/event/modifica/[id].tsx',
   'app/event/new.tsx',
-  'components/add-shop-modal.tsx',
-  'components/birthdate-field.tsx',
-  'components/city-picker.tsx',
-  'components/discovery-filter-bar.tsx',
-  'components/feed-map.tsx',
-  'components/foglio-uscita.tsx',
-  'components/grafico-barre.tsx',
-  'components/location-field.tsx',
-  'components/location-picker-map.tsx',
-  'components/novita-banner.tsx',
-  'components/profile-showcase.tsx',
-  'components/provvedimento-modal.tsx',
-  'components/report-modal.tsx',
-  'components/request-card.tsx',
-  'components/tessera-invito.tsx',
   'constants/novita.ts',
 ];
 
@@ -349,6 +334,10 @@ describe('C6 · le regole di forma dei testi', () => {
       const sorgente = senzaCommenti(leggi(`constants/testi/${area}.ts`));
       for (const m of sorgente.matchAll(LETTERALE)) {
         const v = m[1] ?? m[2] ?? m[3] ?? '';
+        // ⚠️ Una MASCHERA DI FORMATO non è testo urlato: «GG/MM/AAAA» dice
+        // com'è fatto un campo, e in minuscolo non vorrebbe dire niente.
+        // Sono lettere ripetute separate da punteggiatura, e si riconoscono.
+        if (/^[A-Z]{1,4}([/\-. ][A-Z]{1,4})+$/.test(v)) continue;
         const lettere = v.replace(/[^a-zA-ZÀ-ù]/g, '');
         if (lettere.length >= 4 && lettere === lettere.toUpperCase()) urlate.push(`${area}: ${v}`);
       }

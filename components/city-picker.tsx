@@ -6,6 +6,7 @@ import { apreFinestra, velo } from '@/constants/motion';
 
 import { ThemedText } from '@/components/themed-text';
 import { PressableScale } from '@/components/ui/pressable-scale';
+import { VOCE } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors, useShadows } from '@/hooks/use-colors';
 import { CITIES } from '@/lib/cities';
@@ -30,11 +31,11 @@ export function CityPicker({ selectedKey, onSelect }: Props) {
       <PressableScale
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel="Cambia città"
+        accessibilityLabel={VOCE.cambiaCitta}
         pressedScale={0.94}
         style={[styles.chip, { backgroundColor: c.surfaceAlt }]}>
         <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 14 }}>
-          {selected?.label ?? 'Città'}
+          {selected?.label ?? VOCE.citta}
         </ThemedText>
         <ThemedText style={{ color: c.textSecondary, fontSize: 12 }}>▾</ThemedText>
       </PressableScale>
@@ -45,7 +46,7 @@ export function CityPicker({ selectedKey, onSelect }: Props) {
             <Animated.View entering={apreFinestra}>
               <Pressable style={[styles.sheet, { backgroundColor: c.surface }, sh.raised]}>
                 <ThemedText type="subtitle" style={styles.title}>
-                  Scegli la città
+                  {VOCE.scegliCitta}
                 </ThemedText>
                 {CITIES.map((city) => {
                   const active = city.key === selectedKey;

@@ -121,6 +121,9 @@ export const SISTEMA = {
   },
 
   /** IL PORTAFOGLIO. */
+  /** Il grafico del pannello, quando non ha ancora dati. */
+  graficoVuoto: 'Ancora niente da mostrare qui.',
+
   gettoni: {
     titolo: PAROLE.gettone,
     saldo: 'Saldo',
@@ -180,6 +183,44 @@ export const SISTEMA = {
    *    la pagina che promette di dire «chi vede cosa» elencava due dati che
    *    l'app non ha. In un testo del genere è un difetto, non un refuso.
    */
+  /**
+   * LA SEGNALAZIONE DI UNA PERSONA O DI UN GIRO.
+   *
+   * ⚠️ I VALORI (`ordine_falso`, `molestie`…) sono chiavi del database e non
+   *    si toccano; qui ci sono solo le parole.
+   */
+  segnala: {
+    titolo: 'Segnala questa persona',
+    motivo: {
+      comportamento_scorretto: 'Comportamento scorretto',
+      ordine_falso: `${PAROLE.giro.charAt(0).toUpperCase()}${PAROLE.giro.slice(1)} falso`,
+      molestie: 'Molestie',
+      sicurezza: 'Sicurezza',
+      altro: 'Altro',
+    },
+    cosaSuccesso: 'Cosa è successo',
+    segnaposto: 'Racconta i fatti: senza sapere cosa è successo non possono aiutarti',
+    lascioStare: 'Lascio stare',
+    conferma: 'Segnala',
+  },
+
+  /** IL BANNER DELLE NOVITÀ, dopo un aggiornamento arrivato da solo. */
+  novitaBanner: {
+    /** ⚠️ Il maiuscolo lo mette `type="label"`: qui si scrive in tondo. */
+    intestazione: 'L’app è cambiata',
+    hoCapito: 'Ho capito',
+    apri: 'cosa c’è di nuovo',
+    nascondi: 'nascondi',
+    /**
+     * ⚠️ Qui c'era `righe.length === 1 ? 'novità' : 'novità'`: i due rami
+     *    erano IDENTICI. «Novità» è invariabile in italiano, quindi il
+     *    risultato era giusto — ma un ternario con due rami uguali sembra un
+     *    difetto a chi legge, e prima o poi qualcuno «lo sistema» mettendoci
+     *    un plurale che in italiano non esiste.
+     */
+    quante: (quante: number) => `${quante} novità. Tocca per leggerle.`,
+  },
+
   regole: {
     titoloSchermata: 'Regole e privacy',
     marchio: PAROLE.progetto,

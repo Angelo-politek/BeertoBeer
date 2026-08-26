@@ -71,3 +71,4 @@ export { GIRO } from './giro';
 export { PERSONE } from './persone';
 export { SISTEMA } from './sistema';
 export { FUORI } from './fuori';
+export { ADMIN } from './admin';

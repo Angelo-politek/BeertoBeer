@@ -50,6 +50,9 @@ export const INGRESSO = {
     eta: (anni: number) => `Devi avere almeno ${anni} anni: qui si parla di alcolici.`,
     nome: 'Nome',
     nomeSegnaposto: 'Come ti chiami?',
+    dataNascita: 'Data di nascita',
+    dataFormato: 'GG/MM/AAAA',
+    anniCompiuti: (anni: number) => `${anni} anni compiuti.`,
     email: 'Email',
     emailSegnaposto: 'tu@esempio.it',
     password: 'Password',
@@ -307,6 +310,20 @@ export const INGRESSO = {
      *    se compare spesso, il posto da correggere è il profilo.
      */
     mittenteIgnoto: 'un amico',
+
+    /** La tessera: un invito è un posto, e si vede che è uno solo. */
+    tessera: {
+      unPosto: 'Un posto',
+      ritirato: 'Ritirato',
+      speso: 'Speso',
+      giaSpeso: 'Già speso',
+      nonPiuValido: 'Non è più valido',
+      valeUnaPersona: 'Vale una persona sola',
+      entrato: (nome: string) => `È entrato ${nome}`,
+      modifica: 'Il nome',
+      modificaInvito: 'Modifica l’invito',
+      aChi: 'A chi lo dai?',
+    },
 
     /**
      * IL MESSAGGIO CHE ESCE DALL'APP.

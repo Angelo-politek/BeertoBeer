@@ -11,6 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
 import { Chip } from '@/components/ui/chip';
 import { velo } from '@/constants/motion';
+import { FUORI } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { apriUscita, chiudiUscita, getMieUscite } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
@@ -147,9 +148,9 @@ export function FoglioUscita() {
       const mie = await getMieUscite().catch(() => []);
       aggiorna(mie[0] ?? null);
       chiudi();
-      toast.show(`Ci sei ${finoAlle(durate[durata].fino.toISOString())}. Puoi rientrare quando vuoi.`);
+      toast.show(FUORI.foglio.ciSeiFino(finoAlle(durate[durata].fino.toISOString())));
     } catch (e) {
-      setErrore(messaggioServer(e, 'L’uscita non è partita. Riprova.'));
+      setErrore(messaggioServer(e, FUORI.foglio.nonPartita));
     } finally {
       setSalvando(false);
     }
@@ -162,9 +163,9 @@ export function FoglioUscita() {
       await chiudiUscita(mia.id);
       aggiorna(null);
       chiudi();
-      toast.show('Sei rientrato.');
+      toast.show(FUORI.foglio.rientrato);
     } catch (e) {
-      setErrore(messaggioServer(e, 'Non si è chiusa. Riprova.'));
+      setErrore(messaggioServer(e, FUORI.foglio.nonChiusa));
     } finally {
       setSalvando(false);
     }
@@ -178,17 +179,17 @@ export function FoglioUscita() {
           <ScrollView contentContainerStyle={styles.contenuto} keyboardShouldPersistTaps="handled">
             {mia ? (
               <>
-                <ThemedText type="label" style={{ color: c.textSecondary }}>SEI FUORI</ThemedText>
+                <ThemedText type="label" style={{ color: c.textSecondary }}>{FUORI.foglio.dichiaraTitolo}</ThemedText>
                 <ThemedText type="title">{finoAlle(mia.finisceAlle).toUpperCase()}</ThemedText>
                 <ThemedText style={{ color: c.textSecondary }}>
-                  Si chiude da sola. Non resta niente aperto a tua insaputa.
+                  {FUORI.foglio.siChiudeDaSola}
                 </ThemedText>
-                <Button label="Non ci vado più" variant="secondary" loading={salvando} onPress={rientra} />
+                <Button label={FUORI.ritira} variant="secondary" loading={salvando} onPress={rientra} />
               </>
             ) : (
               <>
-                <ThemedText type="label" style={{ color: c.textSecondary }}>STASERA</ThemedText>
-                <ThemedText type="title">CI SEI?</ThemedText>
+                <ThemedText type="label" style={{ color: c.textSecondary }}>{FUORI.foglio.stasera}</ThemedText>
+                <ThemedText type="title">{FUORI.foglio.domanda}</ThemedText>
 
                 <View style={styles.chip}>
                   {FORME.map((f) => (
@@ -204,7 +205,7 @@ export function FoglioUscita() {
                   {FORME.find((f) => f.key === forma)?.spiega}
                 </ThemedText>
 
-                <ThemedText type="label" style={{ color: c.textSecondary }}>FINO A QUANDO</ThemedText>
+                <ThemedText type="label" style={{ color: c.textSecondary }}>{FUORI.foglio.finoAQuando}</ThemedText>
                 <View style={styles.chip}>
                   {durate.map((d, i) => (
                     <Chip key={d.label} label={d.label} active={i === durata} onPress={() => setDurata(i)} />
@@ -214,19 +215,19 @@ export function FoglioUscita() {
                 {/* Informativa, non un campo: la posizione non si chiede. */}
                 <ThemedText style={{ color: c.textSecondary }}>
                   {cercandoPosizione
-                    ? 'Sto guardando dove sei…'
+                    ? FUORI.foglio.cercandoPosizione
                     : !coords
-                      ? 'Senza posizione non posso dirlo a nessuno. Attiva il GPS e riapri.'
+                      ? FUORI.foglio.senzaPosizione
                       : !dentroCitta
-                        ? `Sembri fuori da ${city.label}. Cambia città dal feed, oppure avvicinati.`
-                        : `${zona ?? city.label} · dal tuo telefono`}
+                        ? FUORI.foglio.fuoriCitta(city.label)
+                        : FUORI.foglio.daDove(zona ?? city.label)}
                 </ThemedText>
 
                 <TextField
                   label="Due parole, se vuoi"
                   value={nota}
                   onChangeText={setNota}
-                  placeholder="Passo dal minimarket, serve niente?"
+                  placeholder={FUORI.foglio.notaSegnaposto}
                   multiline
                 />
                 <ThemedText type="caption" style={{ color: c.textSecondary }}>
@@ -237,13 +238,13 @@ export function FoglioUscita() {
                 {errore ? <ThemedText style={{ color: c.danger }}>{errore}</ThemedText> : null}
 
                 <Button
-                  label="Sono fuori"
+                  label={FUORI.dichiara}
                   loading={salvando}
                   disabled={!coords || !dentroCitta}
                   onPress={pubblica}
                 />
                 <ThemedText style={{ color: c.textSecondary }}>
-                  Si chiude da sola {finoAlle(durate[durata].fino.toISOString())}. Puoi rientrare quando vuoi.
+                  {FUORI.foglio.siChiudeAlle(finoAlle(durate[durata].fino.toISOString()))}
                 </ThemedText>
               </>
             )}

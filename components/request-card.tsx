@@ -4,6 +4,7 @@ import { Avatar } from '@/components/avatar';
 import { Badge } from '@/components/badge';
 import { Card } from '@/components/card';
 import { ThemedText } from '@/components/themed-text';
+import { GIRO } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { whyThisRequest } from '@/lib/discovery';
@@ -51,7 +52,7 @@ export function RequestCard({ request, onPress, index }: Props) {
 
       <View style={styles.footerRow}>
         <View style={styles.badges}>
-          {request.vibeMode && <Badge label="Vibe mode" tone="accent" />}
+          {request.vibeMode && <Badge label={GIRO.card.vibe} tone="accent" />}
         </View>
         <View style={[styles.reward, { backgroundColor: c.accentSoft }]}>
           <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 15 }}>
@@ -60,7 +61,7 @@ export function RequestCard({ request, onPress, index }: Props) {
         </View>
       </View>
       <View style={[styles.openAction, { borderTopColor: c.border }]}>
-        <ThemedText type="defaultSemiBold">Vedi giro</ThemedText>
+        <ThemedText type="defaultSemiBold">{GIRO.card.vedi}</ThemedText>
       </View>
     </Card>
   );

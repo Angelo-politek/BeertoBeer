@@ -10,6 +10,7 @@ import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { BrandIcon } from '@/components/ui/brand-icon';
 import { BEER_TO_BEER_MAP_STYLE } from '@/constants/map-style';
+import { FUORI, GIRO, VOCE } from '@/constants/testi';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { useColors, useShadows } from '@/hooks/use-colors';
 import type { City } from '@/lib/cities';
@@ -96,7 +97,7 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
 
         {userCoords ? (
           <Marker lngLat={[userCoords.lng, userCoords.lat]}>
-            <View style={[styles.userMarker, { backgroundColor: c.accent, borderColor: c.text }]} accessibilityLabel="La tua posizione">
+            <View style={[styles.userMarker, { backgroundColor: c.accent, borderColor: c.text }]} accessibilityLabel={VOCE.tuaPosizione}>
               <BrandIcon name="pin" size={16} color={c.accentText} />
             </View>
           </Marker>
@@ -115,7 +116,7 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
             <Marker key={`uscita-${u.id}`} lngLat={[u.lng, u.lat]}>
               <Pressable
                 onPress={() => selectMarker({ kind: 'uscita', uscita: u })}
-                accessibilityLabel={`${u.persona.nome} è fuori`}
+                accessibilityLabel={FUORI.mappa.eFuori(u.persona.nome)}
                 style={[
                   styles.uscitaMarker,
                   { backgroundColor: c.surface, borderColor: active ? c.accent : c.text },
@@ -194,13 +195,13 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
               sh.card,
             ]}>
             <BrandIcon name="plus" size={16} color={c.accent} />
-            <ThemedText type="defaultSemiBold">Segnala un negozio</ThemedText>
+            <ThemedText type="defaultSemiBold">{FUORI.negozio.segnala}</ThemedText>
           </Pressable>
           <View style={[styles.legend, { backgroundColor: c.surface }, sh.card]}>
             <View style={styles.legendItem}><BrandIcon name="bottle" size={14} color={c.accent} /><ThemedText type="caption">Giri</ThemedText></View>
-            <View style={styles.legendItem}><BrandIcon name="cart" size={14} color={c.positive} /><ThemedText type="caption">Negozi</ThemedText></View>
-            <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.accentStrong} /><ThemedText type="caption">Incontri ed eventi</ThemedText></View>
-            <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.text} /><ThemedText type="caption">Chi è fuori</ThemedText></View>
+            <View style={styles.legendItem}><BrandIcon name="cart" size={14} color={c.positive} /><ThemedText type="caption">{FUORI.legenda.negozi}</ThemedText></View>
+            <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.accentStrong} /><ThemedText type="caption">{FUORI.legenda.incontri}</ThemedText></View>
+            <View style={styles.legendItem}><BrandIcon name="cheers" size={14} color={c.text} /><ThemedText type="caption">{FUORI.legenda.chiEFuori}</ThemedText></View>
           </View>
         </>
       ) : null}
@@ -230,14 +231,14 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
           ) : null}
           <View style={styles.uscitaAzioni}>
             <Button
-              label="Vedi chi è"
+              label={FUORI.mappa.vediChiE}
               variant="secondary"
               onPress={() => onOpenPersona?.(selection.uscita.persona.id)}
               style={styles.uscitaAzione}
             />
             {selection.uscita.tipo === 'negozio' && onChiediGiro ? (
               <Button
-                label="Chiedi un giro"
+                label={FUORI.chiediUnGiro}
                 onPress={() => onChiediGiro(selection.uscita.id)}
                 style={styles.uscitaAzione}
               />
@@ -256,7 +257,7 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
             <ThemedText type="defaultSemiBold" numberOfLines={1} style={styles.previewTitle}>
               {selection.request.host.nome} · {selection.request.host.ratingMedio.toFixed(1)} su 5
             </ThemedText>
-            {selection.request.vibeMode ? <Badge label="Vibe mode" tone="accent" /> : null}
+            {selection.request.vibeMode ? <Badge label={GIRO.card.vibe} tone="accent" /> : null}
             <Pressable onPress={() => setSelection(null)} hitSlop={10}>
               <BrandIcon name="x-mark" size={18} color={c.textSecondary} />
             </Pressable>
@@ -269,7 +270,7 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
             {selection.request.distanzaKm != null ? ` · ~${selection.request.distanzaKm.toFixed(1)} km da te` : ''}
             {selection.request.fascia ? ` · ${selection.request.fascia}` : ''}
           </ThemedText>
-          <Button label="Apri il giro" onPress={() => onOpenRequest(selection.request.id)} />
+          <Button label={FUORI.mappa.apriGiro} onPress={() => onOpenRequest(selection.request.id)} />
         </Animated.View>
       ) : null}
 
@@ -299,7 +300,7 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
           </ThemedText>
           {onOpenEvent ? (
             <Button
-              label={selection.event.tipo === 'evento' ? 'Apri l’evento' : 'Apri l’incontro'}
+              label={selection.event.tipo === 'evento' ? FUORI.mappa.apriEvento : FUORI.mappa.apriIncontro}
               onPress={() => onOpenEvent(selection.event.id)}
             />
           ) : null}
@@ -324,10 +325,10 @@ export function FeedMap({ city, requests, shops, events = [], uscite = [], userC
           <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
             {selection.shop.orari
               ? `Orari stimati: ${selection.shop.orari}`
-              : 'Orari non segnalati.'}{' '}
+              : FUORI.mappa.orariNonSegnalati}{' '}
             Segnalato dalla community.
           </ThemedText>
-          <Button label="Apri le indicazioni" onPress={() => openDirections(selection.shop)} />
+          <Button label={FUORI.mappa.apriIndicazioni} onPress={() => openDirections(selection.shop)} />
           {canDeleteShop(selection.shop) ? (
             <Button
               label="Elimina negozio"

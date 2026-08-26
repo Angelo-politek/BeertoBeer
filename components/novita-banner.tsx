@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { NOVITA } from '@/constants/novita';
+import { SISTEMA } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { haGiaVistoUnaVersione, ritiraAggiornamentoApplicato } from '@/lib/preferences';
@@ -54,8 +55,8 @@ export function NovitaBanner() {
       onPress={() => setAperto((v) => !v)}
       style={[styles.banner, { backgroundColor: c.surfaceAlt, borderColor: c.accent }]}>
       <View style={styles.riga}>
-        <ThemedText type="label" style={{ color: c.accent, flex: 1 }}>L’APP È CAMBIATA</ThemedText>
-        <ThemedText style={{ color: c.textSecondary }}>{aperto ? 'nascondi' : 'cosa c’è di nuovo'}</ThemedText>
+        <ThemedText type="label" style={{ color: c.accent, flex: 1 }}>{SISTEMA.novitaBanner.intestazione}</ThemedText>
+        <ThemedText style={{ color: c.textSecondary }}>{aperto ? SISTEMA.novitaBanner.nascondi : SISTEMA.novitaBanner.apri}</ThemedText>
       </View>
 
       {aperto ? (
@@ -64,12 +65,12 @@ export function NovitaBanner() {
             <ThemedText key={riga} style={{ color: c.textSecondary }}>· {riga}</ThemedText>
           ))}
           <Pressable onPress={() => setMostra(false)} hitSlop={8}>
-            <ThemedText style={{ color: c.accent }}>Ho capito</ThemedText>
+            <ThemedText style={{ color: c.accent }}>{SISTEMA.novitaBanner.hoCapito}</ThemedText>
           </Pressable>
         </View>
       ) : (
         <ThemedText style={{ color: c.textSecondary }}>
-          {ultime.righe.length} {ultime.righe.length === 1 ? 'novità' : 'novità'}. Tocca per leggerle.
+          {SISTEMA.novitaBanner.quante(ultime.righe.length)}
         </ThemedText>
       )}
     </Pressable>

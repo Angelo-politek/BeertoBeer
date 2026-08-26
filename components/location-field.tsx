@@ -7,6 +7,7 @@ import { LocationPickerMap } from '@/components/location-picker-map';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PAROLE, VOCE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { isWithinCity, type City } from '@/lib/cities';
@@ -71,19 +72,19 @@ function spiegazione(
 ): [string, string] {
   if (esito.motivo === 'servizio') {
     return [
-      'Ricerca non disponibile',
-      'Il servizio mappe non risponde in questo momento. Riprova fra poco, oppure scegli subito il punto sulla mappa.',
+      VOCE.posizione.ricercaKoTitolo,
+      VOCE.posizione.ricercaKoTesto,
     ];
   }
   if (esito.motivo === 'altra-citta') {
     return [
-      `Quell'indirizzo è a ${esito.comune}`,
-      `Beer to Beer funziona dentro ${citta}: chi porta si muove a piedi o in bici, e ${esito.comune} è un altro comune. Cerca un indirizzo in ${citta}, oppure cambia città dal feed.`,
+      VOCE.posizione.altroComuneTitolo(esito.comune),
+      VOCE.posizione.altroComuneTesto(PAROLE.progetto, citta, esito.comune),
     ];
   }
   return [
-    'Indirizzo non trovato',
-    `Nessun risultato a ${citta}. Scrivilo in modo più preciso (via e numero civico) oppure scegli il punto sulla mappa.`,
+    VOCE.posizione.nonTrovatoTitolo,
+    VOCE.posizione.nonTrovatoTesto(citta),
   ];
 }
 
@@ -108,15 +109,15 @@ export function LocationField({ city, value, onChange, label, placeholder, mapTi
       const qui = await getCurrentCoords();
       if (!qui) {
         Alert.alert(
-          'Posizione non disponibile',
-          'Attiva il GPS e concedi il permesso di localizzazione, oppure scegli il punto sulla mappa.',
+          VOCE.posizione.gpsKoTitolo,
+          VOCE.posizione.gpsKoTesto,
         );
         return;
       }
       if (!isWithinCity(qui, city)) {
         Alert.alert(
-          'Sei fuori città',
-          `La tua posizione non risulta dentro ${city.label}. Cambia città dal feed, oppure scegli il punto sulla mappa.`,
+          VOCE.posizione.fuoriCittaTitolo,
+          VOCE.posizione.fuoriCittaTesto(city.label),
         );
         return;
       }
@@ -127,7 +128,7 @@ export function LocationField({ city, value, onChange, label, placeholder, mapTi
         onChange({ indirizzo, coords: qui });
         Alert.alert(
           'Punto salvato',
-          'Non sono riuscito a ricavare la via: scrivila tu, il punto è già a posto.',
+          VOCE.posizione.viaSconosciuta,
         );
       }
     } finally {
@@ -137,7 +138,7 @@ export function LocationField({ city, value, onChange, label, placeholder, mapTi
 
   async function trovaIndirizzo() {
     if (indirizzo.trim().length === 0) {
-      Alert.alert('Manca l’indirizzo', 'Scrivi prima l’indirizzo.');
+      Alert.alert(VOCE.posizione.mancaTitolo, VOCE.posizione.mancaTesto);
       return;
     }
     setGeocoding(true);
@@ -155,8 +156,8 @@ export function LocationField({ city, value, onChange, label, placeholder, mapTi
     if (!isWithinCity(esito.coords, city)) {
       onChange({ indirizzo, coords: null });
       Alert.alert(
-        'Indirizzo fuori città',
-        `Il punto trovato è fuori da ${city.label}. Controlla l'indirizzo o scegli il punto sulla mappa.`,
+        VOCE.posizione.puntoFuoriTitolo,
+        VOCE.posizione.puntoFuoriTesto(city.label),
       );
       return;
     }
@@ -187,10 +188,12 @@ export function LocationField({ city, value, onChange, label, placeholder, mapTi
         value={indirizzo}
         onChangeText={(t) => onChange({ indirizzo: t, coords: null })} // testo cambiato: va ri-cercato
         onBlur={cercaInSilenzio}
-        placeholder={placeholder ?? 'Via e numero civico'}
+        placeholder={placeholder ?? VOCE.posizione.campoSegnaposto}
       />
+      {/* Via l'emoji che stava su questo pulsante: un glifo glossy disegnato
+          da qualcun altro, spedito dentro il nostro marchio. */}
       <Button
-        label={locating ? 'Rilevamento…' : '📍 Usa la mia posizione'}
+        label={locating ? VOCE.posizione.inCorso : VOCE.posizione.usaLaMia}
         variant="secondary"
         onPress={usaLaMiaPosizione}
         loading={locating}
@@ -204,7 +207,7 @@ export function LocationField({ city, value, onChange, label, placeholder, mapTi
           style={styles.mezzo}
         />
         <Button
-          label="Scegli sulla mappa"
+          label={VOCE.posizione.scegliSullaMappa}
           variant="secondary"
           onPress={() => {
             setMapPick(coords);
@@ -218,15 +221,15 @@ export function LocationField({ city, value, onChange, label, placeholder, mapTi
         <ThemedView style={styles.pieno}>
           <SafeAreaView style={styles.pieno} edges={['top', 'bottom']}>
             <View style={styles.intestazione}>
-              <ThemedText type="subtitle">{mapTitle ?? 'Tocca il punto esatto'}</ThemedText>
+              <ThemedText type="subtitle">{mapTitle ?? VOCE.posizione.toccaPunto}</ThemedText>
               <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-                {mapHint ?? `${city.label} — sposta e zooma la mappa, poi tocca il punto.`}
+                {mapHint ?? VOCE.posizione.aiutoMappa(city.label)}
               </ThemedText>
             </View>
             <LocationPickerMap center={coords ?? city.center} value={mapPick} onPick={setMapPick} />
             <View style={styles.piede}>
               <Button label="Annulla" variant="secondary" onPress={() => setMapOpen(false)} style={styles.mezzo} />
-              <Button label="Conferma punto" onPress={confermaPuntoMappa} disabled={!mapPick} style={styles.mezzo} />
+              <Button label={VOCE.posizione.confermaPunto} onPress={confermaPuntoMappa} disabled={!mapPick} style={styles.mezzo} />
             </View>
           </SafeAreaView>
         </ThemedView>

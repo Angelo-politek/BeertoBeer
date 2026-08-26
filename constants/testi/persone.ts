@@ -250,6 +250,8 @@ export const PERSONE = {
     /** Sezioni. Il maiuscolo lo mette `type="label"`. */
     sezioneFoto: 'Foto',
     sezioneGusti: 'Gusti',
+    /** ⚠️ «Disponibilità» è vietata: qui si dice quando ci sei. */
+    diSolitoCiSono: 'Di solito ci sono',
     sezionePrivacy: 'Privacy foto',
     sezioneAnteprima: 'Anteprima poster',
     fotoNumero: (n: number) => `Foto ${n}`,

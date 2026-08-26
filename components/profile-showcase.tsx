@@ -4,6 +4,7 @@ import { Card } from '@/components/card';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { ProfileStickerImage } from '@/components/profile-sticker';
 import { ThemedText } from '@/components/themed-text';
+import { PERSONE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { ProfileCustomization } from '@/types';
@@ -28,8 +29,8 @@ export function ProfileShowcase({
     {value.photos.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photos}>{value.photos.map((p, i) => <PressableScale key={p.id} onPress={() => onApriFoto?.(i)}><Image source={{ uri: p.url }} contentFit="cover" style={styles.photo} /></PressableScale>)}</ScrollView> : null}
     {value.statusPhrase ? <ThemedText type="subtitle">“{value.statusPhrase}”</ThemedText> : null}
     {shown.length ? <View style={[styles.board,{backgroundColor:c.surfaceAlt}]}>{shown.map((s) => <ProfileStickerImage key={s.key} assetKey={s.assetKey} size={76*(s.scale ?? 1)} style={{ transform:[{rotate:`${s.rotation ?? 0}deg`}] }} />)}</View> : null}
-    {value.beerTastes.length ? <View><ThemedText type="label">GUSTI</ThemedText><ThemedText>{value.beerTastes.join(' · ')}</ThemedText></View> : null}
-    {value.availability.length ? <View><ThemedText type="label">DI SOLITO CI SONO</ThemedText><ThemedText>{value.availability.join(' · ')}</ThemedText></View> : null}
+    {value.beerTastes.length ? <View><ThemedText type="label">{PERSONE.vetrina.sezioneGusti}</ThemedText><ThemedText>{value.beerTastes.join(' · ')}</ThemedText></View> : null}
+    {value.availability.length ? <View><ThemedText type="label">{PERSONE.vetrina.diSolitoCiSono}</ThemedText><ThemedText>{value.availability.join(' · ')}</ThemedText></View> : null}
   </Card>;
 }
 const styles=StyleSheet.create({card:{gap:Spacing.md},photos:{gap:Spacing.sm},photo:{width:146,height:183,borderRadius:8},// flexWrap: con tre sticker larghi e ingranditi al massimo la riga sfonderebbe

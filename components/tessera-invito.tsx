@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { INGRESSO } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { Invite } from '@/types';
@@ -52,7 +53,7 @@ export function TesseraInvito({
           contentFit="contain"
         />
         <ThemedText type="caption" style={{ color: c.textSecondary }}>
-          {ritirata ? 'RITIRATO' : spesa ? 'SPESO' : 'UN POSTO'}
+          {ritirata ? INGRESSO.invito.tessera.ritirato : spesa ? INGRESSO.invito.tessera.speso : INGRESSO.invito.tessera.unPosto}
         </ThemedText>
       </View>
 
@@ -63,7 +64,7 @@ export function TesseraInvito({
           {invito.nominativo}
         </ThemedText>
       ) : spesa ? null : (
-        <ThemedText style={{ color: c.textSecondary }}>A chi lo dai?</ThemedText>
+        <ThemedText style={{ color: c.textSecondary }}>{INGRESSO.invito.tessera.aChi}</ThemedText>
       )}
 
       <ThemedText
@@ -76,11 +77,11 @@ export function TesseraInvito({
         <ThemedText type="caption" style={{ color: c.textSecondary }}>
           {spesa
             ? invito.invitato
-              ? `È entrato ${invito.invitato}`
-              : 'Già speso'
+              ? INGRESSO.invito.tessera.entrato(invito.invitato)
+              : INGRESSO.invito.tessera.giaSpeso
             : ritirata
-              ? 'Non è più valido'
-              : 'Vale una persona sola'}
+              ? INGRESSO.invito.tessera.nonPiuValido
+              : INGRESSO.invito.tessera.valeUnaPersona}
         </ThemedText>
       </View>
     </View>
@@ -88,7 +89,7 @@ export function TesseraInvito({
 
   if (!onPress || spesa || ritirata) return contenuto;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Modifica l’invito">
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={INGRESSO.invito.tessera.modificaInvito}>
       {contenuto}
     </Pressable>
   );

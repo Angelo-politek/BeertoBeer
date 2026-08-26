@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { BrandIcon } from '@/components/ui/brand-icon';
 import { BEER_TO_BEER_MAP_STYLE } from '@/constants/map-style';
+import { VOCE } from '@/constants/testi';
 import { useColors } from '@/hooks/use-colors';
 import type { Coords } from '@/lib/location';
 
@@ -41,7 +42,7 @@ export function LocationPickerMap({ center, onPick, value, userCoords, zoom = 12
       <Camera initialViewState={{ center: [center.lng, center.lat], zoom }} />
       {userCoords ? (
         <Marker lngLat={[userCoords.lng, userCoords.lat]}>
-          <View style={[styles.userPin, { backgroundColor: c.positive, borderColor: c.text }]} accessibilityLabel="La tua posizione">
+          <View style={[styles.userPin, { backgroundColor: c.positive, borderColor: c.text }]} accessibilityLabel={VOCE.tuaPosizione}>
             <BrandIcon name="profile" size={17} color={c.background} />
           </View>
         </Marker>

@@ -6,6 +6,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Chip } from '@/components/ui/chip';
 import { velo } from '@/constants/motion';
+import { ADMIN, VOCE } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import type { TipoProvvedimento } from '@/data/api';
@@ -52,24 +53,24 @@ export function ProvvedimentoModal({ visible, nomePersona, loading, onClose, onS
             <ThemedText type="subtitle">Provvedimento per {nomePersona}</ThemedText>
 
             <View style={styles.gruppo}>
-              <ThemedText type="label">COSA FARE</ThemedText>
+              <ThemedText type="label">{ADMIN.provvedimento.cosaFare}</ThemedText>
               <View style={styles.chips}>
-                <Chip label="Avvertimento" active={tipo === 'avvertimento'} onPress={() => setTipo('avvertimento')} />
-                <Chip label="Sospensione" active={tipo === 'sospensione'} onPress={() => setTipo('sospensione')} />
-                <Chip label="Esclusione" active={tipo === 'esclusione'} onPress={() => setTipo('esclusione')} />
+                <Chip label={ADMIN.provvedimento.avvertimento} active={tipo === 'avvertimento'} onPress={() => setTipo('avvertimento')} />
+                <Chip label={ADMIN.provvedimento.sospensione} active={tipo === 'sospensione'} onPress={() => setTipo('sospensione')} />
+                <Chip label={ADMIN.provvedimento.esclusione} active={tipo === 'esclusione'} onPress={() => setTipo('esclusione')} />
               </View>
               <ThemedText type="caption" style={{ color: c.textSecondary }}>
                 {tipo === 'avvertimento'
-                  ? 'Nessuna limitazione, ma resta scritto nella storia della persona.'
+                  ? ADMIN.provvedimento.avvertimentoTesto
                   : tipo === 'sospensione'
-                    ? 'Non potrà lanciare giri né accettarne fino alla scadenza.'
-                    : "Fuori da Beer to Beer. L'account non viene cancellato: giri e segnalazioni restano consultabili."}
+                    ? ADMIN.provvedimento.sospensioneTesto
+                    : ADMIN.provvedimento.esclusioneTesto}
               </ThemedText>
             </View>
 
             {tipo === 'sospensione' ? (
               <View style={styles.gruppo}>
-                <ThemedText type="label">PER QUANTO</ThemedText>
+                <ThemedText type="label">{ADMIN.provvedimento.perQuanto}</ThemedText>
                 <View style={styles.chips}>
                   {GIORNI.map((g) => (
                     <Chip
@@ -88,20 +89,20 @@ export function ProvvedimentoModal({ visible, nomePersona, loading, onClose, onS
               <TextInput
                 value={motivo}
                 onChangeText={setMotivo}
-                placeholder="Cosa e successo, in due righe"
+                placeholder={ADMIN.provvedimento.segnaposto}
                 placeholderTextColor={c.textSecondary}
                 multiline
                 style={[styles.campo, { color: c.text, backgroundColor: c.surfaceAlt, borderColor: c.border }]}
               />
               <ThemedText type="caption" style={{ color: c.textSecondary }}>
-                Questa motivazione viene mandata alla persona insieme al provvedimento.
+                {ADMIN.provvedimento.avvisoMotivazione}
               </ThemedText>
             </View>
 
             <View style={styles.azioni}>
-              <Button label="Annulla" variant="secondary" onPress={onClose} style={styles.meta} />
+              <Button label={VOCE.azione.annulla} variant="secondary" onPress={onClose} style={styles.meta} />
               <Button
-                label="Applica"
+                label={ADMIN.provvedimento.applica}
                 variant="danger"
                 loading={loading}
                 disabled={motivoCorto}

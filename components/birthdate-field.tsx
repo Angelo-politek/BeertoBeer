@@ -1,6 +1,7 @@
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { esaminaData, ETA_MINIMA, formattaData } from '@/lib/age';
+import { INGRESSO } from '@/constants/testi';
 import { useColors } from '@/hooks/use-colors';
 
 /**
@@ -35,17 +36,17 @@ export function BirthdateField({ value, onChangeText }: Props) {
   return (
     <>
       <TextField
-        label="Data di nascita"
+        label={INGRESSO.registrazione.dataNascita}
         value={value}
         onChangeText={(grezzo) => onChangeText(formattaData(grezzo))}
-        placeholder="GG/MM/AAAA"
+        placeholder={INGRESSO.registrazione.dataFormato}
         keyboardType="number-pad"
         autoCapitalize="none"
         error={
           esito.stato === 'non-valida'
             ? esito.motivo
             : esito.stato === 'troppo-giovane'
-              ? `Devi avere almeno ${ETA_MINIMA} anni per usare Beer to Beer.`
+              ? INGRESSO.registrazione.troppoGiovane(ETA_MINIMA)
               : null
         }
       />
@@ -53,7 +54,7 @@ export function BirthdateField({ value, onChangeText }: Props) {
           l'app l'ha capita, e non deve piu' chiedersi se il formato va bene. */}
       {esito.stato === 'ok' ? (
         <ThemedText type="caption" style={{ color: c.textSecondary }}>
-          {`${esito.anni} anni compiuti.`}
+          {INGRESSO.registrazione.anniCompiuti(esito.anni)}
         </ThemedText>
       ) : null}
     </>

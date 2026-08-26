@@ -1,6 +1,7 @@
 import { StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
+import { SISTEMA } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 
@@ -68,7 +69,7 @@ export function GraficoBarre({
 
       {totale === 0 ? (
         <ThemedText style={{ color: c.textSecondary, paddingVertical: Spacing.md }}>
-          Ancora niente da mostrare qui.
+          {SISTEMA.graficoVuoto}
         </ThemedText>
       ) : (
         <>

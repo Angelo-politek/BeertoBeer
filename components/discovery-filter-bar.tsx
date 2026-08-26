@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { Chip } from '@/components/ui/chip';
 import { ThemedText } from '@/components/themed-text';
+import { GIRO } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { useDiscoveryFilters } from '@/lib/discovery-context';
@@ -9,9 +10,9 @@ import type { DiscoveryFilters } from '@/types';
 
 /** Â«Per teÂ» era la parola delle piattaforme. Questi tre dicono cosa fanno. */
 const ORDINAMENTI: { key: DiscoveryFilters['sort']; label: string }[] = [
-  { key: 'scadenza', label: 'Chi finisce prima' },
-  { key: 'distanza', label: 'Piu vicini' },
-  { key: 'recenti', label: 'Appena arrivati' },
+  { key: 'scadenza', label: GIRO.ordina.scadenza },
+  { key: 'distanza', label: GIRO.ordina.distanza },
+  { key: 'recenti', label: GIRO.ordina.recenti },
 ];
 
 export function DiscoveryFilterBar() {
@@ -19,11 +20,11 @@ export function DiscoveryFilterBar() {
   const { filters, activeCount, updateFilters, resetFilters } = useDiscoveryFilters();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.content}>
-      <Chip label="Tutti" active={activeCount === 0} onPress={resetFilters} />
-      <Chip label="Adesso" active={filters.time === 'now'} onPress={() => updateFilters({ time: filters.time === 'now' ? 'all' : 'now' })} />
-      <Chip label="Stasera" active={filters.time === 'tonight'} onPress={() => updateFilters({ time: filters.time === 'tonight' ? 'all' : 'tonight' })} />
-      <Chip label="Vibe mode" active={filters.vibeOnly} onPress={() => updateFilters({ vibeOnly: !filters.vibeOnly })} />
-      <Chip label="Entro 3 km" active={filters.maxDistanceKm === 3} onPress={() => updateFilters({ maxDistanceKm: filters.maxDistanceKm === 3 ? null : 3 })} />
+      <Chip label={GIRO.filtri.tutti} active={activeCount === 0} onPress={resetFilters} />
+      <Chip label={GIRO.filtri.adesso} active={filters.time === 'now'} onPress={() => updateFilters({ time: filters.time === 'now' ? 'all' : 'now' })} />
+      <Chip label={GIRO.filtri.stasera} active={filters.time === 'tonight'} onPress={() => updateFilters({ time: filters.time === 'tonight' ? 'all' : 'tonight' })} />
+      <Chip label={GIRO.filtri.vibe} active={filters.vibeOnly} onPress={() => updateFilters({ vibeOnly: !filters.vibeOnly })} />
+      <Chip label={GIRO.filtri.entroKm(3)} active={filters.maxDistanceKm === 3} onPress={() => updateFilters({ maxDistanceKm: filters.maxDistanceKm === 3 ? null : 3 })} />
       {/*
         I tre ordinamenti sono dichiarati e visibili, non nascosti dentro un
         tasto che li fa ruotare: chi guarda l'elenco deve poter sapere perche'

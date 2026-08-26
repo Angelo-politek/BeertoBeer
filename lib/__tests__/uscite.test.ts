@@ -139,8 +139,14 @@ describe('il foglio resta da due tocchi', () => {
 
   it('dice le due frasi che tolgono l esitazione', () => {
     // Dichiarare a un'app dove sei e' la cosa che fa esitare di piu'.
-    expect(foglio).toContain('Puoi rientrare quando vuoi');
-    expect(foglio).toContain('Si chiude da sola');
+    // ⚠️ Le due frasi si sono spostate in `constants/testi/fuori.ts` con C6:
+    // si guarda dove vivono adesso, e si continua a verificare che il foglio
+    // le mostri davvero — cioe' che legga da li'.
+    const testi = leggi('constants/testi/fuori.ts');
+    expect(testi).toContain('Puoi rientrare quando vuoi');
+    expect(testi).toContain('Si chiude da sola');
+    expect(foglio).toContain('FUORI.foglio.siChiudeDaSola');
+    expect(foglio).toContain('FUORI.foglio.siChiudeAlle');
   });
 });
 
