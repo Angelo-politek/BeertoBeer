@@ -13,6 +13,7 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { Radii, Spacing } from '@/constants/theme';
 import { getAmici, getConnections, rispondiAmicizia, type Amico, type Connection } from '@/data/api';
 import { useColors } from '@/hooks/use-colors';
+import { PERSONE, VOCE } from '@/constants/testi';
 import { messaggioServer } from '@/lib/errori';
 import { getCity } from '@/lib/cities';
 
@@ -53,7 +54,7 @@ export default function AmiciScreen() {
       setAmici(a);
       setConosciute(k);
     } catch (e) {
-      Alert.alert('Non caricato', messaggioServer(e, 'Riprova fra poco.'));
+      Alert.alert(PERSONE.amici.nonCaricatoTitolo, messaggioServer(e, VOCE.riserva.riprovaFraPoco));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -70,10 +71,10 @@ export default function AmiciScreen() {
     setInCorso(a.richiestaId);
     try {
       await rispondiAmicizia(a.richiestaId, accetta);
-      toast.show(accetta ? `Ora sei amico di ${a.nome}.` : 'Richiesta rifiutata.');
+      toast.show(accetta ? PERSONE.amici.oraAmico(a.nome) : PERSONE.amici.richiestaRifiutata);
       await carica();
     } catch (e) {
-      Alert.alert('Non riuscita', messaggioServer(e, 'Riprova.'));
+      Alert.alert(PERSONE.amici.nonRiuscitaTitolo, messaggioServer(e, VOCE.riserva.riprovaFraPoco));
     } finally {
       setInCorso(null);
     }
@@ -88,7 +89,7 @@ export default function AmiciScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'I miei amici' }} />
+      <Stack.Screen options={{ title: PERSONE.amici.titolo }} />
       {loading ? (
         <View style={styles.skeletons}>
           <SkeletonCard />
@@ -108,7 +109,7 @@ export default function AmiciScreen() {
                   richiede una risposta. */}
               {daRispondere.length > 0 ? (
                 <View style={styles.sezione}>
-                  <ThemedText type="label">TI HANNO CHIESTO L’AMICIZIA</ThemedText>
+                  <ThemedText type="label">{PERSONE.amici.richiesteInArrivo}</ThemedText>
                   {daRispondere.map((a) => (
                     <View key={a.id} style={[styles.riga, { backgroundColor: c.surface }]}>
                       <Avatar name={a.nome} uri={a.fotoUrl ?? undefined} size={44} />
@@ -168,8 +169,8 @@ export default function AmiciScreen() {
             daRispondere.length === 0 ? (
               <EmptyState
                 icon="smile"
-                title="Ancora nessun amico"
-                message="Aggiungi qualcuno dal suo profilo: si aggiunge quando accetta."
+                title={PERSONE.amici.vuotoTitolo}
+                message={PERSONE.amici.vuotoTesto}
               />
             ) : null
           }
@@ -189,9 +190,9 @@ export default function AmiciScreen() {
               {/* Il suggerimento: gente con cui hai gia' fatto uno scambio. */}
               {daSuggerire.length > 0 ? (
                 <View style={styles.sezione}>
-                  <ThemedText type="label">QUESTE LE CONOSCI GIÀ</ThemedText>
+                  <ThemedText type="label">{PERSONE.amici.giaConosciute}</ThemedText>
                   <ThemedText type="caption" style={{ color: c.textSecondary }}>
-                    Ci hai già fatto almeno un giro.
+                    {PERSONE.amici.giaConosciuteNota}
                   </ThemedText>
                   {daSuggerire.slice(0, 8).map((k) => (
                     <PressableScale
@@ -202,7 +203,7 @@ export default function AmiciScreen() {
                       <View style={styles.flex}>
                         <ThemedText type="defaultSemiBold">{k.user.nome}</ThemedText>
                         <ThemedText type="caption" style={{ color: c.textSecondary }}>
-                          {k.scambi === 1 ? '1 giro insieme' : `${k.scambi} giri insieme`}
+                          {PERSONE.amici.giriInsieme(k.scambi)}
                         </ThemedText>
                       </View>
                     </PressableScale>

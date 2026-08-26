@@ -151,21 +151,23 @@ const FILE_SORVEGLIATI_FUORI = [
  * `filtri-non-si-perdono.test.ts`) e l'invito non ha prezzo — e sono entrati
  * subito dopo.
  *
- *   S2 · IL GIRO, in corso. Fatto il vocabolario condiviso — gli stati, i
- *        motivi per cui un giro è fermo, le etichette della prossima azione,
- *        che stavano sparsi in `lib/orders.ts` e `lib/discovery.ts` — più
- *        `app/my-orders.tsx` e `app/review.tsx`.
- *   S2 · IL GIRO, COMPLETA — `create-request`, `request/[id]` (875 righe e 84
- *        frasi, la più grossa dell'app) e le tre chat.
+ *   S2 · IL GIRO, COMPLETA — il vocabolario condiviso (gli stati, i motivi per
+ *        cui un giro è fermo, le etichette della prossima azione, che stavano
+ *        sparsi fra `lib/orders.ts` e `lib/discovery.ts`), `my-orders`,
+ *        `review`, `create-request`, `request/[id]` (875 righe e 84 frasi, la
+ *        più grossa dell'app) e le tre chat.
  *
- * Il prossimo è S3: le persone (profilo, amici, incontri, blocchi), il sistema
- * (impostazioni, notifiche, novità, segnalazioni) e il pannello.
+ *   S3 · LE PERSONE E IL SISTEMA, in corso.
+ *        ⚠️ `app/connections.tsx` non è stata riscritta: è stata CANCELLATA.
+ *        Era orfana — nessuna rotta ci portava — e `app/amici.tsx` fa le
+ *        stesse cose usando la stessa API più altre due. Tradurre codice morto
+ *        lo fotografa invece di curarlo, e in `app/` un file orfano è comunque
+ *        una rotta che un deep link può aprire sul vuoto.
  */
 const IN_DEROGA = [
   'app/(tabs)/community.tsx',
   'app/(tabs)/index.tsx',
   'app/(tabs)/map.tsx',
-  'app/(tabs)/profile.tsx',
   'app/_layout.tsx',
   'app/admin/giri.tsx',
   'app/admin/incontri.tsx',
@@ -177,11 +179,7 @@ const IN_DEROGA = [
   'app/admin/statistiche.tsx',
   'app/admin/users.tsx',
   'app/admin/utente/[id].tsx',
-  'app/amici.tsx',
   'app/beercoin.tsx',
-  'app/bloccati.tsx',
-  'app/connections.tsx',
-  'app/edit-profile.tsx',
   'app/event/[id].tsx',
   'app/event/modifica/[id].tsx',
   'app/event/new.tsx',
@@ -189,11 +187,9 @@ const IN_DEROGA = [
   'app/notification-settings.tsx',
   'app/notifications.tsx',
   'app/novita.tsx',
-  'app/profile-customize.tsx',
   'app/segnalazione/[id].tsx',
   'app/settings.tsx',
   'app/terms.tsx',
-  'app/user/[id].tsx',
   'components/add-shop-modal.tsx',
   'components/birthdate-field.tsx',
   'components/city-picker.tsx',
@@ -477,12 +473,29 @@ describe('C6 · le regole di forma dei testi', () => {
      */
     const negazioni = /non\s+(?:è|e')\s+un\s+delivery/i;
 
+    /**
+     * LE ECCEZIONI, CON LA DATA E CHI LE CHIUDE.
+     *
+     * Una parola vietata che resta a schermo va DICHIARATA, non nascosta: una
+     * lista datata la rende contabile, e chi arriva dopo sa da dove viene.
+     *
+     * · «Karma» (26/08/2026) — è l'etichetta del terzo numero sul profilo
+     *   altrui, e vale `portati − ricevuti`. Rinominarla e basta non la
+     *   sistemerebbe: il difetto non è la parola, è che **un numero negativo
+     *   accanto a un nome è un marchio** — chi ha ricevuto 4 e portato 1 legge
+     *   «−3» sul suo profilo. La chiude **E2**, che la mostra come rapporto e
+     *   la sposta al primo posto. Toglierla da sola lascerebbe a schermo un
+     *   numero senza nome, che è peggio.
+     */
+    const eccezioni = new Set(['Karma']);
+
     const colpevoli: string[] = [];
     for (const area of ['parole', 'voce', 'ingresso', 'giro', 'persone']) {
       const sorgente = senzaCommenti(leggi(`constants/testi/${area}.ts`));
       for (const m of sorgente.matchAll(LETTERALE)) {
         const v = m[1] ?? m[2] ?? m[3] ?? '';
         if (negazioni.test(v)) continue;
+        if (eccezioni.has(v)) continue;
         for (const [espressione, nome] of vietate) {
           if (espressione.test(v)) colpevoli.push(`${area}: «${nome}» in ${v.slice(0, 50)}`);
         }

@@ -16,6 +16,7 @@ import { PressableScale } from '@/components/ui/pressable-scale';
 import { ProfileShowcase } from '@/components/profile-showcase';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { getAvailableCredits, getCityGoal, getCurrentUser, getProfileCustomization, getReciprocitySummary, getReviewsForUser, getTransactions, getUrbanMissions } from '@/data/api';
+import { PAROLE, PERSONE, VOCE } from '@/constants/testi';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
 import { failureCounter, PARTIAL_LOAD_MESSAGE, withFallback } from '@/lib/load';
@@ -64,7 +65,7 @@ export default function ProfileScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   if (loading) return <ThemedView style={styles.container}><SafeAreaView><View style={styles.loading}><Skeleton width={88} height={88} radius={44} /><Skeleton width="65%" height={40} /><Skeleton height={150} radius={Radii.lg} /></View></SafeAreaView></ThemedView>;
-  if (!user) return <ThemedView style={styles.container}><View style={styles.center}><EmptyState icon="x-mark" title="Profilo fermo" message="Non riesco a caricare i tuoi dati." /></View></ThemedView>;
+  if (!user) return <ThemedView style={styles.container}><View style={styles.center}><EmptyState icon="x-mark" title={PERSONE.profilo.fermoTitolo} message={PERSONE.profilo.fermoTesto} actionLabel={VOCE.azione.riprova} onAction={() => load(true)} /></View></ThemedView>;
 
   const total = reciprocity.given + reciprocity.received;
   const givenRatio = total === 0 ? 0.5 : reciprocity.given / total;
@@ -79,27 +80,27 @@ export default function ProfileScreen() {
           <View style={styles.hero}>
             <Avatar name={user.nome} uri={user.fotoUrl} size={82} />
             <View style={styles.heroText}><ThemedText type="label">{(user.citta ?? city.label).toUpperCase()}</ThemedText><ThemedText type="title" style={styles.name}>{user.nome}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{user.ratingMedio.toFixed(1)} su 5 · {user.scambiCompletati} giri</ThemedText></View>
-            <Button label="Modifica" size="md" variant="secondary" onPress={() => router.push('/edit-profile')} />
+            <Button label={PERSONE.profilo.modifica} size="md" variant="secondary" onPress={() => router.push('/edit-profile')} />
           </View>
 
           {customization ? <ProfileShowcase value={customization} /> : null}
-          <Button label="Personalizza la vetrina" variant="secondary" onPress={() => router.push('/profile-customize' as never)} />
+          <Button label={PERSONE.profilo.vetrina} variant="secondary" onPress={() => router.push('/profile-customize' as never)} />
 
           <View style={styles.profileActions}>
             {/* Gli amici stavano a tre tocchi di distanza, dentro Impostazioni,
                 sotto una card intitolata «Sicurezza»: l'unico riferimento in
                 tutto il progetto. Chi non riceveva una richiesta di amicizia
                 non li trovava proprio. */}
-            <ProfileAction icon="smile" label="Amici" onPress={() => router.push('/amici' as never)} />
-            <ProfileAction icon="scooter" label="I miei giri" onPress={() => router.push('/my-orders')} />
-            <ProfileAction icon="wallet" label="BeerCoin" onPress={() => router.push('/beercoin' as never)} />
-            <ProfileAction icon="profile" label="Impostazioni" onPress={() => router.push('/settings' as never)} />
+            <ProfileAction icon="smile" label={PERSONE.profilo.amici} onPress={() => router.push('/amici' as never)} />
+            <ProfileAction icon="scooter" label={PERSONE.profilo.mieiGiri} onPress={() => router.push('/my-orders')} />
+            <ProfileAction icon="wallet" label={PERSONE.profilo.gettoni} onPress={() => router.push('/beercoin' as never)} />
+            <ProfileAction icon="profile" label={PERSONE.profilo.impostazioni} onPress={() => router.push('/settings' as never)} />
           </View>
 
           <Card style={[styles.balance, { backgroundColor: c.accent }]}>
-            <View><ThemedText type="label" style={{ color: c.accentText }}>I TUOI BEERCOIN</ThemedText><ThemedText style={[styles.balanceValue, { color: c.accentText }]}>{user.creditiSaldo}</ThemedText></View>
+            <View><ThemedText type="label" style={{ color: c.accentText }}>{PERSONE.profilo.tuoiGettoni}</ThemedText><ThemedText style={[styles.balanceValue, { color: c.accentText }]}>{user.creditiSaldo}</ThemedText></View>
             <BrandIcon name="wallet" size={52} color={c.accentText} />
-            {impegnati > 0 ? <ThemedText style={{ color: c.accentText }}>{impegnati} impegnati in giri aperti · {available} disponibili</ThemedText> : null}<ThemedText style={{ color: c.accentText }}>Si guadagnano contribuendo. Non si comprano. Non si trasferiscono.</ThemedText>
+            {impegnati > 0 ? <ThemedText style={{ color: c.accentText }}>{PERSONE.profilo.impegnati(impegnati, available ?? 0)}</ThemedText> : null}<ThemedText style={{ color: c.accentText }}>{PERSONE.profilo.comeSiGuadagnano}</ThemedText>
           </Card>
 
           {/* L'invito ha una card sua: e' il modo in cui la community cresce e
@@ -107,42 +108,42 @@ export default function ProfileScreen() {
               icona in fila spariva. */}
           <Card onPress={() => router.push('/invite' as never)} style={styles.invito}>
             <View style={styles.flex}>
-              <ThemedText type="label">SI ENTRA SOLO SU INVITO</ThemedText>
-              <ThemedText type="subtitle">Il tuo invito</ThemedText>
+              <ThemedText type="label">{PERSONE.profilo.invitoEtichetta}</ThemedText>
+              <ThemedText type="subtitle">{PERSONE.profilo.invitoTitolo}</ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>
-                Ne hai uno. Quando lo usi è speso: scegli bene chi porti dentro.
+                {PERSONE.profilo.invitoTesto}
               </ThemedText>
             </View>
             <BrandIcon name="arrow-right" size={22} color={c.accent} />
           </Card>
 
-          <SectionTitle label="RECIPROCITÀ" title="DAI / RICEVI" />
+          <SectionTitle label={PERSONE.profilo.reciprocitaEtichetta} title={PERSONE.profilo.reciprocitaTitolo} />
           <Card style={styles.ratioCard}>
-            <View style={styles.ratioNumbers}><Stat icon="scooter" value={reciprocity.given} label="Hai portato" /><Stat icon="home" value={reciprocity.received} label="Hai ricevuto" /></View>
+            <View style={styles.ratioNumbers}><Stat icon="scooter" value={reciprocity.given} label={PERSONE.profilo.haiPortato} /><Stat icon="home" value={reciprocity.received} label={PERSONE.profilo.haiRicevuto} /></View>
             <View style={[styles.track, { backgroundColor: c.surfaceAlt }]}><View style={[styles.fill, { width: `${givenRatio * 100}%`, backgroundColor: c.accent }]} /></View>
-            <ThemedText type="caption">Non è una gara. È il modo più semplice per capire come stai partecipando.</ThemedText>
+            <ThemedText type="caption">{PERSONE.profilo.reciprocitaNota}</ThemedText>
           </Card>
 
-          <SectionTitle label="QUESTA SETTIMANA" title="MISSIONI URBANE" />
+          <SectionTitle label={PERSONE.profilo.settimanaEtichetta} title={PERSONE.profilo.missioniTitolo} />
           {missions.map((mission) => (
             <Card key={mission.key} style={styles.mission}>
               <View style={[styles.missionIcon, { backgroundColor: mission.completed ? c.positiveSoft : c.surfaceAlt }]}><BrandIcon name={mission.completed ? 'check' : 'pin'} size={23} color={mission.completed ? c.positive : c.accent} /></View>
-              <View style={styles.flex}><ThemedText type="subtitle">{mission.title}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{mission.description}</ThemedText><ThemedText type="caption">{Math.min(mission.progress, mission.target)} / {mission.target} · {mission.rewardBeerCoin} BC</ThemedText></View>
-              {mission.completed ? <ThemedText type="caption" style={{ color: c.positive }}>{mission.claimed ? 'Accreditata' : 'In accredito'}</ThemedText> : null}
+              <View style={styles.flex}><ThemedText type="subtitle">{mission.title}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{mission.description}</ThemedText><ThemedText type="caption">{PERSONE.profilo.missioneProgresso(Math.min(mission.progress, mission.target), mission.target, mission.rewardBeerCoin)}</ThemedText></View>
+              {mission.completed ? <ThemedText type="caption" style={{ color: c.positive }}>{mission.claimed ? PERSONE.profilo.missioneAccreditata : PERSONE.profilo.missioneInAccredito}</ThemedText> : null}
             </Card>
           ))}
-          {missions.length === 0 ? <EmptyState icon="pin" title="Missioni in arrivo" message="La città sta preparando i prossimi obiettivi." /> : null}
+          {missions.length === 0 ? <EmptyState icon="pin" title={PERSONE.profilo.missioniVuoteTitolo} message={PERSONE.profilo.missioniVuoteTesto} /> : null}
 
-          {goal ? <Card><ThemedText type="label">OBIETTIVO DI {city.label.toUpperCase()}</ThemedText><ThemedText type="subtitle">{goal.progress} GIRI SU {goal.target}</ThemedText><View style={[styles.track, { backgroundColor: c.surfaceAlt }]}><View style={[styles.fill, { width: `${goalRatio * 100}%`, backgroundColor: c.positive }]} /></View><ThemedText type="caption">Ogni giro confermato muove tutta la città.</ThemedText></Card> : null}
+          {goal ? <Card><ThemedText type="label">{PERSONE.profilo.obiettivoEtichetta(city.label)}</ThemedText><ThemedText type="subtitle">{PERSONE.profilo.obiettivoTitolo(goal.progress, goal.target)}</ThemedText><View style={[styles.track, { backgroundColor: c.surfaceAlt }]}><View style={[styles.fill, { width: `${goalRatio * 100}%`, backgroundColor: c.positive }]} /></View><ThemedText type="caption">{PERSONE.profilo.obiettivoNota}</ThemedText></Card> : null}
 
-          <SectionTitle label="BEERCOIN" title="ULTIMI MOVIMENTI" />
-          <Card>{transactions.length ? transactions.map((tx) => <View key={tx.id} style={styles.row}><BrandIcon name={tx.tipo === 'entrata' ? 'plus' : 'arrow-right'} size={18} color={tx.tipo === 'entrata' ? c.positive : c.textSecondary} /><View style={styles.flex}><ThemedText type="defaultSemiBold">{tx.descrizione}</ThemedText><ThemedText type="caption">{formatShortDate(tx.data)}</ThemedText></View><ThemedText type="defaultSemiBold">{tx.tipo === 'entrata' ? '+' : '−'}{tx.importo}</ThemedText></View>) : <ThemedText style={{ color: c.textSecondary }}>Nessun movimento.</ThemedText>}</Card>
+          <SectionTitle label={PERSONE.profilo.movimentiEtichetta} title={PERSONE.profilo.movimentiTitolo} />
+          <Card>{transactions.length ? transactions.map((tx) => <View key={tx.id} style={styles.row}><BrandIcon name={tx.tipo === 'entrata' ? 'plus' : 'arrow-right'} size={18} color={tx.tipo === 'entrata' ? c.positive : c.textSecondary} /><View style={styles.flex}><ThemedText type="defaultSemiBold">{tx.descrizione}</ThemedText><ThemedText type="caption">{formatShortDate(tx.data)}</ThemedText></View><ThemedText type="defaultSemiBold">{tx.tipo === 'entrata' ? '+' : '−'}{tx.importo}</ThemedText></View>) : <ThemedText style={{ color: c.textSecondary }}>{PERSONE.profilo.nessunMovimento}</ThemedText>}</Card>
 
-          <SectionTitle label="FIDUCIA" title="RECENSIONI" />
-          <Card>{reviews.length ? reviews.map((review) => <View key={review.id} style={styles.review}><ThemedText type="defaultSemiBold">{review.author?.nome ?? 'Community'} · {review.voto} su 5</ThemedText>{review.commento ? <ThemedText style={{ color: c.textSecondary }}>{review.commento}</ThemedText> : null}</View>) : <ThemedText style={{ color: c.textSecondary }}>Le recensioni arriveranno dopo i giri confermati.</ThemedText>}</Card>
+          <SectionTitle label={PERSONE.profilo.fiduciaEtichetta} title={PERSONE.profilo.recensioniTitolo} />
+          <Card>{reviews.length ? reviews.map((review) => <View key={review.id} style={styles.review}><ThemedText type="defaultSemiBold">{review.author?.nome ?? 'Community'} · {review.voto} su 5</ThemedText>{review.commento ? <ThemedText style={{ color: c.textSecondary }}>{review.commento}</ThemedText> : null}</View>) : <ThemedText style={{ color: c.textSecondary }}>{PERSONE.profilo.nessunaRecensione}</ThemedText>}</Card>
 
-          {user.isAdmin ? <Button label="Amministrazione" variant="secondary" onPress={() => router.push('/admin' as never)} /> : null}
-          <Card><ThemedText type="subtitle">Migliora BeerToBeer</ThemedText><ThemedText type="caption">Segnala un bug o proponi una funzione direttamente a chi sviluppa.</ThemedText><Button label="Invia feedback" variant="secondary" onPress={() => router.push('/feedback' as never)} /></Card>
+          {user.isAdmin ? <Button label={PERSONE.profilo.amministrazione} variant="secondary" onPress={() => router.push('/admin' as never)} /> : null}
+          <Card><ThemedText type="subtitle">{PERSONE.profilo.migliora(PAROLE.progetto)}</ThemedText><ThemedText type="caption">{PERSONE.profilo.migliorNota}</ThemedText><Button label={PERSONE.profilo.inviaFeedback} variant="secondary" onPress={() => router.push('/feedback' as never)} /></Card>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>

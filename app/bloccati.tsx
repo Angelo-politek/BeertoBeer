@@ -13,6 +13,7 @@ import { Spacing } from '@/constants/theme';
 import { getBlockedUsers, unblockUser } from '@/data/api';
 import type { BlockedUser } from '@/types';
 import { useColors } from '@/hooks/use-colors';
+import { PERSONE, VOCE } from '@/constants/testi';
 import { messaggioServer } from '@/lib/errori';
 import { relative } from '@/lib/format';
 
@@ -45,7 +46,7 @@ export default function BloccatiScreen() {
       setBloccati(await getBlockedUsers());
       setErrore(null);
     } catch (e) {
-      setErrore(messaggioServer(e, 'Controlla la rete e riprova.'));
+      setErrore(messaggioServer(e, PERSONE.bloccati.reteKo));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -55,21 +56,21 @@ export default function BloccatiScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   function sblocca(b: BlockedUser) {
-    const nome = b.user?.nome ?? 'questa persona';
+    const nome = b.user?.nome ?? PERSONE.bloccati.senzaNome;
     Alert.alert(
-      `Sblocchi ${nome}?`,
-      'Tornerete a vedervi nel feed e potrete di nuovo scrivervi. Non riceve nessun avviso.',
+      PERSONE.bloccati.sblocchiTitolo(nome),
+      PERSONE.bloccati.sbloccaConferma,
       [
-        { text: 'Resta bloccata', style: 'cancel' },
+        { text: PERSONE.bloccati.restaBloccata, style: 'cancel' },
         {
-          text: 'Sblocca',
+          text: PERSONE.altrui.sblocca,
           onPress: async () => {
             try {
               await unblockUser(b.blockedUserId);
-              toast.show(`${nome} non è più bloccata.`);
+              toast.show(PERSONE.bloccati.sbloccata(nome));
               await load(true);
             } catch (e) {
-              Alert.alert('Non sbloccata', messaggioServer(e, 'Riprova fra poco.'));
+              Alert.alert(PERSONE.bloccati.nonSbloccata, messaggioServer(e, VOCE.riserva.riprovaFraPoco));
             }
           },
         },
@@ -79,7 +80,7 @@ export default function BloccatiScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Persone bloccate' }} />
+      <Stack.Screen options={{ title: PERSONE.bloccati.titolo }} />
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={c.accent} />}>
@@ -88,7 +89,7 @@ export default function BloccatiScreen() {
         ) : errore ? (
           <EmptyState
             icon="x-mark"
-            title="Elenco non disponibile"
+            title={PERSONE.bloccati.nonDisponibile}
             message={errore}
             actionLabel="Riprova"
             onAction={() => load(true)}
@@ -96,15 +97,15 @@ export default function BloccatiScreen() {
         ) : bloccati.length === 0 ? (
           <EmptyState
             icon="check"
-            title="Non hai bloccato nessuno"
-            message="Se una persona ti mette a disagio puoi bloccarla dal suo profilo: sparite dal feed a vicenda e non potete più scrivervi."
-            actionLabel="Torna indietro"
+            title={PERSONE.bloccati.vuotoTitolo}
+            message={PERSONE.bloccati.vuotoTesto}
+            actionLabel={PERSONE.bloccati.tornaIndietro}
             onAction={() => router.back()}
           />
         ) : (
           <>
             <ThemedText style={{ color: c.textSecondary }}>
-              Non vi vedete nel feed, non potete scrivervi, e nessuna delle due cose le è stata detta.
+              {PERSONE.bloccati.cosaComporta}
             </ThemedText>
             {bloccati.map((b) => (
               <View key={b.id} style={[styles.riga, { backgroundColor: c.surface }]}>
@@ -113,13 +114,13 @@ export default function BloccatiScreen() {
                   style={styles.persona}>
                   <Avatar name={b.user?.nome ?? '?'} uri={b.user?.fotoUrl} size={40} />
                   <View style={{ flex: 1 }}>
-                    <ThemedText type="defaultSemiBold">{b.user?.nome ?? 'Persona non più esistente'}</ThemedText>
+                    <ThemedText type="defaultSemiBold">{b.user?.nome ?? PERSONE.bloccati.nonPiuEsistente}</ThemedText>
                     <ThemedText type="caption" style={{ color: c.textSecondary }}>
                       bloccata {relative(b.createdAt)}
                     </ThemedText>
                   </View>
                 </Pressable>
-                <Button label="Sblocca" variant="secondary" onPress={() => sblocca(b)} />
+                <Button label={PERSONE.altrui.sblocca} variant="secondary" onPress={() => sblocca(b)} />
               </View>
             ))}
           </>

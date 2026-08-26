@@ -145,12 +145,15 @@ cui un giro è fermo, le etichette della prossima azione), «I miei giri», la
 recensione, `create-request`, `request/[id]` — 875 righe e 84 frasi, la più
 grossa dell'app — e le tre chat.
 
-Il prossimo è **S3**: le persone, il sistema e il pannello.
+**S3 · le persone è chiusa**: profilo, profilo altrui, amici, persone
+bloccate, modifica profilo, vetrina. Restano il **sistema** (impostazioni,
+notifiche, novità, segnalazioni, home, mappa, community, eventi) e il
+**pannello admin**.
 
 Il rendiconto lo stampa `npm test`, una riga sola:
 
 ```
-C6 · 44 file su 103 parlano dai testi. Mancano 59.
+C6 · 50 file su 102 parlano dai testi. Mancano 52.
 ```
 
 Quando la lista `IN_DEROGA` di `lib/__tests__/glossario.test.ts` è vuota, C6 è

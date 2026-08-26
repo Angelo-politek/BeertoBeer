@@ -16,6 +16,7 @@ import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { PERSONE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { getCurrentUser, updateCurrentUserProfile } from '@/data/api';
@@ -74,7 +75,7 @@ export default function EditProfileScreen() {
       const url = await pickAndUploadAvatar(userId);
       if (url) setFotoUrl(url);
     } catch {
-      Alert.alert('Foto non caricata', 'Non è stato possibile caricare la foto. Riprova.');
+      Alert.alert(PERSONE.modifica.fotoNonCaricataTitolo, PERSONE.modifica.fotoNonCaricataTesto);
     } finally {
       setUploadingPhoto(false);
     }
@@ -83,7 +84,7 @@ export default function EditProfileScreen() {
   async function handleSave() {
     setSaveError(null);
     if (nome.trim().length === 0) {
-      setSaveError('Il nome non può essere vuoto.');
+      setSaveError(PERSONE.modifica.nomeVuoto);
       return;
     }
     setSaving(true);
@@ -102,14 +103,14 @@ export default function EditProfileScreen() {
       });
       router.back();
     } catch {
-      setSaveError('Salvataggio non riuscito. Riprova.');
+      setSaveError(PERSONE.modifica.nonSalvato);
       setSaving(false);
     }
   }
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Modifica profilo' }} />
+      <Stack.Screen options={{ title: PERSONE.modifica.titolo }} />
       {loadingProfile ? (
         <View style={styles.center}>
           <ActivityIndicator color={c.accent} size="large" />
@@ -119,9 +120,9 @@ export default function EditProfileScreen() {
         // il profilo reale con campi vuoti. Meglio tornare indietro e riprovare.
         <View style={styles.center}>
           <ThemedText style={{ color: c.danger }}>
-            Impossibile caricare il profilo. Riprova.
+            {PERSONE.modifica.profiloNonCaricato}
           </ThemedText>
-          <Button label="Torna indietro" variant="secondary" onPress={() => router.back()} />
+          <Button label={PERSONE.modifica.tornaIndietro} variant="secondary" onPress={() => router.back()} />
         </View>
       ) : (
         <KeyboardAvoidingView
@@ -146,7 +147,7 @@ export default function EditProfileScreen() {
               </ThemedText>
             </View>
 
-            <TextField label="Nome" value={nome} onChangeText={setNome} placeholder="Il tuo nome" />
+            <TextField label={PERSONE.modifica.nomeEtichetta} value={nome} onChangeText={setNome} placeholder={PERSONE.modifica.nome} />
             <TextField
               label="Bio"
               value={bio}
@@ -155,10 +156,10 @@ export default function EditProfileScreen() {
               multiline
             />
             <TextField
-              label="Preferenze birra"
+              label={PERSONE.modifica.preferenze}
               value={preferenze}
               onChangeText={setPreferenze}
-              placeholder="Es. IPA, birre artigianali"
+              placeholder={PERSONE.modifica.preferenzeSegnaposto}
             />
             <TextField
               label="Interessi (separati da virgola)"
@@ -187,15 +188,15 @@ export default function EditProfileScreen() {
                 {cercoCompagnia ? <View style={[styles.checkboxDot, { backgroundColor: c.accentText }]} /> : null}
               </View>
               <View style={{ flex: 1 }}>
-                <ThemedText type="defaultSemiBold">Cerco compagnia</ThemedText>
+                <ThemedText type="defaultSemiBold">{PERSONE.modifica.cercoCompagniaTitolo}</ThemedText>
                 <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
-                  Fatti trovare da chi vuole bere una birra in compagnia nella tua zona.
+                  {PERSONE.modifica.cercoCompagnia}
                 </ThemedText>
               </View>
             </Pressable>
 
             {saveError ? <ThemedText style={{ color: c.danger }}>{saveError}</ThemedText> : null}
-            <Button label="Salva modifiche" onPress={handleSave} loading={saving} />
+            <Button label={PERSONE.modifica.salva} onPress={handleSave} loading={saving} />
           </ScrollView>
         </KeyboardAvoidingView>
       )}

@@ -32,6 +32,7 @@ import {
   reportUser,
   unblockUser,
 } from '@/data/api';
+import { PERSONE, VOCE } from '@/constants/testi';
 import { useColors } from '@/hooks/use-colors';
 import { useSession } from '@/lib/auth-context';
 import { formatShortDate } from '@/lib/format';
@@ -99,9 +100,9 @@ export default function UserProfileScreen() {
       await reportUser(id, reportReason, reportDetails);
       setReportOpen(false);
       setReportDetails('');
-      toast.show('Segnalazione inviata, grazie');
+      toast.show(PERSONE.altrui.segnalataInviata);
     } catch {
-      Alert.alert('Errore', 'Segnalazione non inviata.');
+      Alert.alert(PERSONE.altrui.nonRiuscitaTitolo, PERSONE.altrui.segnalataNonInviata);
     } finally {
       setActionLoading(false);
     }
@@ -117,16 +118,16 @@ export default function UserProfileScreen() {
       if (relazione === 'amico') {
         await togliAmicizia(id);
         setRelazione('nessuna');
-        toast.show('Non siete più amici.');
+        toast.show(PERSONE.altrui.nonPiuAmici);
       } else {
         // Se l'altro aveva gia' chiesto, chiedere equivale ad accettare: il
         // database lo sa e risponde «accettata».
         const esito = await chiediAmicizia(id);
         setRelazione(esito === 'accettata' ? 'amico' : 'in_attesa');
-        toast.show(esito === 'accettata' ? 'Ora siete amici.' : 'Richiesta inviata.');
+        toast.show(esito === 'accettata' ? PERSONE.altrui.oraAmici : PERSONE.altrui.richiestaMandata);
       }
     } catch (e) {
-      Alert.alert('Non riuscita', messaggioServer(e, 'Riprova fra poco.'));
+      Alert.alert(PERSONE.altrui.nonRiuscitaTitolo, messaggioServer(e, VOCE.riserva.riprovaFraPoco));
     } finally {
       setActionLoading(false);
     }
@@ -145,7 +146,7 @@ export default function UserProfileScreen() {
         toast.show('Utente bloccato');
       }
     } catch {
-      Alert.alert('Errore', 'Operazione non riuscita.');
+      Alert.alert(PERSONE.altrui.nonRiuscitaTitolo, VOCE.riserva.riprovaFraPoco);
     } finally {
       setActionLoading(false);
     }
@@ -167,7 +168,7 @@ export default function UserProfileScreen() {
       <ThemedView style={styles.container}>
         <Stack.Screen options={{ title: 'Profilo' }} />
         <View style={styles.center}>
-          <ThemedText type="subtitle">Utente non trovato</ThemedText>
+          <ThemedText type="subtitle">{PERSONE.altrui.nonTrovatoTitolo}</ThemedText>
         </View>
       </ThemedView>
     );
@@ -214,7 +215,7 @@ export default function UserProfileScreen() {
         {!isMe ? (
           <View style={styles.azioniAlte}>
             <Button
-              label="Scrivi"
+              label={PERSONE.altrui.scrivi}
               variant="secondary"
               onPress={() => router.push({ pathname: '/chat/direct/[userId]', params: { userId: id } } as never)}
               style={styles.meta}
@@ -222,12 +223,12 @@ export default function UserProfileScreen() {
             <Button
               label={
                 relazione === 'amico'
-                  ? 'Siete amici'
+                  ? PERSONE.altrui.sieteAmici
                   : relazione === 'in_attesa'
-                    ? 'Richiesta inviata'
+                    ? PERSONE.altrui.richiestaInviata
                     : relazione === 'in_arrivo'
-                      ? 'Accetta'
-                      : 'Aggiungi'
+                      ? PERSONE.altrui.accetta
+                      : PERSONE.altrui.aggiungi
               }
               variant={relazione === 'amico' ? 'secondary' : 'primary'}
               disabled={relazione === 'in_attesa'}
@@ -240,20 +241,23 @@ export default function UserProfileScreen() {
 
         <Card style={styles.statsCard}>
           <View style={styles.stat}>
-            <ThemedText style={styles.statValue}>⭐ {user.ratingMedio.toFixed(1)}</ThemedText>
-            <ThemedText type="caption">Rating</ThemedText>
+            {/* Via l'emoji: un glifo glossy multicolore disegnato da altri,
+                spedito dentro il nostro marchio. Il NUMERO resta finche' non
+                arriva D5, che lo toglie da tutti i profili altrui insieme. */}
+            <ThemedText style={styles.statValue}>{user.ratingMedio.toFixed(1)}</ThemedText>
+            <ThemedText type="caption">{PERSONE.altrui.voceRating}</ThemedText>
           </View>
           <View style={[styles.statDivider, { backgroundColor: c.border }]} />
           <View style={styles.stat}>
             <ThemedText style={[styles.statValue, { color: c.accentStrong }]}>{user.scambiCompletati}</ThemedText>
-            <ThemedText type="caption">Giri</ThemedText>
+            <ThemedText type="caption">{PERSONE.altrui.voceGiri}</ThemedText>
           </View>
           <View style={[styles.statDivider, { backgroundColor: c.border }]} />
           <View style={styles.stat}>
             <ThemedText style={[styles.statValue, { color: (user.karma ?? 0) >= 0 ? c.positive : c.danger }]}>
               {(user.karma ?? 0) > 0 ? '+' : ''}{user.karma ?? 0}
             </ThemedText>
-            <ThemedText type="caption">Karma</ThemedText>
+            <ThemedText type="caption">{PERSONE.altrui.voceKarma}</ThemedText>
           </View>
         </Card>
 
@@ -271,7 +275,7 @@ export default function UserProfileScreen() {
 
         {user.preferenzeBirra ? (
           <Card style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>Preferenze birra</ThemedText>
+            <ThemedText type="subtitle" style={styles.sectionTitle}>{PERSONE.altrui.preferenzeBirra}</ThemedText>
             <ThemedText style={{ color: c.textSecondary }}>{user.preferenzeBirra}</ThemedText>
           </Card>
         ) : null}
@@ -308,7 +312,7 @@ export default function UserProfileScreen() {
         <Card style={styles.section}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>Recensioni</ThemedText>
           {reviews.length === 0 ? (
-            <EmptyState title="Nessuna recensione" message="Le recensioni degli scambi completati appariranno qui." />
+            <EmptyState title={PERSONE.altrui.nessunaRecensioneTitolo} message={PERSONE.altrui.nessunaRecensioneTesto} />
           ) : (
             reviews.map((review) => (
               <View key={review.id} style={[styles.review, { borderTopColor: c.border }]}>
@@ -336,9 +340,9 @@ export default function UserProfileScreen() {
 
         {!isMe ? (
           <View style={styles.actions}>
-            <Button label="Segnala utente" variant="danger" onPress={() => setReportOpen(true)} disabled={actionLoading} />
+            <Button label={PERSONE.altrui.segnalaTitolo} variant="danger" onPress={() => setReportOpen(true)} disabled={actionLoading} />
             <Button
-              label={blocked ? 'Sblocca utente' : 'Blocca utente'}
+              label={blocked ? PERSONE.altrui.sblocca : PERSONE.altrui.blocca}
               variant="secondary"
               onPress={handleBlockToggle}
               loading={actionLoading}
