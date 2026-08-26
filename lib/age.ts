@@ -24,13 +24,24 @@ export function parseBirthdate(input: string): Date | null {
   return date;
 }
 
-/** Età in anni compiuti alla data odierna. */
-export function computeAge(birth: Date): number {
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
+/**
+ * Età in anni compiuti a una certa data (default: oggi).
+ *
+ * ⚠️ `oggi` NON è un vezzo da test: senza, questa funzione leggeva sempre
+ * `new Date()` e ignorava la data che `esaminaData` le passava. Il risultato
+ * è che il caso di confine del gate 18+ — «il giorno prima del compleanno,
+ * no» — non era davvero coperto: passava solo nelle giornate in cui la data
+ * finta del test coincideva con quella vera del computer, e ha cominciato a
+ * fallire da solo il giorno dopo essere stato scritto.
+ *
+ * Un test che dipende dall'orologio di chi lo esegue non protegge niente: dice
+ * la verità un giorno su trecentosessantacinque.
+ */
+export function computeAge(birth: Date, oggi = new Date()): number {
+  let age = oggi.getFullYear() - birth.getFullYear();
   const hadBirthday =
-    today.getMonth() > birth.getMonth() ||
-    (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+    oggi.getMonth() > birth.getMonth() ||
+    (oggi.getMonth() === birth.getMonth() && oggi.getDate() >= birth.getDate());
   if (!hadBirthday) age -= 1;
   return age;
 }
@@ -84,7 +95,7 @@ export function esaminaData(input: string, oggi = new Date()): EsitoData {
   if (data > oggi) {
     return { stato: 'non-valida', motivo: 'Questa data è nel futuro.' };
   }
-  const anni = computeAge(data);
+  const anni = computeAge(data, oggi);
   if (anni > 120) {
     return { stato: 'non-valida', motivo: "Controlla l'anno: sembra sbagliato." };
   }

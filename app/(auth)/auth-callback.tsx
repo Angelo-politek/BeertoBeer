@@ -5,6 +5,7 @@ import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Button } from '@/components/button';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { INGRESSO, VOCE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { supabase } from '@/lib/supabase';
@@ -28,13 +29,13 @@ export default function AuthCallbackScreen() {
 
     async function conferma() {
       if (!code) {
-        if (attivo) setErrore('Link incompleto: riapri quello che hai ricevuto per email.');
+        if (attivo) setErrore(INGRESSO.confermaEmail.linkIncompleto);
         return;
       }
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (!attivo) return;
       if (error) {
-        setErrore('Questo link non è più valido. Può essere già stato usato o essere scaduto.');
+        setErrore(INGRESSO.confermaEmail.linkScaduto);
         return;
       }
       // Sessione creata: il guardiano nel layout porta da solo all'onboarding
@@ -53,14 +54,18 @@ export default function AuthCallbackScreen() {
       <View style={styles.center}>
         {errore ? (
           <>
-            <ThemedText type="subtitle">Link non valido</ThemedText>
+            <ThemedText type="subtitle">{INGRESSO.confermaEmail.titoloErrore}</ThemedText>
             <ThemedText style={{ color: c.textSecondary, textAlign: 'center' }}>{errore}</ThemedText>
-            <Button label="Torna all’accesso" variant="secondary" onPress={() => router.replace('/(auth)/login')} />
+            <Button
+              label={VOCE.azione.tornaAllAccesso}
+              variant="secondary"
+              onPress={() => router.replace('/(auth)/login')}
+            />
           </>
         ) : (
           <>
             <ActivityIndicator color={c.accent} size="large" />
-            <ThemedText style={{ color: c.textSecondary }}>Sto confermando il tuo account…</ThemedText>
+            <ThemedText style={{ color: c.textSecondary }}>{INGRESSO.confermaEmail.inCorso}</ThemedText>
           </>
         )}
       </View>

@@ -10,6 +10,7 @@ import {
   estimateCredits,
   FORMAT_WEIGHTS,
   orderWeightKg,
+  REWARDS,
 } from '@/lib/credits';
 
 /**
@@ -150,5 +151,83 @@ describe('quanto costa davvero un giro', () => {
 
   it('la distanza pesa quanto dice la costante', () => {
     expect(estimateBonus(4)).toBe(Math.round(4 * CREDIT_PER_KM));
+  });
+});
+
+/**
+ * IL PREMIO DELL'INVITO, E LE TRE COSE CHE DEVE RISPETTARE.
+ *
+ * Le regole, confermate dal fondatore il 26/08/2026:
+ *
+ *   1. L'INVITO NON COSTA NIENTE. Nemmeno un BeerCoin. Darlo è gratis.
+ *   2. IL PREMIO ARRIVA A ENTRAMBI — a chi ha invitato e a chi è entrato.
+ *   3. SOLO DOPO IL PRIMO GIRO CONCLUSO da chi è entrato. Non alla
+ *      registrazione: iscriversi non è entrare nella community, portare sì.
+ *
+ * ⚠️ PERCHÉ QUESTO TEST ESISTE, ED È UNA STORIA VERA DI DUE ORE FA.
+ *
+ * `lib/credits.ts` dice `referral: 3`. Cercando conferma nelle migrazioni si
+ * trova `20260824_inviti.sql:215`, che accredita **5**, e sembra ovvio che
+ * l'app menta di due BeerCoin. Non è così: quella definizione è **soppressa**.
+ * `20260827_economia_e_diagnostica.sql` ridefinisce la stessa funzione con
+ * `v_premio constant int := 3`, e per Postgres vale l'ultima eseguita.
+ *
+ * Cioè: la correzione «ovvia» avrebbe messo in produzione una schermata che
+ * promette 5 dove ne arrivano 3 — esattamente il difetto che si credeva di
+ * star correggendo. Questo test legge l'ULTIMA definizione, come fa Postgres,
+ * così nessuno può più cascarci con un grep.
+ *
+ * 📌 Il fondatore vuole il premio a 5 per parte. Si fa **in SQL prima**, con
+ * una migrazione nuova: questo test cadrà, e allora — e solo allora — si
+ * aggiorna `lib/credits.ts`.
+ */
+describe("il premio dell'invito", () => {
+  /**
+   * L'ultima definizione di `reward_referral_first_delivery()`, che è quella
+   * che gira davvero. Le precedenti sono storia.
+   */
+  const inizio = schema.lastIndexOf('function public.reward_referral_first_delivery');
+  const trigger = schema.slice(inizio, schema.indexOf('end $$;', inizio));
+
+  /** Il premio può essere un letterale o una costante dichiarata. */
+  const premio = (() => {
+    const costante = trigger.match(/v_premio\s+constant\s+int\s*:=\s*(\d+)/);
+    if (costante) return Number(costante[1]);
+    const letterali = [...trigger.matchAll(/award_tokens\(\s*[^,]+,\s*(\d+)\s*,\s*'referral'/g)];
+    return letterali.length ? Number(letterali[0][1]) : null;
+  })();
+
+  it("l'ultima definizione del trigger si trova", () => {
+    expect(inizio).toBeGreaterThan(-1);
+    expect(premio).not.toBeNull();
+  });
+
+  it('il premio arriva a due persone, non a una', () => {
+    const accrediti = [...trigger.matchAll(/award_tokens\([^)]*'referral'/g)];
+    expect(accrediti).toHaveLength(2);
+  });
+
+  it("l'app promette esattamente quello che il database accredita", () => {
+    // ⚠️ Se questo cade: si guarda PRIMA quale definizione SQL è l'ultima.
+    // Poi si corregge lib/credits.ts, mai lo schema.
+    expect(REWARDS.referral).toBe(premio);
+  });
+
+  it('il premio scatta solo al PRIMO giro concluso, non alla registrazione', () => {
+    // La guardia: conta i giri 'confermato' di chi porta e si ferma se non è
+    // il primo. Senza, il premio si ripeterebbe a ogni giro.
+    expect(trigger).toMatch(/v_consegne\s*<>\s*1/);
+    expect(trigger).toMatch(/stato\s*=\s*'confermato'/);
+  });
+
+  it("dare un invito non costa niente a chi lo dà", () => {
+    // Nessun addebito quando un invito viene creato o speso: `ensure_invites_for`
+    // e `handle_new_user` non toccano il saldo di chi invita.
+    const creazione = schema.slice(
+      schema.lastIndexOf('function public.ensure_invites_for'),
+      schema.indexOf('$$;', schema.lastIndexOf('function public.ensure_invites_for')),
+    );
+    expect(creazione).not.toMatch(/crediti_saldo\s*-/);
+    expect(creazione).not.toMatch(/award_tokens\([^)]*-\d/);
   });
 });

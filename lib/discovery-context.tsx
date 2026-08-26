@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+
+import { DEFAULT_DISCOVERY_FILTERS, filtriDopoIdratazione } from '@/lib/discovery';
 
 import type { DiscoveryFilters } from '@/types';
 
@@ -8,12 +10,10 @@ import type { DiscoveryFilters } from '@/types';
 // senza che nessuno se ne accorga. Le preferenze si perdono una volta sola, e
 // il default e' buono.
 const STORAGE_KEY = 'btb.discovery.filters.v3';
-export const DEFAULT_DISCOVERY_FILTERS: DiscoveryFilters = {
-  vibeOnly: false,
-  maxDistanceKm: null,
-  time: 'all',
-  sort: 'scadenza',
-};
+
+// Il valore predefinito e la regola dell'idratazione stanno in `lib/discovery`,
+// che non importa niente di nativo: così si possono provare con un test.
+export { DEFAULT_DISCOVERY_FILTERS };
 
 type DiscoveryContextValue = {
   filters: DiscoveryFilters;
@@ -29,21 +29,24 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState(DEFAULT_DISCOVERY_FILTERS);
   const [ready, setReady] = useState(false);
 
+  /** Se la persona ha già toccato un filtro, il disco non comanda più. */
+  const giaScelto = useRef(false);
+
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
-      .then((raw) => {
-        if (raw) setFilters({ ...DEFAULT_DISCOVERY_FILTERS, ...JSON.parse(raw) });
-      })
+      .then((raw) => setFilters((correnti) => filtriDopoIdratazione(correnti, raw, giaScelto.current)))
       .catch(() => null)
       .finally(() => setReady(true));
   }, []);
 
   const persist = useCallback((next: DiscoveryFilters) => {
+    giaScelto.current = true;
     setFilters(next);
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => null);
   }, []);
 
   const updateFilters = useCallback((patch: Partial<DiscoveryFilters>) => {
+    giaScelto.current = true;
     setFilters((current) => {
       const next = { ...current, ...patch };
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next)).catch(() => null);

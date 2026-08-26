@@ -134,12 +134,28 @@ Prima di allora no: i telefoni che non hanno ancora ricevuto l'aggiornamento
 chiamano ancora la DELETE, e revocarla farebbe esplodere il loro pulsante
 «Annulla richiesta» con un errore grezzo.
 
-**c) `C6`, le parole.** Le ~90 stringhe del database sono riscritte; le ~394
-dell'app no. Il piano lo metteva **prima** delle schermate nuove, ed è stato
-saltato: le schermate scritte durante la V3 usano già la voce giusta, il resto
-dell'app parla ancora in quattro modi. È l'unica voce della lista il cui costo
-cresce ogni giorno, perché ogni schermata nuova va poi riscritta due volte.
-Il progetto è in `TODO.md`, sezione «Ondata 1 · C6».
+**c) `C6`, le parole. — COMINCIATO il 26/08/2026.** Le ~90 stringhe del
+database erano già riscritte. Adesso esiste anche `constants/testi/`, il
+**contatore** che misura il resto, e **la soglia** (`app/(auth)/` e
+`lib/auth-errors.ts`) parla dai testi.
+
+Il rendiconto lo stampa `npm test`, una riga sola:
+
+```
+C6 · 32 file su 104 parlano dai testi. Mancano 72.
+```
+
+Quando la lista `IN_DEROGA` di `lib/__tests__/glossario.test.ts` è vuota, C6 è
+finito. **Non serve nessun altro rendiconto, e non se ne aggiungano.**
+
+Come si toglie una riga da quella lista: si riscrivono le stringhe di quel file
+e si spostano in `constants/testi/`. ⚠️ **Riscritte, non spostate**: una frase
+brutta dentro un dizionario è una frase brutta congelata per due anni, con
+l'aria di essere stata decisa. Il test fallisce anche se *lasci* una deroga che
+non serve più, quindi la lista non può restare gonfia per pigrizia.
+
+Il seguito è in `TODO.md`, sezione «Ondata 1 · C6 · stato del cantiere», che
+dice anche **cosa resta in deroga di proposito** e perché.
 
 **d) `C4`** (inbox unificata) e **`D5`** (reputazione come fatti, via il numero
 1-5 dai profili): lavoro pulito, senza sorprese, già progettato in `TODO.md`.

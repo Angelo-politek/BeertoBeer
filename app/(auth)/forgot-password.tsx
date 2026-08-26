@@ -12,6 +12,7 @@ import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { BrandIcon } from '@/components/ui/brand-icon';
+import { INGRESSO, VOCE } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
 import { messaggioAuth } from '@/lib/auth-errors';
@@ -29,7 +30,7 @@ export default function ForgotPasswordScreen() {
     setError(null);
     setMessage(null);
     if (!email.trim()) {
-      setError('Inserisci la tua email.');
+      setError(INGRESSO.passwordDimenticata.emailMancante);
       return;
     }
     setLoading(true);
@@ -41,7 +42,7 @@ export default function ForgotPasswordScreen() {
         setError(messaggioAuth(resetError, 'accesso'));
         return;
       }
-      setMessage('Controlla la tua email. Il link ti porterà alla schermata per scegliere una nuova password.');
+      setMessage(INGRESSO.passwordDimenticata.inviata);
     } finally {
       setLoading(false);
     }
@@ -60,21 +61,20 @@ export default function ForgotPasswordScreen() {
               </Animated.View>
               <Animated.View entering={entraInLista(1)} style={styles.headerText}>
                 <ThemedText type="title" style={styles.centered}>
-                  Password dimenticata
+                  {INGRESSO.passwordDimenticata.titolo}
                 </ThemedText>
                 <ThemedText style={[styles.centered, { color: c.textSecondary }]}>
-                  Se il tuo account esiste, riceverai un link che apre Beer to Beer direttamente sul
-                  cambio password.
+                  {INGRESSO.passwordDimenticata.spiegazione}
                 </ThemedText>
               </Animated.View>
             </View>
 
             <Animated.View entering={entraInLista(2)} style={styles.form}>
               <TextField
-                label="Email"
+                label={INGRESSO.passwordDimenticata.email}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="tu@esempio.it"
+                placeholder={INGRESSO.passwordDimenticata.emailSegnaposto}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
@@ -88,10 +88,10 @@ export default function ForgotPasswordScreen() {
                   <ThemedText style={{ color: c.positive, fontSize: 14 }}>{message}</ThemedText>
                 </View>
               ) : null}
-              <Button label="Invia link" onPress={handleReset} loading={loading} />
+              <Button label={INGRESSO.passwordDimenticata.invia} onPress={handleReset} loading={loading} />
               <Link href="/(auth)/login" replace style={styles.centerLink}>
                 <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 14 }}>
-                  Torna al login
+                  {VOCE.azione.tornaAllAccesso}
                 </ThemedText>
               </Link>
             </Animated.View>

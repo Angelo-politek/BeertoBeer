@@ -1,4 +1,4 @@
-import { esaminaData, ETA_MINIMA, formattaData } from '@/lib/age';
+import { computeAge, esaminaData, ETA_MINIMA, formattaData } from '@/lib/age';
 
 /**
  * LA CASELLA DELLA DATA DI NASCITA.
@@ -73,6 +73,23 @@ describe('cosa dice il campo mentre si scrive', () => {
 
   it('il giorno prima, no', () => {
     expect(esaminaData('26/08/2008', oggi).stato).toBe('troppo-giovane');
+  });
+
+  it("l'età si calcola alla data che riceve, non a quella del computer", () => {
+    // ⚠️ Questo caso esiste perché i due test qui sopra hanno mentito per un
+    // giorno. `esaminaData` riceveva `oggi` e lo usava solo per scartare le
+    // date future: l'età la chiedeva a `computeAge`, che leggeva `new Date()`
+    // per conto suo. I due casi di confine passavano solo finché la data finta
+    // del test coincideva con quella vera della macchina — e il 26/08/2026
+    // «il giorno prima, no» ha cominciato a fallire da solo.
+    //
+    // Un test che dipende dall'orologio di chi lo esegue dice la verità un
+    // giorno su trecentosessantacinque. Queste due date sono lontane da
+    // qualunque «oggi», quindi non possono più sbagliare per coincidenza.
+    const nato = new Date(2000, 5, 15); // 15 giugno 2000
+    expect(computeAge(nato, new Date(2020, 5, 14))).toBe(19); // vigilia
+    expect(computeAge(nato, new Date(2020, 5, 15))).toBe(20); // compleanno
+    expect(computeAge(nato, new Date(2020, 5, 16))).toBe(20); // il giorno dopo
   });
 
   it('intercetta l anno scritto male', () => {

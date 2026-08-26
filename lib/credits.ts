@@ -83,6 +83,29 @@ export function estimateBonus(distKm: number): number {
 export const REWARDS = {
   welcome: 5,
   notturno: 2,
+  /**
+   * ⚠️ È 3 PERCHÉ IL DATABASE OGGI NE ACCREDITA 3. NON ALZARLO A MANO.
+   *
+   * Questo numero è stato sul punto di essere «corretto» a 5, leggendo
+   * `20260824_inviti.sql:215` che in effetti dice 5. Ma quella definizione è
+   * **soppressa**: `20260827_economia_e_diagnostica.sql:123` ridefinisce
+   * `reward_referral_first_delivery()` con `v_premio constant int := 3`, e per
+   * Postgres vale l'ultima definizione eseguita. Cercare un numero con grep
+   * dentro le migrazioni e fermarsi alla prima occorrenza è il modo esatto in
+   * cui si mette in produzione una promessa falsa.
+   *
+   * Come funziona il premio (invariato dalle due versioni): l'invito **non
+   * costa niente**, nemmeno un BeerCoin; e il premio arriva **a entrambi**,
+   * ma solo quando chi è entrato **conclude il suo primo giro** — non alla
+   * registrazione.
+   *
+   * 📌 **Il fondatore lo vuole a 5 per parte** (deciso il 26/08/2026). Quel
+   * cambio si fa **in SQL prima e nell'app dopo**, con una migrazione nuova
+   * che ridefinisce `reward_referral_first_delivery()`: mai il contrario, o
+   * `app/invite.tsx` prometterebbe 5 mentre ne arrivano 3. Il test in
+   * `formula-crediti.test.ts` legge l'ULTIMA definizione e cade da solo il
+   * giorno in cui il SQL cambia senza che cambi anche questa riga.
+   */
   referral: 3,
   /** bonus una tantum per livello raggiunto (indice = livello) */
   livello: [0, 1, 2, 3, 5],

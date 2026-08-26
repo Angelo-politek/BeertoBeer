@@ -7,9 +7,12 @@ import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { INGRESSO, VOCE } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { messaggioAuth } from '@/lib/auth-errors';
 import { useSession } from '@/lib/auth-context';
+import { PASSWORD_MINIMA } from '@/lib/limiti';
 import { supabase } from '@/lib/supabase';
 
 export default function ResetPasswordScreen() {
@@ -39,7 +42,7 @@ export default function ResetPasswordScreen() {
       if (!active) return;
 
       if (exchangeError) {
-        setError('Il link di recupero non è più valido. Richiedi un nuovo reset.');
+        setError(INGRESSO.nuovaPassword.linkScaduto);
       }
       setRecovering(false);
     }
@@ -55,15 +58,15 @@ export default function ResetPasswordScreen() {
     setError(null);
 
     if (!session) {
-      setError('Il link di recupero non è più valido. Richiedi un nuovo reset.');
+      setError(INGRESSO.nuovaPassword.linkScaduto);
       return;
     }
-    if (password.length < 6) {
-      setError('La password deve avere almeno 6 caratteri.');
+    if (password.length < PASSWORD_MINIMA) {
+      setError(INGRESSO.nuovaPassword.passwordCorta(PASSWORD_MINIMA));
       return;
     }
     if (password !== confirmPassword) {
-      setError('Le password non coincidono.');
+      setError(INGRESSO.nuovaPassword.nonCoincidono);
       return;
     }
 
@@ -71,7 +74,11 @@ export default function ResetPasswordScreen() {
     try {
       const { error: updateError } = await supabase.auth.updateUser({ password });
       if (updateError) {
-        setError('Non siamo riusciti ad aggiornare la password.');
+        // Prima qui c'era «Non siamo riusciti ad aggiornare la password»: un
+        // «noi» che evoca una società inesistente, e per giunta al posto del
+        // motivo vero. Se il server dice che la password è troppo debole o che
+        // la sessione è scaduta, quella frase lo nascondeva.
+        setError(messaggioAuth(updateError, 'accesso'));
         return;
       }
       setSuccess(true);
@@ -105,47 +112,47 @@ export default function ResetPasswordScreen() {
         <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
-              <ThemedText type="title">Nuova password</ThemedText>
+              <ThemedText type="title">{INGRESSO.nuovaPassword.titolo}</ThemedText>
               <ThemedText style={{ color: c.textSecondary }}>
-                Scegli una password nuova per completare il recupero del tuo account.
+                {INGRESSO.nuovaPassword.spiegazione}
               </ThemedText>
             </View>
 
             {!session ? (
               <View style={styles.notice}>
                 <ThemedText style={{ color: c.textSecondary }}>
-                  Il link di recupero non è attivo. Richiedi un nuovo reset dalla schermata di accesso.
+                  {INGRESSO.nuovaPassword.linkNonAttivo}
                 </ThemedText>
-                <Button label="Torna al login" onPress={handleBackToLogin} />
+                <Button label={VOCE.azione.tornaAllAccesso} onPress={handleBackToLogin} />
               </View>
             ) : success ? (
               <View style={styles.notice}>
-                <ThemedText type="defaultSemiBold">Password aggiornata.</ThemedText>
+                <ThemedText type="defaultSemiBold">{INGRESSO.nuovaPassword.fatta}</ThemedText>
                 <ThemedText style={{ color: c.textSecondary }}>
-                  Ora puoi accedere con la nuova password.
+                  {INGRESSO.nuovaPassword.fattaTesto}
                 </ThemedText>
-                <Button label="Vai al login" onPress={handleBackToLogin} />
+                <Button label={VOCE.azione.tornaAllAccesso} onPress={handleBackToLogin} />
               </View>
             ) : (
               <>
                 <TextField
-                  label="Nuova password"
+                  label={INGRESSO.nuovaPassword.nuova}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Almeno 6 caratteri"
+                  placeholder={INGRESSO.nuovaPassword.nuovaSegnaposto(PASSWORD_MINIMA)}
                   secureTextEntry
                   autoCapitalize="none"
                 />
                 <TextField
-                  label="Conferma password"
+                  label={INGRESSO.nuovaPassword.conferma}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  placeholder="Ripeti la nuova password"
+                  placeholder={INGRESSO.nuovaPassword.confermaSegnaposto}
                   secureTextEntry
                   autoCapitalize="none"
                 />
                 {error ? <ThemedText style={{ color: c.danger }}>{error}</ThemedText> : null}
-                <Button label="Aggiorna password" onPress={handleUpdatePassword} loading={loading} />
+                <Button label={INGRESSO.nuovaPassword.aggiorna} onPress={handleUpdatePassword} loading={loading} />
               </>
             )}
           </ScrollView>

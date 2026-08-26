@@ -2,6 +2,57 @@ import { motivoNonAgibile } from '@/lib/orders';
 
 import type { BeerRequest, DiscoveryFilters, OrderNextAction } from '@/types';
 
+export const DEFAULT_DISCOVERY_FILTERS: DiscoveryFilters = {
+  vibeOnly: false,
+  maxDistanceKm: null,
+  time: 'all',
+  sort: 'scadenza',
+};
+
+/**
+ * COSA VALE QUANDO LE PREFERENZE SALVATE ARRIVANO IN RITARDO.
+ *
+ * ⚠️ Il difetto che questa funzione chiude — segnalato come «il filtro vibe
+ * mode non sempre funziona», e la parola che conta è SEMPRE: un difetto che si
+ * presenta a volte sì e a volte no non è capriccioso, è una corsa.
+ *
+ * I filtri partono dai valori predefiniti e quelli salvati arrivano DOPO,
+ * perché AsyncStorage è asincrono. Fra il montaggio della schermata e la
+ * risposta del disco passa qualche decina di millisecondi, e in quella
+ * finestra la barra dei filtri è già a schermo e si può premere.
+ *
+ * Prima, la lettura del disco scriveva sopra qualunque cosa trovasse:
+ *
+ *     if (raw) setFilters({ ...DEFAULT, ...JSON.parse(raw) })
+ *
+ * Così chi apriva l'app e toccava «Vibe mode» subito, di fretta, vedeva il
+ * filtro accendersi e poi spegnersi da solo: la risposta del disco — che
+ * conteneva ancora `vibeOnly: false` — cancellava la scelta appena fatta.
+ * Aspettando un secondo non capitava mai; avendo fretta, spesso.
+ *
+ * La regola: **una scelta già fatta da una persona batte sempre quello che
+ * c'era scritto sul disco.** Il disco descrive il passato.
+ *
+ * Sta qui e non nel provider perché una funzione pura si può provare, e un
+ * `useEffect` dentro un contesto no: `lib/discovery-context.tsx` importa
+ * AsyncStorage, che in Jest non esiste.
+ */
+export function filtriDopoIdratazione(
+  correnti: DiscoveryFilters,
+  salvati: string | null,
+  giaScelto: boolean,
+): DiscoveryFilters {
+  if (giaScelto) return correnti;
+  if (!salvati) return correnti;
+  try {
+    return { ...DEFAULT_DISCOVERY_FILTERS, ...(JSON.parse(salvati) as Partial<DiscoveryFilters>) };
+  } catch {
+    // Preferenze illeggibili: si tengono quelle correnti. Non è un caso di
+    // scuola — è già successo bumpando la chiave di versione.
+    return correnti;
+  }
+}
+
 function hourFromFascia(fascia?: string): number | null {
   if (!fascia) return null;
   const match = fascia.match(/(?:^|\s)(\d{1,2})(?::\d{2})?/);

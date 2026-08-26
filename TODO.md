@@ -6,8 +6,13 @@
 
 ## STATO — aggiornato il 26/08/2026
 
-**22 commit, 10 migrazioni, 342 test verdi.** Versione in circolazione:
+**22 commit, 10 migrazioni, 355 test verdi.** Versione in circolazione:
 **3.0.0-beta.2** (`constants/versione.ts`).
+
+> **C6 è cominciato.** `constants/testi/` esiste, il contatore è in
+> `glossario.test.ts`, e la soglia parla dai testi. Il rendiconto lo stampa
+> `npm test`: **32 file su 104, ne mancano 72.** Il dettaglio è in
+> «Ondata 1 · C6 · stato del cantiere», più sotto.
 
 ### Scudo beta — completo
 - [x] **A1–A6** le sei correzioni SQL di sicurezza
@@ -20,7 +25,8 @@
 - [x] **C3** tabella `uscite` + vista redatta + RPC + trigger guardia
 - [x] **C5** pulizia del codice morto
 - [x] **C6 (parziale)** riscritte le ~90 stringhe del **database**
-      (`20260910_le_parole_delle_push.sql`). Le ~394 dell'**app** no.
+      (`20260910_le_parole_delle_push.sql`). Per l'app: **scheletro
+      `constants/testi/` + il contatore + S1 (la soglia)**. Vedi sotto.
 - [ ] **C1** APK nuovo + `app_release` + ponte di runtime
 - [ ] **C4** inbox unificata (vista `conversazioni`, `letture`, contatori)
 
@@ -60,6 +66,38 @@ colonna, è una proprietà del campo più loquace.**
    `EXPO_PUBLIC_SENTRY_DSN` **e** una riga in `app/terms.tsx`.
 3. **«PORTA. BEVI. RIPETI.»** sostituisce «CONSEGNA» nel manifesto. Registrata
    in `Brand/CORREZIONI.md`; il PDF va riesportato quando ci si rimette mano.
+
+## DECISIONI DEL FONDATORE (26/08/2026) — chiudono i punti 4 e l'invito
+
+**4 · «VIBE» RESTA.** La funzione andava bene nella versione precedente; il
+difetto segnalato non era la funzione ma **il filtro**, ed era una corsa: i
+filtri partono dai valori predefiniti e quelli salvati arrivano dopo da
+AsyncStorage, che li scriveva sopra a qualunque scelta appena fatta. Chi
+apriva l'app e toccava «Vibe mode» di fretta lo vedeva accendersi e spegnersi
+da solo — mai aspettando un secondo, spesso avendo fretta. Corretto in
+`lib/discovery.ts` (`filtriDopoIdratazione`), congelato da
+`lib/__tests__/filtri-non-si-perdono.test.ts`, visto fallire apposta.
+> Resta aperta la domanda di lingua sulla parola «vibe» — ma è un'altra cosa
+> dal difetto, e la funzione non si tocca.
+
+**L'invito non ha prezzo, e il premio è a valle.** Darlo **non costa niente,
+nemmeno un BeerCoin**. Quando chi è entrato **conclude il suo primo giro**,
+il premio va **a entrambi**. Non alla registrazione: iscriversi non è entrare
+nella community, portare sì.
+
+> ⚠️ **E qui c'è una discrepanza da sanare, che vale un giro in SQL.**
+> Il fondatore ricorda **5 per parte**, ed è esatto per
+> `20260824_inviti.sql:215`. Ma quella definizione è **soppressa**:
+> `20260827_economia_e_diagnostica.sql:123` ridefinisce la stessa funzione con
+> `v_premio constant int := 3` e il commento «Premio invito: da 5 a 3 per
+> parte». **Per Postgres vale l'ultima: oggi in produzione ne arrivano 3**, e
+> `lib/credits.ts` che dice 3 è allineato — l'app non sta mentendo.
+>
+> Riportarlo a 5 è **una migrazione nuova, SQL prima e app dopo** (regola 1).
+> Cambiare solo `lib/credits.ts` farebbe promettere 5 a `app/invite.tsx`
+> mentre ne arrivano 3, cioè creerebbe la bugia che si voleva togliere.
+> `formula-crediti.test.ts` ora legge **l'ultima** definizione e cade da solo
+> il giorno in cui il SQL cambia senza l'app.
 
 ## DA FARE, E NON PUÒ FARLO UN AGENTE
 
@@ -293,6 +331,61 @@ Tre regole di forma: `as const` con chiavi che nominano la cosa; **se un valore 
 **`glossario.test.ts` passa da 3 controlli a 7.** Il più importante è il **#2, che è il contatore della migrazione**: fallisce se una schermata contiene testo italiano fuori da `testi/`, e parte con una lista di deroghe che contiene **tutti e 50 i file**, da svuotare una riga alla settimana. Quando la lista è vuota il lavoro è finito. Nessun altro rendiconto serve.
 
 > **Più forte di un test: il compilatore.** Rendere `actionLabel` e `onAction` **obbligatorie** in `components/empty-state.tsx` trasforma i 18 vicoli ciechi in 18 errori di TypeScript da sistemare in un commit solo. Il commento alle righe 17-21 spiega già perché servono — ma un commento non compila.
+> ⚠️ **Verificato il 26/08: i vicoli ciechi sono 22, non 18** — su 32 usi
+> totali di `EmptyState`. Due dei 22 stanno in `app/connections.tsx`, che il
+> piano dice di cancellare (B4): vanno via da soli.
+
+### C6 · stato del cantiere *(aggiornato il 26/08/2026)*
+
+**Fatto.**
+- `constants/testi/` con `index` · `parole` · `voce` · `ingresso`. Le cinque
+  aree restanti (`giro`, `fuori`, `persone`, `sistema`, `admin`) sono
+  **prenotate per nome nell'intestazione di `index.ts` ma non create vuote**:
+  un `export const {} as const` è «una casella che aspetta», lo stesso motivo
+  per cui `TOKEN_EMOJI` è stato cancellato invece che svuotato.
+- **Il contatore** (`glossario.test.ts`, controllo #2). Stampa una riga a ogni
+  `npm test`. È stato **visto fallire apposta in tutte e due le direzioni**:
+  rimettendo una frase italiana in un file già pulito, e lasciando in lista una
+  deroga che non serve più.
+- **S1 · la soglia**: `app/(auth)/` per intero (accesso, registrazione,
+  password dimenticata, nuova password, conferma email) e `lib/auth-errors.ts`.
+
+> ⚠️ **Il perimetro del contatore è più largo di «le schermate».** Il piano
+> diceva 50 file, cioè `app/`. Sorvegliare solo le schermate però permette di
+> spostare una frase in `components/` e vedere il contatore avanzare **senza
+> aver riscritto niente**, che è il fallimento che il contatore esiste per
+> impedire. Sorvegliati: `app/` e `components/` per intero (un file nuovo entra
+> da solo) più un elenco esplicito di `lib/` e `constants/`. Totale **104**.
+> Non era teorico: `lib/auth-errors.ts` teneva 18 frasi lette a schermo ed è
+> proprio il file che S1 doveva ristrutturare.
+
+**Tre difetti trovati riscrivendo, e corretti.**
+1. **`app/(auth)/login.tsx` mentiva su ogni fallimento.** Scriveva a mano
+   «Email o password non corretti» per *qualunque* causa: chi non aveva ancora
+   confermato l'email si sentiva dire che la password era sbagliata, la
+   cambiava, e falliva di nuovo. `messaggioAuth` esisteva già ed era usata
+   dalle altre tre schermate della soglia, ma non da questa.
+2. **`app/(auth)/reset-password.tsx` buttava via l'errore del server** e
+   diceva «Non siamo riusciti ad aggiornare la password» — un «noi» che evoca
+   una società inesistente, al posto del motivo vero.
+3. **Il gate 18+ non era davvero coperto da un test.** `esaminaData(input,
+   oggi)` usava `oggi` solo per scartare le date future: l'età la chiedeva a
+   `computeAge`, che leggeva `new Date()` per conto suo. I due casi di confine
+   passavano **solo nelle giornate in cui la data finta del test coincideva con
+   quella vera della macchina**, e il 26/08 hanno cominciato a fallire da soli.
+   `computeAge` ora accetta la data, e il test ne fissa una lontana da
+   qualunque «oggi».
+
+**I due prossimi, che chiudono la soglia:** `app/onboarding.tsx` e
+`app/invite.tsx`. Erano bloccati da due decisioni del fondatore, **prese il
+26/08/2026** (vedi «Decisioni prese» in cima): non sono più bloccati, sono solo
+non ancora fatti.
+
+**Le quattro emoji vere nel sorgente** (le altre 15 occorrenze trovate sono
+segni tipografici monocromatici — `→ ✓ ★ ▾` — che prendono il colore del testo
+e non sono glifi glossy disegnati da altri): `app/user/[id].tsx:243` e
+`app/admin/users.tsx:191` (`⭐`, muoiono con **D5**), `data/api.ts:793`
+(`'Nuovo livello ⬆️'`) e `components/location-field.tsx:193` (`📍`).
 
 **La sequenza:** settimana 0 lo scheletro + **le push, tutte, in una migrazione sola** (nessuna app le legge: non c'è convivenza da gestire, ed è il testo che pesa di più) → S1 la soglia (login, registrazione, onboarding, invito) → S2 il giro → S3 le persone e il sistema → S4 chiusura e rilettura in fila su un telefono vero.
 **Regola che governa tutto: nessuna stringa entra in `testi/` senza essere stata riscritta.** Spostare 394 stringhe brutte dentro un dizionario le congela per due anni.
@@ -639,5 +732,9 @@ Convenzione della casa: nome in italiano, e un commento in cima che racconta **l
 1. **Repository pubblico o privato**, in settimana 1 dell'Ondata 1: da questo dipende se `releases/latest` funziona, e quindi il piano di distribuzione dell'APK.
 2. **Il DSN Sentry** (`app/_layout.tsx:25-29`): variabile d'ambiente **e** una riga nei termini, oppure si toglie. Non può restare taciuto in un'app che apre un registro pubblico.
 3. **La correzione della bible**: «CONSEGNA. BEVI. RIPETI.» → «PORTA. BEVI. RIPETI.». Non è l'app che piega il manifesto — è il manifesto che si allinea alla propria vision, che dice «non è un servizio di delivery» e poi usa il verbo del delivery. **E la bible va committata**: oggi risulta modificata e non salvata.
-4. **«Vibe»** (`vibeMode`, `filters.vibeOnly`, la slide «VIBE, SE VUOI»): stiamo uccidendo «Home» perché è l'unica parola inglese di una barra, mentre l'inglese da influencer sopravvive **dentro la funzione più delicata dell'app** — quella che invita a fermarsi a bere con uno sconosciuto.
+4. ~~**«Vibe»**~~ — **decisa il 26/08/2026: la funzione resta.** Andava bene
+   nella versione precedente; quello che non funzionava era il filtro, ed è
+   corretto. Vedi «Decisioni del fondatore» in cima. *(Resta discutibile la
+   parola in sé — «Home» muore perché è l'unica parola inglese di una barra —
+   ma è una questione di lingua, non di funzione, e non blocca niente.)*
 5. **Gli sticker sbloccabili** (`ProfileSticker.unlocked`, `unlockHint`): se badge e livelli cadono perché sono status, cadono anche i cosmetici a sblocco — altrimenti il principio diventa «niente status, a meno che non sia carino».

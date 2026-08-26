@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { GLOSSARY } from '@/constants/branding';
+import { INGRESSO, PAROLE, VOCE } from '@/constants/testi';
 
 /**
  * UN NOME SOLO PER OGNI COSA.
@@ -56,5 +57,387 @@ describe('glossario', () => {
     const feed = leggi('app/(tabs)/index.tsx');
     expect(feed).toContain("from '@/constants/branding'");
     expect(feed).toContain('GLOSSARY.createDeliveryAction');
+  });
+});
+
+/* ------------------------------------------------------------------------ */
+/*  #2 — IL CONTATORE DELLA MIGRAZIONE C6                                    */
+/* ------------------------------------------------------------------------ */
+
+/**
+ * IL CONTATORE DI C6, E L'UNICO RENDICONTO CHE SERVE.
+ *
+ * Le ~90 stringhe del database sono state riscritte in una migrazione sola.
+ * Quelle dell'app no: l'app parla ancora in quattro modi, e ogni schermata
+ * nuova scritta prima che questo finisca va poi riscritta due volte. È l'unica
+ * voce del piano il cui costo cresce ogni giorno che passa.
+ *
+ * COME FUNZIONA. Ogni file sorvegliato che contiene testo italiano fuori da
+ * `constants/testi/` è un colpevole. La lista `IN_DEROGA` parte con dentro
+ * TUTTI, e si svuota una riga alla volta. Quando è vuota, C6 è finito.
+ *
+ * ⚠️ LE DUE REGOLE PER CUI QUESTO TEST NON È UNA BUROCRAZIA:
+ *
+ * 1. Una deroga che non serve più FA FALLIRE il test. Senza, la lista
+ *    resterebbe piena per sempre e il contatore direbbe una cifra falsa.
+ *
+ * 2. IL PERIMETRO NON È SOLO `app/`. Il piano diceva «le schermate», ma con
+ *    una lista che guarda solo le schermate, spostare una frase da
+ *    `app/x.tsx` dentro `components/y.tsx` svuota una riga della lista senza
+ *    aver riscritto niente — e il contatore segnerebbe un avanzamento che non
+ *    è avvenuto, cioè esattamente il fallimento che esiste per impedire.
+ *    Non è teorico: `lib/auth-errors.ts` teneva diciotto frasi lette a
+ *    schermo, e `components/location-field.tsx` ne teneva venti, di cui una
+ *    («Non sono riuscito a ricavare la via») violava la regola sull'«io» che
+ *    il piano cita usando quel medesimo esempio.
+ */
+
+/** Le cartelle sorvegliate per intero: un file nuovo entra da solo. */
+const CARTELLE_SORVEGLIATE = ['app', 'components'];
+
+/**
+ * I file fuori da quelle cartelle che contengono comunque testo letto a
+ * schermo. Elenco esplicito: `lib/` e `constants/` sono in gran parte logica,
+ * e sorvegliarli interi darebbe falsi allarmi su nomi di città e chiavi.
+ */
+const FILE_SORVEGLIATI_FUORI = [
+  'lib/age.ts',
+  'lib/auth-errors.ts',
+  'lib/avatar-upload.ts',
+  'lib/discovery.ts',
+  'lib/errori.ts',
+  'lib/format.ts',
+  'lib/load.ts',
+  'lib/locandina-upload.ts',
+  'lib/orders.ts',
+  'lib/posizione.ts',
+  'lib/push-notifications.ts',
+  'lib/supabase.ts',
+  'lib/uscite.ts',
+  'constants/branding.ts',
+  'constants/compliments.ts',
+  'constants/novita.ts',
+];
+
+/**
+ * LA LISTA CHE SI SVUOTA.
+ *
+ * Ogni riga è un file che parla ancora italiano per conto suo. Si toglie una
+ * riga quando le sue stringhe sono state RISCRITTE e spostate in `testi/` —
+ * mai spostate e basta: una frase brutta dentro un dizionario è una frase
+ * brutta congelata per due anni.
+ *
+ * Fatti finora:
+ *   S1 · la soglia — `app/(auth)/` per intero e `lib/auth-errors.ts`.
+ *
+ * `app/onboarding.tsx` e `app/invite.tsx` completano la soglia e sono i due
+ * prossimi. Erano bloccati da due decisioni, che il 26/08/2026 sono state
+ * prese e non bloccano più:
+ *   · «VIBE, SE VUOI» RESTA. La funzione andava bene: il difetto segnalato
+ *     stava nei filtri, ed è quello chiuso da `filtri-non-si-perdono.test.ts`.
+ *   · L'INVITO NON HA PREZZO — darlo è gratis — e il premio va a entrambi
+ *     solo dopo il primo giro concluso di chi è entrato. Il numero vive in
+ *     `lib/credits.ts` e lo verifica `formula-crediti.test.ts`.
+ */
+const IN_DEROGA = [
+  'app/(tabs)/community.tsx',
+  'app/(tabs)/index.tsx',
+  'app/(tabs)/map.tsx',
+  'app/(tabs)/profile.tsx',
+  'app/_layout.tsx',
+  'app/admin/giri.tsx',
+  'app/admin/incontri.tsx',
+  'app/admin/index.tsx',
+  'app/admin/inviti.tsx',
+  'app/admin/reports.tsx',
+  'app/admin/safety-map.tsx',
+  'app/admin/shops.tsx',
+  'app/admin/statistiche.tsx',
+  'app/admin/users.tsx',
+  'app/admin/utente/[id].tsx',
+  'app/amici.tsx',
+  'app/beercoin.tsx',
+  'app/bloccati.tsx',
+  'app/chat/[orderId].tsx',
+  'app/chat/direct/[userId].tsx',
+  'app/chat/evento/[id].tsx',
+  'app/connections.tsx',
+  'app/create-request.tsx',
+  'app/edit-profile.tsx',
+  'app/event/[id].tsx',
+  'app/event/modifica/[id].tsx',
+  'app/event/new.tsx',
+  'app/feedback.tsx',
+  'app/invite.tsx',
+  'app/my-orders.tsx',
+  'app/notification-settings.tsx',
+  'app/notifications.tsx',
+  'app/novita.tsx',
+  'app/onboarding.tsx',
+  'app/profile-customize.tsx',
+  'app/request/[id].tsx',
+  'app/review.tsx',
+  'app/segnalazione/[id].tsx',
+  'app/settings.tsx',
+  'app/terms.tsx',
+  'app/user/[id].tsx',
+  'components/add-shop-modal.tsx',
+  'components/birthdate-field.tsx',
+  'components/chat-view.tsx',
+  'components/city-picker.tsx',
+  'components/discovery-filter-bar.tsx',
+  'components/feed-map.tsx',
+  'components/foglio-uscita.tsx',
+  'components/grafico-barre.tsx',
+  'components/location-field.tsx',
+  'components/location-picker-map.tsx',
+  'components/novita-banner.tsx',
+  'components/profile-showcase.tsx',
+  'components/provvedimento-modal.tsx',
+  'components/report-modal.tsx',
+  'components/request-card.tsx',
+  'components/tessera-invito.tsx',
+  'constants/branding.ts',
+  'constants/compliments.ts',
+  'constants/novita.ts',
+  'lib/age.ts',
+  'lib/avatar-upload.ts',
+  'lib/discovery.ts',
+  'lib/errori.ts',
+  'lib/format.ts',
+  'lib/load.ts',
+  'lib/locandina-upload.ts',
+  'lib/orders.ts',
+  'lib/posizione.ts',
+  'lib/push-notifications.ts',
+  'lib/supabase.ts',
+  'lib/uscite.ts',
+];
+
+/**
+ * Toglie i commenti PRIMA di cercare.
+ *
+ * Senza, questo test fallirebbe su se stesso: i commenti di questo repository
+ * citano di proposito le frasi che sono state tolte («prima diceva “Chiedi una
+ * birra”…»), perché spiegare l'errore è metà del valore del file. Se
+ * commentare diventasse vietato quanto sbagliare, si smetterebbe di
+ * commentare.
+ */
+function senzaCommenti(sorgente: string): string {
+  return sorgente.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
+/**
+ * Toglie gli AGHI DI RICERCA: una stringa passata a `includes`, `startsWith`,
+ * `endsWith` o confrontata con `===` non è una frase che qualcuno legge, è un
+ * criterio di confronto.
+ *
+ * Serve davvero: `lib/auth-errors.ts` cerca `'confirmation email'` dentro il
+ * messaggio INGLESE del server, e senza questo passaggio il test lo scambiava
+ * per copy italiano — perché «email» è una parola che le due lingue
+ * condividono. Un test-guardia che grida su codice corretto viene aggirato
+ * entro la settimana, ed è il modo in cui i test-guardia muoiono.
+ */
+function senzaAghi(sorgente: string): string {
+  return sorgente
+    .replace(/\.(?:includes|startsWith|endsWith|indexOf|search)\(\s*(['"`]).*?\1\s*\)/g, '.confronto()')
+    .replace(/[=!]==\s*(['"`]).*?\1/g, '=== chiave');
+}
+
+/**
+ * Parole che esistono praticamente solo in italiano e quasi mai in codice.
+ * Servono a distinguere una FRASE da una chiave: `'accettato'` è uno stato,
+ * `'Il giro è stato accettato'` è una cosa che una persona legge.
+ */
+const PAROLE_ITALIANE =
+  /(?:^|[^a-zA-Z])(?:il|lo|la|le|gli|un|una|uno|del|della|delle|dei|degli|dal|dalla|nel|nella|sul|sulla|al|alla|ai|agli|che|chi|cosa|come|quando|dove|perch[eé]|non|pi[uù]|gi[aà]|solo|anche|ancora|sempre|mai|puoi|pu[oò]|devi|deve|fare|fatto|hai|ha|sei|[eè]|sono|siamo|questo|questa|quello|quella|tuo|tua|tuoi|mio|mia|con|per|tra|fra|senza|dopo|prima|poi|adesso|ora|qui|qua|riprova|errore|errori|niente|nessuno|nessuna|qualcuno|qualcosa|tutti|tutte|tutto|birra|birre|giro|giri|citt[aà]|zona|amico|amici|persona|persone|invito|inviti|codice|profilo|messaggio|messaggi|notifica|notifiche|segnala|segnalazione|conferma|annulla|chiudi|apri|scegli|scrivi|cerca|salva|indietro|avanti|accedi|entra|esci|registrati|password|email)(?:[^a-zA-Z]|$)/i;
+
+const ACCENTO = /[àèéìòùÀÈÉÌÒÙ]/;
+
+/** Stringhe tecniche: colori, path, mime, identificatori, numeri. */
+function tecnica(valore: string): boolean {
+  const v = valore.trim();
+  if (v.length < 3) return true;
+  if (/^[#@./\\]/.test(v)) return true;
+  if (/^https?:/.test(v)) return true;
+  if (/^\w+\/[\w./-]+$/.test(v)) return true;
+  if (/^[a-z0-9_-]+$/i.test(v)) return true;
+  if (/^\d/.test(v)) return true;
+  // Senza spazi e senza accenti è quasi sempre una chiave, non una frase.
+  return !v.includes(' ') && !ACCENTO.test(v);
+}
+
+const LETTERALE = /'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\]|\\.)*)`/g;
+const TESTO_JSX = />\s*([A-ZÀÈÉÌÒÙa-zà-ù][^<>{}\n]{3,})\s*</g;
+
+/** Le frasi italiane che questo file dice per conto suo. */
+function frasiItaliane(relativo: string): string[] {
+  const sorgente = senzaAghi(senzaCommenti(fs.readFileSync(path.join(RADICE, relativo), 'utf8')));
+  const trovate: string[] = [];
+
+  for (const m of sorgente.matchAll(LETTERALE)) {
+    const v = m[1] ?? m[2] ?? m[3] ?? '';
+    if (tecnica(v)) continue;
+    if (!ACCENTO.test(v) && !PAROLE_ITALIANE.test(v)) continue;
+    trovate.push(v);
+  }
+  for (const m of sorgente.matchAll(TESTO_JSX)) {
+    const v = m[1].trim();
+    if (tecnica(v)) continue;
+    if (!ACCENTO.test(v) && !PAROLE_ITALIANE.test(v)) continue;
+    trovate.push(v);
+  }
+  return trovate;
+}
+
+/** Tutti i file sorvegliati, in ordine stabile. */
+function fileSorvegliati(): string[] {
+  const trovati: string[] = [];
+  const scendi = (dir: string) => {
+    for (const voce of fs.readdirSync(path.join(RADICE, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${voce.name}`;
+      if (voce.isDirectory()) scendi(rel);
+      else if (/\.tsx?$/.test(voce.name)) trovati.push(rel);
+    }
+  };
+  for (const cartella of CARTELLE_SORVEGLIATE) scendi(cartella);
+  return [...trovati, ...FILE_SORVEGLIATI_FUORI].sort();
+}
+
+describe('C6 · le parole stanno in constants/testi', () => {
+  const sorvegliati = fileSorvegliati();
+
+  it('il perimetro non si è svuotato per sbaglio', () => {
+    // Se un giorno il conteggio crolla, il test è rotto — non il codice pulito.
+    expect(sorvegliati.length).toBeGreaterThan(60);
+  });
+
+  it('nessun file fuori deroga parla italiano per conto suo', () => {
+    const colpevoli = sorvegliati
+      .filter((f) => !IN_DEROGA.includes(f))
+      .filter((f) => frasiItaliane(f).length > 0)
+      .map((f) => `${f} — ${frasiItaliane(f)[0]}`);
+    expect(colpevoli).toEqual([]);
+  });
+
+  it('nessuna deroga è rimasta senza motivo', () => {
+    // Una deroga che non serve più va TOLTA: è così che la lista si svuota, ed
+    // è l'unico modo perché il conteggio qui sotto voglia dire qualcosa.
+    const inutili = IN_DEROGA.filter((f) => frasiItaliane(f).length === 0);
+    expect(inutili).toEqual([]);
+  });
+
+  it('ogni file in deroga esiste ancora', () => {
+    const fantasmi = IN_DEROGA.filter((f) => !fs.existsSync(path.join(RADICE, f)));
+    expect(fantasmi).toEqual([]);
+  });
+
+  it('quanto manca', () => {
+    const rimasti = IN_DEROGA.length;
+    const fatti = sorvegliati.length - rimasti;
+    // Non è un'asserzione sul valore: è la riga che si legge nel rendiconto.
+    // eslint-disable-next-line no-console
+    console.log(`C6 · ${fatti} file su ${sorvegliati.length} parlano dai testi. Mancano ${rimasti}.`);
+    expect(rimasti).toBeLessThanOrEqual(IN_DEROGA.length);
+  });
+});
+
+describe('C6 · le regole di forma dei testi', () => {
+  it('il maiuscolo non si scrive nel sorgente dei testi', () => {
+    // `ThemedText` type="title"/"label"/"display" e `Button` lo applicano già.
+    // Una stringa scritta MAIUSCOLA non arriva maiuscola dove non c'è foglio
+    // di stile — titolo di un Alert, di una push, di Share.share — e TalkBack
+    // la legge lettera per lettera.
+    const urlate: string[] = [];
+    for (const area of ['parole', 'voce', 'ingresso']) {
+      const sorgente = senzaCommenti(leggi(`constants/testi/${area}.ts`));
+      for (const m of sorgente.matchAll(LETTERALE)) {
+        const v = m[1] ?? m[2] ?? m[3] ?? '';
+        const lettere = v.replace(/[^a-zA-ZÀ-ù]/g, '');
+        if (lettere.length >= 4 && lettere === lettere.toUpperCase()) urlate.push(`${area}: ${v}`);
+      }
+    }
+    expect(urlate).toEqual([]);
+  });
+
+  it('nel copy non ci sono punti esclamativi', () => {
+    // Nessuno degli esempi ufficiali del marchio ne ha uno: l'unico strumento
+    // di volume è il maiuscolo in Bebas, che lo mette il foglio di stile.
+    const urlate: string[] = [];
+    for (const area of ['parole', 'voce', 'ingresso']) {
+      const sorgente = senzaCommenti(leggi(`constants/testi/${area}.ts`));
+      for (const m of sorgente.matchAll(LETTERALE)) {
+        const v = m[1] ?? m[2] ?? m[3] ?? '';
+        if (v.includes('!')) urlate.push(`${area}: ${v}`);
+      }
+    }
+    expect(urlate).toEqual([]);
+  });
+
+  it('i testi non parlano né in prima persona né al plurale maiestatis', () => {
+    // «Non siamo riusciti ad aggiornare la password» faceva apparire una
+    // società che qui non esiste. «Sto confermando il tuo account» faceva
+    // dell'app un personaggio, cioè la mascotte da startup che il marchio
+    // vieta. Erano entrambe vive sulla soglia.
+    const vietate =
+      /(?:^|[^a-zA-Z])(?:siamo|abbiamo|nostro|nostra|nostri|nostre|possiamo|riusciamo|sto|posso|riesco|non riesco)(?:[^a-zA-Z]|$)/i;
+    const colpevoli: string[] = [];
+    for (const area of ['parole', 'voce', 'ingresso']) {
+      const sorgente = senzaCommenti(leggi(`constants/testi/${area}.ts`));
+      for (const m of sorgente.matchAll(LETTERALE)) {
+        const v = m[1] ?? m[2] ?? m[3] ?? '';
+        if (vietate.test(v)) colpevoli.push(`${area}: ${v}`);
+      }
+    }
+    expect(colpevoli).toEqual([]);
+  });
+
+  it('i testi non contengono emoji', () => {
+    // La regola ICONE del marchio: «outline, bianco, 2-3px, disegnate a mano,
+    // mai glossy, 3D, gradient». Un'emoji di sistema è un glifo glossy
+    // multicolore disegnato da qualcun altro, spedito dentro il nostro
+    // marchio. I segni tipografici monocromatici (→ · ✓) non lo sono: prendono
+    // il colore del testo.
+    const emoji = /[\u{1F300}-\u{1FAFF}\u{2B00}-\u{2BFF}\u{FE0F}]/u;
+    const colpevoli: string[] = [];
+    for (const area of ['parole', 'voce', 'ingresso']) {
+      const sorgente = senzaCommenti(leggi(`constants/testi/${area}.ts`));
+      for (const m of sorgente.matchAll(LETTERALE)) {
+        const v = m[1] ?? m[2] ?? m[3] ?? '';
+        if (emoji.test(v)) colpevoli.push(`${area}: ${v}`);
+      }
+    }
+    expect(colpevoli).toEqual([]);
+  });
+
+  it('i numeri arrivano come parametro, non scritti dentro la frase', () => {
+    // «+5 BeerCoin» contro i 3 che arrivavano davvero: un numero copiato in
+    // una frase è un numero che il giorno dopo mente. Le voci che parlano di
+    // una quantità sono funzioni, e il numero lo passa chi lo conosce.
+    expect(typeof INGRESSO.registrazione.eta).toBe('function');
+    expect(typeof INGRESSO.registrazione.passwordCorta).toBe('function');
+    expect(typeof INGRESSO.nuovaPassword.passwordCorta).toBe('function');
+    expect(typeof INGRESSO.errori.passwordDebole).toBe('function');
+    expect(INGRESSO.registrazione.eta(18)).toContain('18');
+    expect(INGRESSO.registrazione.passwordCorta(6)).toContain('6');
+  });
+
+  it('i testi non riscrivono le parole del glossario a mano', () => {
+    // `PAROLE` rimanda a `constants/branding.ts` e non ridefinisce niente: il
+    // giorno in cui «giro» cambia nome, deve cambiare in un posto solo.
+    expect(PAROLE.giro).toBe(GLOSSARY.delivery);
+    expect(PAROLE.chiPorta).toBe(GLOSSARY.roleCarrier);
+    expect(PAROLE.chiChiede).toBe(GLOSSARY.roleAsker);
+  });
+
+  it('«login» non è tornato: la porta si chiama accesso', () => {
+    // Era in tre schermate come «Torna al login» / «Vai al login», mentre la
+    // schermata a cui portava si intitola «Accedi». Due nomi per la stessa
+    // porta è il difetto che questo file esiste per impedire.
+    expect(VOCE.azione.tornaAllAccesso.toLowerCase()).not.toContain('login');
+    for (const f of ['app/(auth)/login.tsx', 'app/(auth)/reset-password.tsx', 'app/(auth)/forgot-password.tsx']) {
+      const sorgente = senzaCommenti(leggi(f));
+      expect(sorgente).not.toMatch(/al login|Vai al login/i);
+    }
   });
 });

@@ -11,8 +11,10 @@ import { Button } from '@/components/button';
 import { TextField } from '@/components/text-field';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { INGRESSO } from '@/constants/testi';
 import { Radii, Spacing } from '@/constants/theme';
 import { useColors } from '@/hooks/use-colors';
+import { messaggioAuth } from '@/lib/auth-errors';
 import { supabase } from '@/lib/supabase';
 
 export default function LoginScreen() {
@@ -26,7 +28,7 @@ export default function LoginScreen() {
     setError(null);
 
     if (!email.trim() || !password) {
-      setError('Inserisci email e password.');
+      setError(INGRESSO.accesso.campiVuoti);
       return;
     }
 
@@ -38,7 +40,12 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (signInError) {
-      setError('Email o password non corretti.');
+      // Prima qui c'era «Email o password non corretti» scritto a mano, per
+      // OGNI causa di fallimento: chi non aveva ancora confermato l'email si
+      // vedeva dire che la password era sbagliata, la cambiava, e falliva di
+      // nuovo. `messaggioAuth` distingue i casi — ed esisteva già, usata dalle
+      // altre tre schermate della soglia ma non da questa.
+      setError(messaggioAuth(signInError, 'accesso'));
       return;
     }
     // Il redirect alle (tabs) avviene automaticamente dal guard nel root layout.
@@ -61,25 +68,25 @@ export default function LoginScreen() {
               </Animated.View>
               <Animated.View entering={entraInLista(1)} style={styles.headerText}>
                 <ThemedText style={[styles.centered, { color: c.textSecondary }]}>
-                  Ti manca una birra? Accedi.
+                  {INGRESSO.accesso.claim}
                 </ThemedText>
               </Animated.View>
             </View>
 
             <Animated.View entering={entraInLista(2)} style={styles.form}>
               <TextField
-                label="Email"
+                label={INGRESSO.accesso.email}
                 value={email}
                 onChangeText={setEmail}
-                placeholder="tu@esempio.it"
+                placeholder={INGRESSO.accesso.emailSegnaposto}
                 keyboardType="email-address"
                 autoCapitalize="none"
               />
               <TextField
-                label="Password"
+                label={INGRESSO.accesso.password}
                 value={password}
                 onChangeText={setPassword}
-                placeholder="••••••••"
+                placeholder={INGRESSO.accesso.passwordSegnaposto}
                 secureTextEntry
                 autoCapitalize="none"
               />
@@ -90,20 +97,20 @@ export default function LoginScreen() {
                 </View>
               ) : null}
 
-              <Button label="Accedi" onPress={handleLogin} loading={loading} />
+              <Button label={INGRESSO.accesso.entra} onPress={handleLogin} loading={loading} />
 
               <Link href="/(auth)/forgot-password" style={styles.centerLink}>
                 <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong, fontSize: 14 }}>
-                  Password dimenticata?
+                  {INGRESSO.accesso.dimenticata}
                 </ThemedText>
               </Link>
             </Animated.View>
 
             <View style={styles.footer}>
-              <ThemedText style={{ color: c.textSecondary }}>Non hai un account? </ThemedText>
+              <ThemedText style={{ color: c.textSecondary }}>{`${INGRESSO.accesso.senzaAccount} `}</ThemedText>
               <Link href="/(auth)/register" replace>
                 <ThemedText type="defaultSemiBold" style={{ color: c.accentStrong }}>
-                  Registrati
+                  {INGRESSO.accesso.registrati}
                 </ThemedText>
               </Link>
             </View>

@@ -29,6 +29,19 @@ export const MAX_GIRI_AL_GIORNO = 8;
  */
 export const MAX_BIRRE_PER_GIRO = 24;
 
+/**
+ * Caratteri minimi della password.
+ *
+ * ⚠️ Questo è l'unico numero del file che NON viene dal database: lo impone
+ * l'impostazione «Minimum password length» del progetto Supabase Auth, e per
+ * questo il test che confronta i limiti con la migrazione non lo controlla.
+ * Sta qui lo stesso perché due schermate lo verificano — registrazione e
+ * cambio password — e scritto a mano in due punti diverge in due punti
+ * diversi. Se lo cambi nel pannello Supabase, cambialo anche qui: senza,
+ * l'app dice «almeno 6» e il server ne rifiuta 7.
+ */
+export const PASSWORD_MINIMA = 6;
+
 /** Quante birre chiede questa lista in tutto. */
 export function birreTotali(birre: { quantita?: number | string }[]): number {
   return birre.reduce((somma, b) => somma + Math.max(1, Number(b.quantita) || 1), 0);
