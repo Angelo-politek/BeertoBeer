@@ -10,6 +10,7 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 
 import { ToastProvider, useToast } from '@/components/toast';
+import { SISTEMA } from '@/constants/testi';
 import { Colors, Fonts } from '@/constants/theme';
 import { getOnboardingCompleted, updateUserCity } from '@/data/api';
 import { getOnboardingSignal, resetOnboardingSignal, subscribeOnboardingSignal } from '@/lib/onboarding-signal';
@@ -143,8 +144,8 @@ function RootNavigator() {
       // capitava di incolpare la rete quando il problema era un altro.
       toast.show(
         esito.motivo === 'configurazione'
-          ? 'Notifiche non disponibili: questa versione dell’app non è configurata per riceverle.'
-          : `Notifiche non attivate: ${esito.dettaglio ?? 'errore sconosciuto'}. Vai in Impostazioni → Notifiche per riprovare.`,
+          ? SISTEMA.avvio.notificheNonConfigurate
+          : SISTEMA.avvio.notificheNonAttivate(esito.dettaglio ?? SISTEMA.avvio.erroreSconosciuto),
         'error',
       );
     });
@@ -164,7 +165,7 @@ function RootNavigator() {
     if (!session || !ready) return;
     updateUserCity(city.key).catch(() => {
       toast.show(
-        `Non sono riuscito a salvare ${city.label} come tua città: potresti non ricevere le richieste della zona.`,
+        SISTEMA.avvio.cittaNonSalvata(city.label),
         'error',
       );
     });

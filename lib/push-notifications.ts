@@ -1,3 +1,5 @@
+import { SISTEMA } from '@/constants/testi';
+
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -54,8 +56,8 @@ export async function registerForPushNotifications(): Promise<PushRegistration> 
        * SENZA silenziare gli allarmi.
        */
       await Notifications.setNotificationChannelAsync('sicurezza', {
-        name: 'Sicurezza e segnalazioni',
-        description: 'Allarmi durante un giro e segnalazioni da verificare.',
+        name: SISTEMA.notificheImpostazioni.canaleNome,
+        description: SISTEMA.notificheImpostazioni.canaleUrgente,
         importance: Notifications.AndroidImportance.MAX,
         vibrationPattern: [0, 400, 200, 400],
         lightColor: '#C4472F',

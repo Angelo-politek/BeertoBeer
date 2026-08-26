@@ -76,6 +76,9 @@ export const INGRESSO = {
     nomeMancante: 'Scrivi il tuo nome.',
     emailMancante: 'Scrivi la tua email.',
     dataNonValida: 'Data di nascita non valida: usa il formato GG/MM/AAAA.',
+    dataInesistente: 'Questa data non esiste. Controlla giorno e mese.',
+    dataNelFuturo: 'Questa data è nel futuro.',
+    annoSbagliato: 'Controlla l’anno: sembra sbagliato.',
     troppoGiovane: (anni: number) => `Devi avere almeno ${anni} anni per stare qui.`,
     passwordCorta: (caratteri: number) => `La password deve avere almeno ${caratteri} caratteri.`,
 

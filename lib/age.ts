@@ -1,3 +1,5 @@
+import { INGRESSO } from '@/constants/testi';
+
 /**
  * Utility per la data di nascita e il gate 18+.
  * Input dall'utente nel formato italiano GG/MM/AAAA.
@@ -90,14 +92,14 @@ export function esaminaData(input: string, oggi = new Date()): EsitoData {
   const data = parseBirthdate(formattaData(input));
   if (!data) {
     // Il giorno o il mese impossibili sono l'errore piu' comune (31/02, 45/12).
-    return { stato: 'non-valida', motivo: 'Questa data non esiste. Controlla giorno e mese.' };
+    return { stato: 'non-valida', motivo: INGRESSO.registrazione.dataInesistente };
   }
   if (data > oggi) {
-    return { stato: 'non-valida', motivo: 'Questa data è nel futuro.' };
+    return { stato: 'non-valida', motivo: INGRESSO.registrazione.dataNelFuturo };
   }
   const anni = computeAge(data, oggi);
   if (anni > 120) {
-    return { stato: 'non-valida', motivo: "Controlla l'anno: sembra sbagliato." };
+    return { stato: 'non-valida', motivo: INGRESSO.registrazione.annoSbagliato };
   }
   if (anni < ETA_MINIMA) return { stato: 'troppo-giovane', anni };
   return { stato: 'ok', data, anni };

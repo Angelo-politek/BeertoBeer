@@ -32,6 +32,22 @@ export const VOCE = {
     instabile: 'Connessione assente o instabile. Controlla la rete e riprova.',
   },
 
+  /** Il tempo passato, detto come lo direbbe una persona. */
+  quando: {
+    adesso: 'un attimo fa',
+    oreFa: (ore: number) => `${ore} ${ore === 1 ? 'ora' : 'ore'} fa`,
+  },
+
+  /** Le foto: due errori che tornano in tre punti diversi. */
+  foto: {
+    permessoNegato: 'Permesso per accedere alle foto negato.',
+    nonLeggibile: 'Immagine non leggibile.',
+    posizioneNonValida: 'Posizione foto non valida.',
+  },
+
+  /** Caricamento parziale: alcune sezioni sì, altre no. */
+  caricamentoParziale: 'Alcune sezioni non si sono caricate. Tira giù per riprovare.',
+
   /** Frasi di riserva: solo quando il server non ha detto niente di leggibile. */
   riserva: {
     riprovaFraPoco: 'Riprova fra poco.',

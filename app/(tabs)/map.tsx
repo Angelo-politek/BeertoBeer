@@ -10,6 +10,7 @@ import { DiscoveryFilterBar } from '@/components/discovery-filter-bar';
 import { FeedMap } from '@/components/feed-map';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { SISTEMA } from '@/constants/testi';
 import { Spacing } from '@/constants/theme';
 import { addShop, deleteShop, getCurrentUser, getEvents, getShops, getUscite, type Shop } from '@/data/api';
 import { useToast } from '@/components/toast';
@@ -57,7 +58,7 @@ export default function MapScreen() {
       setUscite(nextUscite);
       setError(null);
     } catch {
-      setError('La mappa non è disponibile. Controlla la connessione e riprova.');
+      setError(SISTEMA.mappa.nonDisponibile);
     } finally {
       setLoading(false);
     }
@@ -87,16 +88,16 @@ export default function MapScreen() {
       invalidateDiscovery(city.key);
       setAddShopOpen(false);
       setShops(await getShops(city.key));
-      toast.show('Segnalazione inviata. La community la vedrà dopo la verifica.');
+      toast.show(SISTEMA.mappa.negozioInviato);
     } catch {
-      toast.show('Segnalazione non inviata. Riprova.', 'error');
+      toast.show(SISTEMA.mappa.negozioNonInviato, 'error');
     } finally {
       setAddingShop(false);
     }
   }
 
   function handleDeleteShop(shop: Shop) {
-    Alert.alert('Rimuovere il negozio?', shop.nome, [
+    Alert.alert(SISTEMA.mappa.rimuovereNegozio, shop.nome, [
       { text: 'Annulla', style: 'cancel' },
       {
         text: 'Rimuovi',
@@ -107,7 +108,7 @@ export default function MapScreen() {
             invalidateDiscovery(city.key);
             setShops((current) => current.filter((item) => item.id !== shop.id));
           } catch {
-            toast.show('Rimozione non riuscita.', 'error');
+            toast.show(SISTEMA.mappa.rimozioneNonRiuscita, 'error');
           }
         },
       },
@@ -119,14 +120,14 @@ export default function MapScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.header}>
           <View>
-            <ThemedText type="label">LA CITTÀ, SENZA RUMORE</ThemedText>
+            <ThemedText type="label">{SISTEMA.mappa.titolo}</ThemedText>
             <ThemedText type="title">MAPPA</ThemedText>
           </View>
           <CityPicker selectedKey={city.key} onSelect={setCityKey} />
         </View>
         <View style={styles.filters}><DiscoveryFilterBar /></View>
         {loading ? (
-          <View style={styles.center}><ThemedText>Sto preparando la città.</ThemedText></View>
+          <View style={styles.center}><ThemedText>{SISTEMA.mappa.inCaricamento}</ThemedText></View>
         ) : error ? (
           <View style={styles.center}><EmptyState icon="x-mark" title="Mappa ferma" message={error} /></View>
         ) : (

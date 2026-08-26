@@ -10,6 +10,8 @@ import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
 import { Spacing } from '@/constants/theme';
 import { sendTestPush } from '@/data/api';
+import { SISTEMA } from '@/constants/testi';
+import { messaggioServer } from '@/lib/errori';
 import { useColors } from '@/hooks/use-colors';
 import { registerForPushNotifications } from '@/lib/push-notifications';
 
@@ -53,18 +55,18 @@ export default function NotificationSettingsScreen() {
     await leggiStato();
 
     if (esito.ok) {
-      toast.show('Notifiche attivate su questo telefono.');
+      toast.show(SISTEMA.notificheImpostazioni.attivate);
       return;
     }
     if (esito.motivo === 'permesso-negato') {
-      toast.show('Permesso negato: puoi concederlo dalle impostazioni di Android.', 'error');
+      toast.show(SISTEMA.notificheImpostazioni.permessoNegato, 'error');
       return;
     }
     if (esito.motivo === 'configurazione') {
-      toast.show('Questa build non è configurata per le notifiche. Serve una build nuova.', 'error');
+      toast.show(SISTEMA.notificheImpostazioni.buildSenzaNotifiche, 'error');
       return;
     }
-    toast.show(esito.dettaglio ?? 'Non è stato possibile registrare questo telefono.', 'error');
+    toast.show(esito.dettaglio ?? SISTEMA.notificheImpostazioni.nonRegistrato, 'error');
   }
 
   async function prova() {
@@ -73,17 +75,17 @@ export default function NotificationSettingsScreen() {
       await sendTestPush();
       toast.show('Inviata: dovrebbe arrivarti entro qualche secondo.');
     } catch (e) {
-      toast.show((e as { message?: string })?.message ?? 'Invio non riuscito.', 'error');
+      toast.show(messaggioServer(e, SISTEMA.notificheImpostazioni.provaNonRiuscita), 'error');
     } finally {
       setInCorso(false);
     }
   }
 
   const descrizione: Record<Stato, string> = {
-    attive: 'Questo telefono è registrato: riceverai le notifiche.',
-    'da-attivare': 'Non sono ancora attive. Bastano due tocchi.',
-    bloccate: 'Le hai rifiutate in passato. Android non le richiederà più: vanno riattivate dalle impostazioni di sistema.',
-    sconosciuto: 'Non riesco a leggere lo stato delle notifiche su questo telefono.',
+    attive: SISTEMA.notificheImpostazioni.attive,
+    'da-attivare': SISTEMA.notificheImpostazioni.nonAncoraAttive,
+    bloccate: SISTEMA.notificheImpostazioni.rifiutate,
+    sconosciuto: SISTEMA.notificheImpostazioni.statoIgnoto,
   };
 
   const colore = stato === 'attive' ? c.positive : stato === 'sconosciuto' ? c.textSecondary : c.danger;
@@ -93,29 +95,25 @@ export default function NotificationSettingsScreen() {
       <Stack.Screen options={{ title: 'Notifiche' }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={styles.card}>
-          <ThemedText type="label">STATO</ThemedText>
+          <ThemedText type="label">{SISTEMA.notificheImpostazioni.statoEtichetta}</ThemedText>
           <ThemedText type="subtitle" style={{ color: colore }}>
-            {stato === 'attive' ? 'Attive' : stato === 'bloccate' ? 'Bloccate da Android' : stato === 'da-attivare' ? 'Non attive' : 'Non determinato'}
+            {stato === 'attive' ? SISTEMA.notificheImpostazioni.statoAttive : stato === 'bloccate' ? SISTEMA.notificheImpostazioni.statoBloccate : stato === 'da-attivare' ? SISTEMA.notificheImpostazioni.nonAttive : SISTEMA.notificheImpostazioni.nonDeterminato}
           </ThemedText>
           <ThemedText style={{ color: c.textSecondary }}>{descrizione[stato]}</ThemedText>
 
           {stato === 'attive' ? (
-            <Button label="Mandami una notifica di prova" variant="secondary" onPress={prova} loading={inCorso} />
+            <Button label={SISTEMA.notificheImpostazioni.prova} variant="secondary" onPress={prova} loading={inCorso} />
           ) : stato === 'bloccate' ? (
-            <Button label="Apri le impostazioni di Android" variant="secondary" onPress={() => Linking.openSettings()} />
+            <Button label={SISTEMA.notificheImpostazioni.apriImpostazioni} variant="secondary" onPress={() => Linking.openSettings()} />
           ) : (
-            <Button label="Attiva le notifiche" onPress={attiva} loading={inCorso} />
+            <Button label={SISTEMA.notificheImpostazioni.attiva} onPress={attiva} loading={inCorso} />
           )}
         </Card>
 
         <Card style={styles.card}>
-          <ThemedText type="defaultSemiBold">Cosa ti arriva</ThemedText>
+          <ThemedText type="defaultSemiBold">{SISTEMA.notificheImpostazioni.cosaTiArriva}</ThemedText>
           {[
-            'Una nuova richiesta di birre nella tua città',
-            'Quando qualcuno accetta il tuo giro',
-            'I messaggi in chat',
-            'Quando è il momento di confermare lo scambio',
-            'Quando chi hai invitato completa il suo primo giro',
+            ...SISTEMA.notificheImpostazioni.elenco,
           ].map((riga) => (
             <ThemedText key={riga} style={{ color: c.textSecondary }}>
               · {riga}
@@ -124,11 +122,9 @@ export default function NotificationSettingsScreen() {
         </Card>
 
         <Card style={styles.card}>
-          <ThemedText type="defaultSemiBold">Perché contano</ThemedText>
+          <ThemedText type="defaultSemiBold">{SISTEMA.notificheImpostazioni.percheContano}</ThemedText>
           <ThemedText style={{ color: c.textSecondary, lineHeight: 22 }}>
-            Le richieste durano poche ore. Senza notifiche te ne accorgi solo se apri l&apos;app nel
-            momento giusto, e il feed ti sembrerà quasi sempre vuoto — anche quando la città si sta
-            muovendo.
+            {SISTEMA.notificheImpostazioni.percheContanoTesto}
           </ThemedText>
         </Card>
       </ScrollView>

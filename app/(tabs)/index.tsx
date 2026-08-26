@@ -18,6 +18,7 @@ import { GLOSSARY } from '@/constants/branding';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Radii, Spacing } from '@/constants/theme';
 import { getEvents, getMyOrders, getNotifications, getUscite } from '@/data/api';
+import { SISTEMA } from '@/constants/testi';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
 import { useDiscoveryFilters } from '@/lib/discovery-context';
@@ -81,7 +82,7 @@ export default function HomeScreen() {
       getNotifications().then((items) => setUnread(items.filter((item) => !item.readAt).length)).catch(() => setUnread(0));
       setError(null);
     } catch {
-      setError('La città non risponde. Riprova tra poco.');
+      setError(SISTEMA.home.cittaNonRisponde);
     } finally {
       maiCaricato.current = false;
       setLoading(false);
@@ -125,12 +126,12 @@ export default function HomeScreen() {
               <NovitaBanner />
               <View style={styles.brandRow}>
                 <Image source={require('../../assets/brand/wordmark.png')} style={styles.wordmark} contentFit="contain" />
-                <View style={styles.headerActions}><CityPicker selectedKey={city.key} onSelect={setCityKey} /><PressableScale accessibilityRole="button" accessibilityLabel={`Notifiche${unread ? `, ${unread} non lette` : ''}`} onPress={() => router.push('/notifications' as never)} style={[styles.bell, { borderColor: c.border }]}><BrandIcon name="bell" size={22} color={c.text} />{unread ? <View style={[styles.unread, { backgroundColor: c.danger }]}><ThemedText style={styles.unreadText}>{Math.min(unread, 9)}</ThemedText></View> : null}</PressableScale></View>
+                <View style={styles.headerActions}><CityPicker selectedKey={city.key} onSelect={setCityKey} /><PressableScale accessibilityRole="button" accessibilityLabel={SISTEMA.home.notifiche(unread)} onPress={() => router.push('/notifications' as never)} style={[styles.bell, { borderColor: c.border }]}><BrandIcon name="bell" size={22} color={c.text} />{unread ? <View style={[styles.unread, { backgroundColor: c.danger }]}><ThemedText style={styles.unreadText}>{Math.min(unread, 9)}</ThemedText></View> : null}</PressableScale></View>
               </View>
 
               <View style={styles.hero}>
-                <ThemedText type="label">RADAR DELLA SERATA</ThemedText>
-                <ThemedText type="title" style={styles.heroTitle}>{`${visibleRequests.length} ${(visibleRequests.length === 1 ? GLOSSARY.delivery : GLOSSARY.deliveryPlural).toUpperCase()} IN ZONA`}</ThemedText>
+                <ThemedText type="label">{SISTEMA.home.radar}</ThemedText>
+                <ThemedText type="title" style={styles.heroTitle}>{SISTEMA.home.quantiInZona(visibleRequests.length, visibleRequests.length === 1 ? GLOSSARY.delivery : GLOSSARY.deliveryPlural)}</ThemedText>
                 {/* Azione principale isolata: prima era affiancata da un'icona
                     tonda senza etichetta, di peso visivo simile, e non era
                     chiaro quale delle due fosse "la cosa da fare". Sotto, una
@@ -161,9 +162,9 @@ export default function HomeScreen() {
               ) : null}
 
               <View style={styles.sectionHead}>
-                <View><ThemedText type="label">VICINO A TE</ThemedText><ThemedText type="title">{`${GLOSSARY.deliveryPlural.toUpperCase()} APERTI`}</ThemedText></View>
+                <View><ThemedText type="label">{SISTEMA.home.vicinoATe}</ThemedText><ThemedText type="title">{SISTEMA.home.apertiTitolo}</ThemedText></View>
                 <PressableScale onPress={() => router.push('/(tabs)/map' as never)} style={styles.mapLink}>
-                  <BrandIcon name="pin" size={18} color={c.accent} /><ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Mappa</ThemedText>
+                  <BrandIcon name="pin" size={18} color={c.accent} /><ThemedText type="defaultSemiBold" style={{ color: c.accent }}>{SISTEMA.home.mappa}</ThemedText>
                 </PressableScale>
               </View>
               <DiscoveryFilterBar />
@@ -172,7 +173,7 @@ export default function HomeScreen() {
             </View>
           }
           renderItem={({ item }) => <RequestCard request={item} onPress={() => router.push({ pathname: '/request/[id]', params: { id: item.id } })} />}
-          ListEmptyComponent={!loading && !error ? <EmptyState icon="bottle" title="Nessuno ha ancora chiesto niente" message={`Sii tu il primo: ${GLOSSARY.createDeliveryHint.toLowerCase()}`} actionLabel={GLOSSARY.createDeliveryAction} onAction={() => router.push('/create-request')} /> : null}
+          ListEmptyComponent={!loading && !error ? <EmptyState icon="bottle" title={SISTEMA.home.vuotoTitolo} message={SISTEMA.home.vuotoTesto(GLOSSARY.createDeliveryHint.toLowerCase())} actionLabel={GLOSSARY.createDeliveryAction} onAction={() => router.push('/create-request')} /> : null}
           ListFooterComponent={
             <View style={styles.footerContent}>
             {/*
@@ -186,11 +187,11 @@ export default function HomeScreen() {
               di poco, e non stanno davanti a niente.
             */}
             <View style={styles.sectionHead}>
-              <View><ThemedText type="label">ADESSO</ThemedText><ThemedText type="title">CHI È FUORI</ThemedText></View>
+              <View><ThemedText type="label">{SISTEMA.home.adesso}</ThemedText><ThemedText type="title">{SISTEMA.home.chiEFuori}</ThemedText></View>
               {mia ? null : (
                 <PressableScale onPress={() => apri()} style={styles.mapLink}>
                   <BrandIcon name="cheers" size={18} color={c.accent} />
-                  <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Ci sono anch’io</ThemedText>
+                  <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>{SISTEMA.home.ciSonoAnchIo}</ThemedText>
                 </PressableScale>
               )}
             </View>
@@ -199,7 +200,7 @@ export default function HomeScreen() {
                 <ThemedText style={{ color: c.textSecondary }}>
                   A {city.label} in questo momento non è fuori nessuno. Ci vogliono quindici secondi.
                 </ThemedText>
-                <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>Sono fuori</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: c.accent }}>{SISTEMA.home.sonoFuori}</ThemedText>
               </Pressable>
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.fuoriRiga}>
@@ -225,7 +226,7 @@ export default function HomeScreen() {
                       <Pressable
                         onPress={() => router.push({ pathname: '/create-request', params: { a: u.id } })}
                         hitSlop={6}>
-                        <ThemedText type="caption" style={{ color: c.accent }}>Chiedi un giro</ThemedText>
+                        <ThemedText type="caption" style={{ color: c.accent }}>{SISTEMA.home.chiediUnGiro}</ThemedText>
                       </Pressable>
                     ) : null}
                   </Pressable>
@@ -236,9 +237,9 @@ export default function HomeScreen() {
             <PressableScale onPress={() => router.push('/(tabs)/community' as never)} style={[styles.community, { backgroundColor: c.surface }]}>
               <View style={styles.communityText}>
                 <ThemedText type="label">COMMUNITY</ThemedText>
-                <ThemedText type="title">FUORI DAL FEED</ThemedText>
+                <ThemedText type="title">{SISTEMA.home.fuoriDalFeed}</ThemedText>
                 <ThemedText style={{ color: c.textSecondary }}>
-                  {events[0] ? `Prossimo incontro: ${events[0].titolo}` : 'Incontri e bacheca della tua città.'}
+                  {events[0] ? SISTEMA.home.prossimoIncontro(events[0].titolo) : SISTEMA.home.community}
                 </ThemedText>
               </View>
               {/* sticker-b2b originale era tagliato in basso: qui usiamo il simbolo del brand, completo. */}

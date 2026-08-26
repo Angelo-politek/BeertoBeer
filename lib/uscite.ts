@@ -1,3 +1,5 @@
+import { FUORI } from '@/constants/testi';
+
 import type { Uscita } from '@/types';
 
 /**
@@ -29,32 +31,14 @@ export const MAX_USCITE_APERTE = 2;
 export type FormaUscita = 'negozio' | 'birra' | 'zona';
 
 /**
- * Le tre facce, con le parole che userebbe una persona.
- *
- * `titolo` e' in prima persona perche' e' una frase che stai per pronunciare
- * tu, e il tasto te la mostra prima di fartela dire — l'unico posto
- * dell'interfaccia dove la prima persona e' ammessa.
- * `breve` serve dove ci vuole una parola sola: un chip, un filtro, la mappa.
+ * Le tre facce. Le CHIAVI stanno qui perche' sono il contratto con il
+ * database (`uscite.tipo` ha un check chiuso); le PAROLE stanno in
+ * `constants/testi/fuori.ts`, dove si rileggono di fila.
  */
 export const FORME: { key: FormaUscita; titolo: string; breve: string; spiega: string }[] = [
-  {
-    key: 'negozio',
-    titolo: 'Passo dal negozio',
-    breve: 'Negozio',
-    spiega: 'Stai andando, o sei già lì. Se qualcuno in zona ha bisogno di birre, gliele porti mentre torni.',
-  },
-  {
-    key: 'birra',
-    titolo: 'Bevo una birra',
-    breve: 'Birra',
-    spiega: 'Sei seduto da qualche parte. Chi vuole può raggiungerti, e nessuno è obbligato a fermarsi.',
-  },
-  {
-    key: 'zona',
-    titolo: 'Sono in zona',
-    breve: 'Zona',
-    spiega: 'Sei fuori e basta. Ti fai trovare, poi si vede.',
-  },
+  { key: 'negozio', ...FUORI.forme.negozio },
+  { key: 'birra', ...FUORI.forme.birra },
+  { key: 'zona', ...FUORI.forme.zona },
 ];
 
 export function formaDi(key: string): (typeof FORME)[number] {

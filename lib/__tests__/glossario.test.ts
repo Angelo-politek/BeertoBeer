@@ -112,11 +112,20 @@ const FILE_SORVEGLIATI_FUORI = [
   'lib/orders.ts',
   'lib/posizione.ts',
   'lib/push-notifications.ts',
-  'lib/supabase.ts',
   'lib/uscite.ts',
   'constants/compliments.ts',
   'constants/novita.ts',
 ];
+
+/*
+ * ⚠️ `lib/supabase.ts` NON è sorvegliato: le sue due frasi («Variabili
+ * Supabase mancanti… controlla il file .env») non le legge mai una persona
+ * che usa l'app — le legge chi sviluppa, in console, quando l'ambiente è
+ * configurato male. Il copy è quello che si vede a schermo; una diagnostica
+ * per chi ha il terminale aperto è un'altra cosa, e portarla in `testi/`
+ * avrebbe messo istruzioni di configurazione dentro il dizionario del
+ * marchio.
+ */
 
 /*
  * ⚠️ `constants/branding.ts` NON è sorvegliato, e non è una dimenticanza.
@@ -165,10 +174,6 @@ const FILE_SORVEGLIATI_FUORI = [
  *        una rotta che un deep link può aprire sul vuoto.
  */
 const IN_DEROGA = [
-  'app/(tabs)/community.tsx',
-  'app/(tabs)/index.tsx',
-  'app/(tabs)/map.tsx',
-  'app/_layout.tsx',
   'app/admin/giri.tsx',
   'app/admin/incontri.tsx',
   'app/admin/index.tsx',
@@ -179,17 +184,9 @@ const IN_DEROGA = [
   'app/admin/statistiche.tsx',
   'app/admin/users.tsx',
   'app/admin/utente/[id].tsx',
-  'app/beercoin.tsx',
   'app/event/[id].tsx',
   'app/event/modifica/[id].tsx',
   'app/event/new.tsx',
-  'app/feedback.tsx',
-  'app/notification-settings.tsx',
-  'app/notifications.tsx',
-  'app/novita.tsx',
-  'app/segnalazione/[id].tsx',
-  'app/settings.tsx',
-  'app/terms.tsx',
   'components/add-shop-modal.tsx',
   'components/birthdate-field.tsx',
   'components/city-picker.tsx',
@@ -205,18 +202,7 @@ const IN_DEROGA = [
   'components/report-modal.tsx',
   'components/request-card.tsx',
   'components/tessera-invito.tsx',
-  'constants/compliments.ts',
   'constants/novita.ts',
-  'lib/age.ts',
-  'lib/avatar-upload.ts',
-  'lib/errori.ts',
-  'lib/format.ts',
-  'lib/load.ts',
-  'lib/locandina-upload.ts',
-  'lib/posizione.ts',
-  'lib/push-notifications.ts',
-  'lib/supabase.ts',
-  'lib/uscite.ts',
 ];
 
 /**
@@ -390,7 +376,7 @@ describe('C6 · le regole di forma dei testi', () => {
     // dell'app un personaggio, cioè la mascotte da startup che il marchio
     // vieta. Erano entrambe vive sulla soglia.
     const vietate =
-      /(?:^|[^a-zA-Z])(?:siamo|abbiamo|nostro|nostra|nostri|nostre|possiamo|riusciamo|sto|posso|riesco|non riesco)(?:[^a-zA-Z]|$)/i;
+      /(?:^|[^a-zA-Z])(?:siamo|abbiamo|nostro|nostra|nostri|nostre|possiamo|riusciamo|vendiamo|raccogliamo|usiamo|facciamo|sto|posso|riesco|dicci|scrivici|aiutaci|contattaci|seguici)(?:[^a-zA-Z]|$)/i;
     const colpevoli: string[] = [];
     for (const area of ['parole', 'voce', 'ingresso']) {
       const sorgente = senzaCommenti(leggi(`constants/testi/${area}.ts`));

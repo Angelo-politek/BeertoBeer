@@ -6,12 +6,12 @@
 
 ## STATO — aggiornato il 26/08/2026
 
-**26 commit, 10 migrazioni, 369 test verdi.** Versione in circolazione:
+**27 commit, 10 migrazioni, 369 test verdi.** Versione in circolazione:
 **3.0.0-beta.2** (`constants/versione.ts`).
 
 > **C6 è cominciato.** `constants/testi/` esiste, il contatore è in
 > `glossario.test.ts`, e la soglia parla dai testi. Il rendiconto lo stampa
-> `npm test`: **50 file su 102, ne mancano 52.** Il dettaglio è in
+> `npm test`: **72 file su 101, ne mancano 29.** Il dettaglio è in
 > «Ondata 1 · C6 · stato del cantiere», più sotto.
 
 ### Scudo beta — completo

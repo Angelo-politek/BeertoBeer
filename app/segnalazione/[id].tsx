@@ -10,6 +10,7 @@ import { ThemedView } from '@/components/themed-view';
 import { useToast } from '@/components/toast';
 import { Radii, Spacing } from '@/constants/theme';
 import { getMieSegnalazioni, rispondiASegnalazione, type MiaSegnalazione } from '@/data/api';
+import { PAROLE, SISTEMA, VOCE } from '@/constants/testi';
 import { useColors } from '@/hooks/use-colors';
 import { messaggioServer } from '@/lib/errori';
 import { formatShortDate } from '@/lib/format';
@@ -34,15 +35,15 @@ import { formatShortDate } from '@/lib/format';
  */
 
 const MOTIVI: Record<string, string> = {
-  unsafe: 'Qualcuno non si è sentito al sicuro durante un giro con te',
-  person_absent: 'Qualcuno dice di non averti trovato',
-  request_mismatch: 'Qualcuno dice che il giro non era quello concordato',
+  unsafe: SISTEMA.segnalazione.unsafe(PAROLE.giro),
+  person_absent: SISTEMA.segnalazione.assente,
+  request_mismatch: SISTEMA.segnalazione.mismatch(PAROLE.giro),
   comportamento_scorretto: 'Comportamento scorretto',
   ordine_falso: 'Ordine falso',
   molestie: 'Molestie',
   spam: 'Spam',
-  sicurezza: 'Un problema di sicurezza',
-  altro: 'Un problema durante uno scambio',
+  sicurezza: SISTEMA.segnalazione.sicurezzaBreve,
+  altro: SISTEMA.segnalazione.scambioBreve,
 };
 
 export default function SegnalazioneScreen() {
@@ -76,11 +77,11 @@ export default function SegnalazioneScreen() {
     setInvio(true);
     try {
       await rispondiASegnalazione(id, testo.trim());
-      toast.show('La tua versione è stata inviata.');
+      toast.show(SISTEMA.segnalazione.inviata);
       await load();
       setTesto('');
     } catch (e) {
-      Alert.alert('Non inviata', messaggioServer(e, 'Riprova fra poco.'));
+      Alert.alert(SISTEMA.segnalazione.nonInviata, messaggioServer(e, VOCE.riserva.riprovaFraPoco));
     } finally {
       setInvio(false);
     }
@@ -103,9 +104,9 @@ export default function SegnalazioneScreen() {
         <Stack.Screen options={{ title: 'Segnalazione' }} />
         <View style={styles.center}>
           <EmptyState
-            title="Segnalazione non trovata"
-            message="Può essere già stata chiusa, oppure il link non è più valido."
-            actionLabel="Torna indietro"
+            title={SISTEMA.segnalazione.nonTrovataTitolo}
+            message={SISTEMA.segnalazione.nonTrovataTesto}
+            actionLabel={SISTEMA.segnalazione.tornaIndietro}
             onAction={() => router.back()}
           />
         </View>
@@ -120,27 +121,27 @@ export default function SegnalazioneScreen() {
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Segnalazione' }} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ThemedText type="title">Hai ricevuto una segnalazione</ThemedText>
+        <ThemedText type="title">{SISTEMA.segnalazione.titolo}</ThemedText>
 
         <Card style={[styles.card, { borderLeftColor: grave ? c.danger : c.accent, borderLeftWidth: 3 }]}>
           <ThemedText type="defaultSemiBold">
-            {MOTIVI[segnalazione.motivoCodice ?? ''] ?? 'Un problema durante uno scambio'}
+            {MOTIVI[segnalazione.motivoCodice ?? ''] ?? SISTEMA.segnalazione.scambioBreve}
           </ThemedText>
           <ThemedText style={{ color: c.textSecondary, fontSize: 13 }}>
             {formatShortDate(segnalazione.creataIl)}
-            {chiusa ? ' · già chiusa' : segnalazione.giaRisposto ? ' · in esame' : ' · in attesa della tua versione'}
+            {chiusa ? SISTEMA.segnalazione.giaChiusa : segnalazione.giaRisposto ? SISTEMA.segnalazione.inEsame : SISTEMA.segnalazione.inAttesa}
           </ThemedText>
         </Card>
 
         <ThemedText style={{ color: c.textSecondary }}>
           {chiusa
-            ? 'Questa segnalazione è stata già valutata. La tua versione resta agli atti.'
-            : 'Prima di decidere qualsiasi cosa, chi modera legge tutte e due le versioni. Se pensi si tratti di un errore, questo è il posto per dirlo: scrivi cosa è successo dal tuo punto di vista.'}
+            ? SISTEMA.segnalazione.giaValutata
+            : SISTEMA.segnalazione.spiegazione}
         </ThemedText>
 
         {segnalazione.miaDichiarazione ? (
           <Card style={styles.card}>
-            <ThemedText type="label">LA TUA VERSIONE</ThemedText>
+            <ThemedText type="label">{SISTEMA.segnalazione.laTuaVersione}</ThemedText>
             <ThemedText>{segnalazione.miaDichiarazione}</ThemedText>
           </Card>
         ) : null}
@@ -150,13 +151,13 @@ export default function SegnalazioneScreen() {
             <TextInput
               value={testo}
               onChangeText={setTesto}
-              placeholder="Cosa è successo, dal tuo punto di vista"
+              placeholder={SISTEMA.segnalazione.segnaposto}
               placeholderTextColor={c.textSecondary}
               multiline
               style={[styles.campo, { color: c.text, backgroundColor: c.surfaceAlt, borderColor: c.border }]}
             />
             <Button
-              label="Manda agli amministratori"
+              label={SISTEMA.segnalazione.manda}
               onPress={invia}
               loading={invio}
               disabled={testo.trim().length < 5}

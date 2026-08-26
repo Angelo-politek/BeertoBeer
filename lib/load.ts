@@ -1,3 +1,5 @@
+import { VOCE } from '@/constants/testi';
+
 /**
  * Caricamenti che possono fallire senza portarsi dietro tutta la schermata.
  *
@@ -34,4 +36,4 @@ export function withFallback<T>(promise: Promise<T>, fallback: T, onError: () =>
 
 /** Messaggio unico per una schermata che si è caricata solo in parte. */
 export const PARTIAL_LOAD_MESSAGE =
-  'Alcune sezioni non si sono caricate. Tira giù per riprovare.';
+  VOCE.caricamentoParziale;

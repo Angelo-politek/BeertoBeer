@@ -1,3 +1,5 @@
+import { VOCE } from '@/constants/testi';
+
 /**
  * IL MESSAGGIO DEL SERVER NON SI BUTTA VIA.
  *
@@ -52,7 +54,7 @@ export function messaggioServer(errore: unknown, riserva: string): string {
     // Messaggi di trasporto: non dicono niente a chi legge, e nascondono il
     // fatto che spesso il problema è solo la connessione.
     if (/^(network request failed|failed to fetch|load failed)$/i.test(pulito)) {
-      return 'Connessione assente. Controlla la rete e riprova.';
+      return VOCE.rete.assente;
     }
     return pulito;
   }

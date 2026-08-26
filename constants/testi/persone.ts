@@ -81,7 +81,8 @@ export const PERSONE = {
     /** ⚠️ Diceva «Migliora BeerToBeer», attaccato: non è il nome del marchio. */
     migliora: (progetto: string) => `Migliora ${progetto}`,
     migliorNota: 'Segnala un difetto o proponi una funzione direttamente a chi sviluppa.',
-    inviaFeedback: 'Dicci cosa non va',
+    /** ⚠️ Diceva «Dicci cosa non va»: «-ci» è un «noi». */
+    inviaFeedback: 'Scrivi a chi sviluppa',
   },
 
   /**
@@ -279,6 +280,22 @@ export const PERSONE = {
     salva: 'Salva la vetrina',
     nonSalvataTitolo: 'Salvataggio non riuscito',
     nonSalvataTesto: 'Riprova fra un momento.',
+  },
+
+  /**
+   * I COMPLIMENTI dopo uno scambio.
+   *
+   * ⚠️ Sono l'unico posto in cui l'app dice una cosa buona di una persona, e
+   *    per questo devono restare FATTI o gesti — «puntualissimo», «birra
+   *    fredda perfetta» — mai giudizi di valore su chi è. Le CHIAVI stanno in
+   *    `constants/compliments.ts` perché finiscono nel database.
+   */
+  complimenti: {
+    compagnia: 'Gran compagnia',
+    puntuale: 'Puntualissimo',
+    birra_fredda: 'Birra fredda perfetta',
+    simpatico: 'Simpatico',
+    affidabile: 'Affidabile',
   },
 
   /**

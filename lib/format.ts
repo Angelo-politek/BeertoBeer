@@ -1,3 +1,5 @@
+import { VOCE } from '@/constants/testi';
+
 const MESI = [
   'gen', 'feb', 'mar', 'apr', 'mag', 'giu',
   'lug', 'ago', 'set', 'ott', 'nov', 'dic',
@@ -19,10 +21,10 @@ export function formatShortDate(iso: string): string {
  */
 export function relative(iso: string): string {
   const minuti = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
-  if (minuti < 1) return 'un attimo fa';
+  if (minuti < 1) return VOCE.quando.adesso;
   if (minuti < 60) return `${minuti} ${minuti === 1 ? 'minuto' : 'minuti'} fa`;
   const ore = Math.round(minuti / 60);
-  if (ore < 24) return `${ore} ${ore === 1 ? 'ora' : 'ore'} fa`;
+  if (ore < 24) return VOCE.quando.oreFa(ore);
   const giorni = Math.round(ore / 24);
   if (giorni === 1) return 'ieri';
   return `${giorni} giorni fa`;

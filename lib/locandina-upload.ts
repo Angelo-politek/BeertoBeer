@@ -1,3 +1,5 @@
+import { VOCE } from '@/constants/testi';
+
 import { decode } from 'base64-arraybuffer';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -20,7 +22,7 @@ import { supabase } from '@/lib/supabase';
 export async function scegliECaricaLocandina(userId: string): Promise<string | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) {
-    throw new Error('Permesso per accedere alle foto negato.');
+    throw new Error(VOCE.foto.permessoNegato);
   }
 
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -34,7 +36,7 @@ export async function scegliECaricaLocandina(userId: string): Promise<string | n
   if (result.canceled) return null;
 
   const asset = result.assets[0];
-  if (!asset.base64) throw new Error('Immagine non leggibile.');
+  if (!asset.base64) throw new Error(VOCE.foto.nonLeggibile);
 
   const ext = (asset.mimeType?.split('/')[1] ?? 'jpg').replace('jpeg', 'jpg');
   const contentType = asset.mimeType ?? 'image/jpeg';

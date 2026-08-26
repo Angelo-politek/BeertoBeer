@@ -8,6 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { NOVITA } from '@/constants/novita';
 import { Spacing } from '@/constants/theme';
 import { VERSIONE } from '@/constants/versione';
+import { SISTEMA } from '@/constants/testi';
 import { useColors } from '@/hooks/use-colors';
 import { formatShortDate } from '@/lib/format';
 
@@ -30,9 +31,9 @@ export default function NovitaScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <Stack.Screen options={{ title: 'Cos’è cambiato' }} />
+      <Stack.Screen options={{ title: SISTEMA.novita.titolo }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <ThemedText type="label" style={{ color: c.textSecondary }}>SEI ALLA</ThemedText>
+        <ThemedText type="label" style={{ color: c.textSecondary }}>{SISTEMA.novita.seiAlla}</ThemedText>
         <ThemedText type="title">{VERSIONE}</ThemedText>
 
         {NOVITA.map((n) => (
@@ -47,15 +48,16 @@ export default function NovitaScreen() {
         ))}
 
         <View style={[styles.blocco, { backgroundColor: c.surfaceAlt }]}>
-          <ThemedText type="label" style={{ color: c.textSecondary }}>I DUE NUMERI</ThemedText>
+          <ThemedText type="label" style={{ color: c.textSecondary }}>{SISTEMA.novita.dueNumeri}</ThemedText>
           <ThemedText style={{ color: c.textSecondary }}>
-            L’app che hai installato è la <ThemedText type="defaultSemiBold">{guscio}</ThemedText>, e
-            cambia solo quando ne scarichi una nuova a mano. Il codice dentro è la{' '}
-            <ThemedText type="defaultSemiBold">{VERSIONE}</ThemedText>, e arriva da solo quando
-            riapri l’app{aggiornata ? `: l’ultima volta il ${aggiornata}` : ''}.
+            {SISTEMA.novita.installataInizio}{' '}
+            <ThemedText type="defaultSemiBold">{guscio}</ThemedText>
+            {SISTEMA.novita.installataMezzo}{' '}
+            <ThemedText type="defaultSemiBold">{VERSIONE}</ThemedText>
+            {SISTEMA.novita.installataFine(aggiornata ?? null)}
           </ThemedText>
           <ThemedText style={{ color: c.textSecondary }}>
-            Se segnali qualcosa che non va, è il secondo numero quello che serve.
+            {SISTEMA.novita.perSegnalare}
           </ThemedText>
         </View>
       </ScrollView>

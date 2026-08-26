@@ -112,6 +112,7 @@ export const GIRO = {
     /** Cosa manca per pubblicare, detto mentre si scrive. */
     mancaBirra: 'almeno una birra',
     mancaIndirizzo: 'l’indirizzo dove portarle',
+    mancaConfermaMappa: 'la conferma dell’indirizzo sulla mappa',
     manca: (cose: string) => `Per pubblicare manca ancora: ${cose}.`,
 
     /** ⚠️ Voci funzione: i numeri vengono da `lib/limiti.ts` e `lib/credits.ts`. */

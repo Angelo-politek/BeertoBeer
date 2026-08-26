@@ -1,3 +1,5 @@
+import { GIRO } from '@/constants/testi';
+
 import type { Coords } from '@/lib/location';
 
 /**
@@ -21,6 +23,6 @@ export type LocationValue = { indirizzo: string; coords: Coords | null };
  */
 export function mancanzaPosizione(value: LocationValue, cosa = "l'indirizzo"): string | null {
   if (value.indirizzo.trim().length === 0) return cosa;
-  if (!value.coords) return "la conferma dell'indirizzo sulla mappa";
+  if (!value.coords) return GIRO.lancia.mancaConfermaMappa;
   return null;
 }

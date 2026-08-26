@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
+import { GIRO } from '@/constants/testi';
 import { mancanzaPosizione } from '@/lib/posizione';
 
 /**
@@ -43,8 +44,14 @@ describe('la regola «senza coordinate non si pubblica»', () => {
   it('un indirizzo scritto ma mai confermato NON è una posizione', () => {
     // È il caso che manda una persona a girare per niente: c'è del testo, ma
     // nessuno ha mai verificato che corrisponda a un punto vero.
+    // ⚠️ Si confronta con il TESTO, non con una stringa copiata qui.
+    // Questo test verifica una REGOLA — senza coordinate non si pubblica — e
+    // una regola non deve cadere perché qualcuno ha corretto un apostrofo.
+    // (È successo davvero: la migrazione C6 ha sostituito l'apostrofo ASCII
+    // con quello tipografico, e questa riga si è rotta senza che la logica
+    // fosse cambiata di una virgola.)
     expect(mancanzaPosizione({ indirizzo: 'Via Roma 1', coords: null })).toBe(
-      "la conferma dell'indirizzo sulla mappa",
+      GIRO.lancia.mancaConfermaMappa,
     );
   });
 

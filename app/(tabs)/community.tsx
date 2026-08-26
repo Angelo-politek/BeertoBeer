@@ -14,6 +14,7 @@ import { Chip } from '@/components/ui/chip';
 import { PressableScale } from '@/components/ui/pressable-scale';
 import { Fonts, Radii, Spacing } from '@/constants/theme';
 import { getCommunityFeed, getEvents } from '@/data/api';
+import { SISTEMA } from '@/constants/testi';
 import { useColors } from '@/hooks/use-colors';
 import { useCity } from '@/lib/city-context';
 import { formatShortDate } from '@/lib/format';
@@ -103,7 +104,7 @@ export default function CommunityScreen() {
                   <BrandIcon name="arrow-right" size={20} color={c.textSecondary} />
                 </Card>
               )}
-              ListEmptyComponent={error ? <EmptyState icon="x-mark" title="Incontri non caricati" message="Controlla la connessione e tira giù per riprovare." /> : <EmptyState icon="cheers" title="Nessun incontro" message="Proponi un posto e un’ora. Il resto lo fa la città." />}
+              ListEmptyComponent={error ? <EmptyState icon="x-mark" title={SISTEMA.community.incontriNonCaricati} message={SISTEMA.community.riprovaTirando} /> : <EmptyState icon="cheers" title={SISTEMA.community.nessunIncontro} message={SISTEMA.community.incontriVuoti} />}
             />
             <PressableScale onPress={() => router.push('/event/new' as never)} style={[styles.fab, { backgroundColor: c.accent }]}>
               <BrandIcon name="plus" size={20} color={c.accentText} /><ThemedText style={[styles.fabLabel, { color: c.accentText }]}>NUOVO INCONTRO</ThemedText>
@@ -122,7 +123,7 @@ export default function CommunityScreen() {
                 <View style={styles.flex}><ThemedText type="defaultSemiBold">{item.userNome}</ThemedText><ThemedText style={{ color: c.textSecondary }}>{item.titolo}</ThemedText><ThemedText type="caption">{formatShortDate(item.data)}</ThemedText></View>
               </View>
             )}
-            ListEmptyComponent={error ? <EmptyState icon="x-mark" title="Bacheca non caricata" message="Controlla la connessione e tira giù per riprovare." /> : <EmptyState icon="bell" title="Bacheca silenziosa" message="Quando la città si muove, lo vedrai qui." />}
+            ListEmptyComponent={error ? <EmptyState icon="x-mark" title={SISTEMA.community.bachecaNonCaricata} message={SISTEMA.community.riprovaTirando} /> : <EmptyState icon="bell" title={SISTEMA.community.bachecaSilenziosa} message={SISTEMA.community.bachecaVuota} />}
           />
         )}
       </SafeAreaView>

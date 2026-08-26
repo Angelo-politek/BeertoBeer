@@ -1,3 +1,5 @@
+import { VOCE } from '@/constants/testi';
+
 import { decode } from 'base64-arraybuffer';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -11,7 +13,7 @@ import { supabase } from '@/lib/supabase';
 export async function pickAndUploadAvatar(userId: string): Promise<string | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) {
-    throw new Error('Permesso per accedere alle foto negato.');
+    throw new Error(VOCE.foto.permessoNegato);
   }
 
   const result = await ImagePicker.launchImageLibraryAsync({
@@ -24,7 +26,7 @@ export async function pickAndUploadAvatar(userId: string): Promise<string | null
   if (result.canceled) return null;
 
   const asset = result.assets[0];
-  if (!asset.base64) throw new Error('Immagine non leggibile.');
+  if (!asset.base64) throw new Error(VOCE.foto.nonLeggibile);
 
   const ext = (asset.mimeType?.split('/')[1] ?? 'jpg').replace('jpeg', 'jpg');
   const contentType = asset.mimeType ?? 'image/jpeg';
@@ -61,15 +63,15 @@ export async function pickAndUploadAvatar(userId: string): Promise<string | null
 
 /** Carica o sostituisce una delle quattro foto della vetrina profilo. */
 export async function pickAndUploadProfilePhoto(userId: string, position: number): Promise<{ id: string; url: string; storagePath: string; position: number } | null> {
-  if (position < 0 || position > 3) throw new Error('Posizione foto non valida.');
+  if (position < 0 || position > 3) throw new Error(VOCE.foto.posizioneNonValida);
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!perm.granted) throw new Error('Permesso per accedere alle foto negato.');
+  if (!perm.granted) throw new Error(VOCE.foto.permessoNegato);
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'], allowsEditing: true, aspect: [4, 5], quality: 0.72, base64: true,
   });
   if (result.canceled) return null;
   const asset = result.assets[0];
-  if (!asset.base64) throw new Error('Immagine non leggibile.');
+  if (!asset.base64) throw new Error(VOCE.foto.nonLeggibile);
   const ext = (asset.mimeType?.split('/')[1] ?? 'jpg').replace('jpeg', 'jpg');
   const storagePath = `${userId}/profile-${position}-${Date.now()}.${ext}`;
   const { error: uploadError } = await supabase.storage.from('avatars').upload(
